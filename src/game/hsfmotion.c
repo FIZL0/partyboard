@@ -1063,22 +1063,22 @@ void SetObjAttrMotion(s16 arg0, HsfTrack *arg1, float arg2)
         case 0x20:
         case 0x21:
         case 0x43:
-            if (temp_r30->unk04 == 0) {
+            if (temp_r30->animWorkP == 0) {
                 var_r31 = HuMemDirectMallocNum(HEAP_DATA, sizeof(HsfdrawStruct01), (u32)Hu3DData[arg0].unk_48);
-                temp_r30->unk04 = var_r31;
-                var_r31->unk00 = 0;
+                temp_r30->animWorkP = var_r31;
+                var_r31->attr = 0;
                 var_r31->unk08 = var_r31->unk0C = var_r31->unk10 = 0.0f;
-                var_r31->unk14 = var_r31->unk18 = var_r31->unk1C = 0.0f;
-                var_r31->unk20 = var_r31->unk24 = var_r31->unk28 = 1.0f;
+                var_r31->rot.x = var_r31->rot.y = var_r31->rot.z = 0.0f;
+                var_r31->trans3D.x = var_r31->trans3D.y = var_r31->trans3D.z = 1.0f;
             }
             else {
-                var_r31 = temp_r30->unk04;
+                var_r31 = temp_r30->animWorkP;
             }
             if (arg1->channel != 0x43) {
-                var_r31->unk00 |= 4;
+                var_r31->attr |= 4;
             }
             else {
-                var_r31->unk00 |= 8;
+                var_r31->attr |= 8;
             }
             break;
     }
@@ -1093,22 +1093,22 @@ void SetObjAttrMotion(s16 arg0, HsfTrack *arg1, float arg2)
             var_r31->unk10 = arg2;
             break;
         case 28:
-            var_r31->unk14 = arg2;
+            var_r31->rot.x = arg2;
             break;
         case 29:
-            var_r31->unk18 = arg2;
+            var_r31->rot.y = arg2;
             break;
         case 30:
-            var_r31->unk1C = arg2;
+            var_r31->rot.z = arg2;
             break;
         case 31:
-            var_r31->unk20 = arg2;
+            var_r31->trans3D.x = arg2;
             break;
         case 32:
-            var_r31->unk24 = arg2;
+            var_r31->trans3D.y = arg2;
             break;
         case 33:
-            var_r31->unk28 = arg2;
+            var_r31->trans3D.z = arg2;
             break;
         case 64:
             temp_r30->unk20 = var_f30;
@@ -1125,93 +1125,93 @@ void SetObjAttrMotion(s16 arg0, HsfTrack *arg1, float arg2)
     }
 }
 
-void SetObjCameraMotion(s16 arg0, HsfTrack *arg1, float arg2)
+void SetObjCameraMotion(s16 modelId, HsfTrack *trackP, float value)
 {
-    ModelData *temp_r29;
-    Vec sp18;
-    Vec spC;
-    float var_f31;
-    float var_f30;
-    s16 var_r30;
-    s16 temp_r28;
+    ModelData *modelP;
+    Vec upOfs;
+    Vec dir;
+    float weight;
+    float newValue;
+    s16 bit;
+    s16 cameraBit;
     s16 i;
 
-    temp_r29 = &Hu3DData[arg0];
-    temp_r28 = temp_r29->unk_01;
-    if (temp_r28 != 0) {
-        var_f31 = arg2;
-        if (arg2 > 1.0f) {
-            var_f31 = 1.0f;
+    modelP = &Hu3DData[modelId];
+    cameraBit = modelP->unk_01;
+    if (cameraBit != 0) {
+        weight = value;
+        if (value > 1.0f) {
+            weight = 1.0f;
         }
-        else if (arg2 < 0.0f) {
-            var_f31 = 0.0f;
+        else if (value < 0.0f) {
+            weight = 0.0f;
         }
-        switch (arg1->channel) {
-            case 8:
-                var_f30 = temp_r29->scale.x * (arg2 + temp_r29->pos.x);
-                for (i = 0, var_r30 = 1; i < HU3D_CAM_MAX; i++, var_r30 <<= 1) {
-                    if (var_r30 & temp_r28) {
-                        Hu3DCamera[i].pos.x = var_f30;
+        switch (trackP->channel) {
+            case HSF_CHANNEL_POSX:
+                newValue = modelP->scale.x * (value + modelP->pos.x);
+                for (i = 0, bit = 1; i < HU3D_CAM_MAX; i++, bit <<= 1) {
+                    if (bit & cameraBit) {
+                        Hu3DCamera[i].pos.x = newValue;
                     }
                 }
                 break;
-            case 9:
-                var_f30 = temp_r29->scale.y * (arg2 + temp_r29->pos.y);
-                for (i = 0, var_r30 = 1; i < HU3D_CAM_MAX; i++, var_r30 <<= 1) {
-                    if (var_r30 & temp_r28) {
-                        Hu3DCamera[i].pos.y = var_f30;
+            case HSF_CHANNEL_POSY:
+                newValue = modelP->scale.y * (value + modelP->pos.y);
+                for (i = 0, bit = 1; i < HU3D_CAM_MAX; i++, bit <<= 1) {
+                    if (bit & cameraBit) {
+                        Hu3DCamera[i].pos.y = newValue;
                     }
                 }
                 break;
-            case 10:
-                var_f30 = temp_r29->scale.z * (arg2 + temp_r29->pos.z);
-                for (i = 0, var_r30 = 1; i < HU3D_CAM_MAX; i++, var_r30 <<= 1) {
-                    if (var_r30 & temp_r28) {
-                        Hu3DCamera[i].pos.z = var_f30;
+            case HSF_CHANNEL_POSZ:
+                newValue = modelP->scale.z * (value + modelP->pos.z);
+                for (i = 0, bit = 1; i < HU3D_CAM_MAX; i++, bit <<= 1) {
+                    if (bit & cameraBit) {
+                        Hu3DCamera[i].pos.z = newValue;
                     }
                 }
                 break;
-            case 11:
-                var_f30 = temp_r29->scale.x * (arg2 + temp_r29->pos.x);
-                for (i = 0, var_r30 = 1; i < HU3D_CAM_MAX; i++, var_r30 <<= 1) {
-                    if (var_r30 & temp_r28) {
-                        Hu3DCamera[i].target.x = var_f30;
+            case HSF_CHANNEL_TARGETX:
+                newValue = modelP->scale.x * (value + modelP->pos.x);
+                for (i = 0, bit = 1; i < HU3D_CAM_MAX; i++, bit <<= 1) {
+                    if (bit & cameraBit) {
+                        Hu3DCamera[i].target.x = newValue;
                     }
                 }
                 break;
-            case 12:
-                var_f30 = temp_r29->scale.y * (arg2 + temp_r29->pos.y);
-                for (i = 0, var_r30 = 1; i < HU3D_CAM_MAX; i++, var_r30 <<= 1) {
-                    if (var_r30 & temp_r28) {
-                        Hu3DCamera[i].target.y = var_f30;
+            case HSF_CHANNEL_TARGETY:
+                newValue = modelP->scale.y * (value + modelP->pos.y);
+                for (i = 0, bit = 1; i < HU3D_CAM_MAX; i++, bit <<= 1) {
+                    if (bit & cameraBit) {
+                        Hu3DCamera[i].target.y = newValue;
                     }
                 }
                 break;
-            case 13:
-                var_f30 = temp_r29->scale.z * (arg2 + temp_r29->pos.z);
-                for (i = 0, var_r30 = 1; i < HU3D_CAM_MAX; i++, var_r30 <<= 1) {
-                    if (var_r30 & temp_r28) {
-                        Hu3DCamera[i].target.z = var_f30;
+            case HSF_CHANNEL_TARGETZ:
+                newValue = modelP->scale.z * (value + modelP->pos.z);
+                for (i = 0, bit = 1; i < HU3D_CAM_MAX; i++, bit <<= 1) {
+                    if (bit & cameraBit) {
+                        Hu3DCamera[i].target.z = newValue;
                     }
                 }
                 break;
-            case 14:
-                for (i = 0, var_r30 = 1; i < HU3D_CAM_MAX; i++, var_r30 <<= 1) {
-                    if (var_r30 & temp_r28) {
-                        VECSubtract(&Hu3DCamera[i].pos, &Hu3DCamera[i].target, &spC);
-                        VECNormalize(&spC, &spC);
-                        sp18.x = spC.x * spC.y * (1.0 - cosd(arg2)) - spC.z * sind(arg2);
-                        sp18.y = spC.y * spC.y + (1.0f - spC.y * spC.y) * cosd(arg2);
-                        sp18.z = spC.y * spC.z * (1.0 - cosd(arg2)) + spC.x * sind(arg2);
-                        VECNormalize(&sp18, &Hu3DCamera[i].up);
-                        Hu3DCamera[i].aspect_dupe = arg2;
+            case HSF_CHANNEL_UPROT:
+                for (i = 0, bit = 1; i < HU3D_CAM_MAX; i++, bit <<= 1) {
+                    if (bit & cameraBit) {
+                        VECSubtract(&Hu3DCamera[i].pos, &Hu3DCamera[i].target, &dir);
+                        VECNormalize(&dir, &dir);
+                        upOfs.x = dir.x * dir.y * (1.0 - cosd(value)) - dir.z * sind(value);
+                        upOfs.y = dir.y * dir.y + (1.0f - dir.y * dir.y) * cosd(value);
+                        upOfs.z = dir.y * dir.z * (1.0 - cosd(value)) + dir.x * sind(value);
+                        VECNormalize(&upOfs, &Hu3DCamera[i].up);
+                        Hu3DCamera[i].aspect_dupe = value;
                     }
                 }
                 break;
-            case 15:
-                for (i = 0, var_r30 = 1; i < HU3D_CAM_MAX; i++, var_r30 <<= 1) {
-                    if (var_r30 & temp_r28) {
-                        Hu3DCamera[i].fov = arg2;
+            case HSF_CHANNEL_FOV:
+                for (i = 0, bit = 1; i < HU3D_CAM_MAX; i++, bit <<= 1) {
+                    if (bit & cameraBit) {
+                        Hu3DCamera[i].fov = value;
                     }
                 }
                 break;
@@ -1219,61 +1219,61 @@ void SetObjCameraMotion(s16 arg0, HsfTrack *arg1, float arg2)
     }
 }
 
-void SetObjLightMotion(s16 arg0, HsfTrack *arg1, float arg2)
+void SetObjLightMotion(s16 modelId, HsfTrack *trackP, float value)
 {
-    s16 var_r29;
-    ModelData *temp_r30;
-    HsfData *temp_r28;
-    HsfObject *var_r26;
-    HsfObject *var_r24;
-    LightData *temp_r31;
-    float var_f30;
+    s16 lightId;
+    ModelData *modelP;
+    HsfData *hsf;
+    HsfObject *objectPtr;
+    HsfObject *obj;
+    LightData *lightP;
+    float weight;
     s16 i;
 
-    temp_r30 = &Hu3DData[arg0];
-    temp_r28 = temp_r30->hsfData;
-    var_r26 = temp_r28->object;
-    for (i = var_r29 = 0; i < temp_r28->objectCnt; i++, var_r26++) {
-        var_r24 = var_r26;
-        if (var_r24->type == HSF_OBJ_LIGHT) {
-            if (i != arg1->target) {
-                var_r29++;
+    modelP = &Hu3DData[modelId];
+    hsf = modelP->hsfData;
+    objectPtr = hsf->object;
+    for (i = lightId = 0; i < hsf->objectCnt; i++, objectPtr++) {
+        obj = objectPtr;
+        if (obj->type == HSF_OBJ_LIGHT) {
+            if (i != trackP->target) {
+                lightId++;
             }
             else {
                 break;
             }
         }
     }
-    if (i != temp_r28->objectCnt) {
-        temp_r31 = &Hu3DGlobalLight[temp_r30->unk_28[var_r29]];
-        var_f30 = arg2;
-        if (arg2 > 1.0f) {
-            var_f30 = 1.0f;
+    if (i != hsf->objectCnt) {
+        lightP = &Hu3DGlobalLight[modelP->lightId[lightId]];
+        weight = value;
+        if (value > 1.0f) {
+            weight = 1.0f;
         }
-        else if (arg2 < 0.0f) {
-            var_f30 = 0.0f;
+        else if (value < 0.0f) {
+            weight = 0.0f;
         }
-        switch (arg1->channel) {
-            case 8:
-                temp_r31->unk_1C.x = arg2;
+        switch (trackP->channel) {
+            case HSF_CHANNEL_POSX:
+                lightP->pos.x = value;
                 break;
-            case 9:
-                temp_r31->unk_1C.y = arg2;
+            case HSF_CHANNEL_POSY:
+                lightP->pos.y = value;
                 break;
-            case 10:
-                temp_r31->unk_1C.z = arg2;
+            case HSF_CHANNEL_POSZ:
+                lightP->pos.z = value;
                 break;
-            case 11:
-                temp_r31->unk_34.x = arg2;
-                Hu3DGLightPosAimSetV(temp_r30->unk_28[var_r29], &temp_r31->unk_1C, &temp_r31->unk_34);
+            case HSF_CHANNEL_TARGETX:
+                lightP->offset.x = value;
+                Hu3DGLightPosAimSetV(modelP->lightId[lightId], &lightP->pos, &lightP->offset);
                 break;
-            case 12:
-                temp_r31->unk_34.y = arg2;
-                Hu3DGLightPosAimSetV(temp_r30->unk_28[var_r29], &temp_r31->unk_1C, &temp_r31->unk_34);
+            case HSF_CHANNEL_TARGETY:
+                lightP->offset.y = value;
+                Hu3DGLightPosAimSetV(modelP->lightId[lightId], &lightP->pos, &lightP->offset);
                 break;
-            case 13:
-                temp_r31->unk_34.z = arg2;
-                Hu3DGLightPosAimSetV(temp_r30->unk_28[var_r29], &temp_r31->unk_1C, &temp_r31->unk_34);
+            case HSF_CHANNEL_TARGETZ:
+                lightP->offset.z = value;
+                Hu3DGLightPosAimSetV(modelP->lightId[lightId], &lightP->pos, &lightP->offset);
                 break;
         }
     }
