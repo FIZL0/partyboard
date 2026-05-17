@@ -112,8 +112,8 @@ void main(void)
     for (i = 0; i < 4; i++) {
         GWPlayerCfg[i].character = -1;
     }
-
-    omMasterInit(0, _ovltbl, OVL_COUNT, OVL_BOOT);
+    
+    omMasterInit(0, _ovltbl, DLL_MAX, DLL_bootdll);
     VIWaitForRetrace();
 
     if (VIGetNextField() == 0) {

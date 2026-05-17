@@ -2658,7 +2658,7 @@ void fn_1_E3B4(UnkM432DllStruct *arg0, omObjData *arg1)
             }
             if (!(var_f30 < var_f31)) {
                 fn_1_5148(arg0);
-                HuAudCharVoicePlay(arg0->unk_18C, 0x122);
+                CharFXPlay(arg0->unk_18C, 0x122);
                 goto block_26;
             }
         }
@@ -2707,7 +2707,7 @@ void fn_1_E9E4(UnkM432DllStruct *arg0)
     }
     if ((0.0f > arg0->unk_00.unk_84.y) && ((100.0f + arg0->unk_C8->unk_2C.y) > arg0->unk_00.unk_6C.y)) {
         arg0->unk_180 = 0x7D3;
-        HuAudCharVoicePlay(arg0->unk_18C, 0x10D);
+        CharFXPlay(arg0->unk_18C, 0x10D);
     }
 }
 
@@ -2921,7 +2921,7 @@ void fn_1_10250(omObjData *object)
             if (lbl_1_bss_41C->work[0] >= 0x3E9) {
                 var_r31->unk_180++;
                 Hu3DModelAttrReset(object->model[0], HU3D_ATTR_DISPOFF);
-                HuAudCharVoicePlay(var_r31->unk_18C, 0x125);
+                CharFXPlay(var_r31->unk_18C, 0x125);
             }
             break;
         case 0x7D1:
@@ -3014,7 +3014,7 @@ void fn_1_10250(omObjData *object)
             if (lbl_1_bss_41C->work[0] >= 0x3F1) {
                 var_r31->unk_180++;
                 Hu3DMotionShiftSet(object->model[0], object->motion[9], 0.0f, 8.0f, HU3D_MOTATTR_LOOP);
-                HuAudCharVoicePlay(var_r31->unk_18C, 0x125);
+                CharFXPlay(var_r31->unk_18C, 0x125);
             }
             break;
         case 0x7E0:

@@ -174,7 +174,7 @@ static void FortuneMain(void)
 		GWMGAvailSet(444);
 		GWSystem.mg_next = 43;
 		_SetFlag(0x10005);
-		BoardNextOvlSet(OVL_M444);
+		BoardNextOvlSet(DLL_m444dll);
 	}
 }
 

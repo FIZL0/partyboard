@@ -404,7 +404,7 @@ static void fn_1_6CF8(void) {
         if (--var_r28 == 0) {
             HuAudFXPlay(0x4E);
             for (var_r30 = 0; var_r30 < 3; var_r30++) {
-                HuAudPlayerVoicePlay(sp8[var_r30], 0x12F);
+                PlayerFXPlay(sp8[var_r30], 0x12F);
             }
         }
         sp10.y -= 10.0f;
@@ -557,7 +557,7 @@ static void fn_1_7888(void) {
             var_r20 = 48;
             for (j = 0; j < 4; j++) {
                 if (j != lbl_1_bss_282) {
-                    HuAudPlayerVoicePlay(j, 0x130);
+                    PlayerFXPlay(j, 0x130);
                 }
             }
         }
@@ -668,7 +668,7 @@ static void fn_1_7888(void) {
             continue;
         }
         omVibrate(i, 12, 4, 2);
-        HuAudPlayerVoicePlay(i, 0x131);
+        PlayerFXPlay(i, 0x131);
     }
     HuAudFXPlay(0x4E);
     var_r28 = 0;
@@ -873,7 +873,7 @@ static void fn_1_8A60(void) {
             continue;
         }
         omVibrate(i, 12, 4, 2);
-        HuAudPlayerVoicePlay(i, 0x131);
+        PlayerFXPlay(i, 0x131);
     }
     HuAudFXPlay(0x4E);
     var_r30 = 0;

@@ -6539,7 +6539,7 @@ s32 fn_1_1C898(UnkM450Struct5 *var_r31, omObjData *var_r30)
         else {
             omVibrate(lbl_1_bss_120, 0xC, 0xC, 0);
         }
-        HuAudCharVoicePlay(var_r31->unk_11C, 0x123);
+        CharFXPlay(var_r31->unk_11C, 0x123);
         var_r31->unk_FC |= 0x10;
         var_r31->unk_00.unk_3C |= 0x210;
         fn_1_2BD0(&var_r31->unk_00, (10.0f*(160.6f/REFRESH_RATE))*1.8f, 0.0f);
@@ -6551,7 +6551,7 @@ s32 fn_1_1C898(UnkM450Struct5 *var_r31, omObjData *var_r30)
     }
     if (var_r31->unk_FC & 0x200) {
         omVibrate(lbl_1_bss_120, 0xC, 4, 2);
-        HuAudCharVoicePlay(var_r31->unk_11C, 0x123);
+        CharFXPlay(var_r31->unk_11C, 0x123);
         var_r31->unk_FC |= 0x100;
         var_r31->unk_00.unk_3C |= 0x210;
         fn_1_2BD0(&var_r31->unk_00, 0.0f, 0.0f);
@@ -6562,7 +6562,7 @@ s32 fn_1_1C898(UnkM450Struct5 *var_r31, omObjData *var_r30)
     }
     if (var_r31->unk_FC & 0x2000) {
         omVibrate(lbl_1_bss_120, 0xC, 4, 2);
-        HuAudCharVoicePlay(var_r31->unk_11C, 0x123);
+        CharFXPlay(var_r31->unk_11C, 0x123);
         var_r31->unk_F8 = 0.0f;
         var_r31->unk_FC |= 0x1000;
         var_r31->unk_00.unk_3C |= 0x10;
@@ -6574,7 +6574,7 @@ s32 fn_1_1C898(UnkM450Struct5 *var_r31, omObjData *var_r30)
     }
     if (var_r31->unk_FC & 0x20000) {
         omVibrate(lbl_1_bss_120, 0xC, 4, 2);
-        HuAudCharVoicePlay(var_r31->unk_11C, 0x123);
+        CharFXPlay(var_r31->unk_11C, 0x123);
         var_r31->unk_F8 = 0.0f;
         var_r31->unk_FC |= 0x10000;
         var_r31->unk_00.unk_3C |= 0x10;
@@ -6585,7 +6585,7 @@ s32 fn_1_1C898(UnkM450Struct5 *var_r31, omObjData *var_r30)
     }
     if ((var_r31->unk_FC & 0x200000) != 0) {
         omVibrate(lbl_1_bss_120, 0xC, 0xC, 0);
-        HuAudCharVoicePlay(var_r31->unk_11C, 0x123);
+        CharFXPlay(var_r31->unk_11C, 0x123);
         var_r31->unk_F8 = 0.0f;
         var_r31->unk_FC |= 0x100000;
         var_r31->unk_00.unk_3C |= 0x200;
@@ -6662,7 +6662,7 @@ void fn_1_1E150(omObjData *var_r29)
     }
     if ((1490.0f > var_r31->unk_00.unk_6C.y) && (var_r31->unk_00.unk_38 != 1) && (var_r31->unk_00.unk_38 != 3)) {
         omVibrate(lbl_1_bss_120, 0xC, 4, 2);
-        HuAudCharVoicePlay(var_r31->unk_11C, 0x123);
+        CharFXPlay(var_r31->unk_11C, 0x123);
         var_r31->unk_FC |= 0x800000;
         var_r31->unk_118 = 0x7EB;
         fn_1_2BD0(&var_r31->unk_00, (10.0f*(160.6f/REFRESH_RATE))*2.0f, 0.0f);
