@@ -36,8 +36,8 @@ typedef struct om_obj_man {
 
 omObjData *omDBGSysKeyObj;
 Process *omwatchproc;
-OverlayID omnextovl;
-SHARED_SYM OverlayID omcurovl;
+OMOVL omnextovl;
+SHARED_SYM OMOVL omcurovl;
 s32 omcurdll;
 SHARED_SYM s32 omovlhisidx;
 SHARED_SYM s32 omovlevtno;
@@ -49,24 +49,24 @@ SHARED_SYM s16 omSysExitReq;
 s16 omdispinfo;
 
 #ifdef TARGET_PC
-OverlayID pcOvlToKill = OVL_INVALID;
+OMOVL pcOvlToKill = DLL_NONE;
 s16 pcOvlKillArg = 0;
 #endif
 
 static omOvlHisData omovlhis[OM_OVL_HIS_MAX];
 
 u8 omSysPauseEnableFlag = TRUE;
-OverlayID omprevovl = OVL_INVALID;
+OMOVL omprevovl = DLL_NONE;
 
 static void omWatchOverlayProc(void);
 static void omInsertObj(Process *objman_process, omObjData *object);
 
-void omMasterInit(s32 prio, FileListEntry *ovl_list, s32 ovl_count, OverlayID start_ovl)
+void omMasterInit(s32 prio, FileListEntry *ovl_list, s32 ovl_count, OMOVL start_ovl)
 {
     omDLLInit(ovl_list);
     omwatchproc = HuPrcCreate(omWatchOverlayProc, prio, 8192, 0);
     HuPrcSetStat(omwatchproc, 12);
-    omcurovl = OVL_INVALID;
+    omcurovl = DLL_NONE;
     omovlhisidx = -1;
     omOvlCallEx(start_ovl, 1, 0, 0);
     omDBGSysKeyObj = NULL;
@@ -76,11 +76,11 @@ void omMasterInit(s32 prio, FileListEntry *ovl_list, s32 ovl_count, OverlayID st
 static void omWatchOverlayProc(void)
 {
     while (1) {
-        if (omcurovl == OVL_INVALID) {
+        if (omcurovl == DLL_NONE) {
 #ifdef TARGET_PC
             if (pcOvlToKill >= 0) {
                 omDLLNumEnd(pcOvlToKill, pcOvlKillArg);
-                pcOvlToKill = OVL_INVALID;
+                pcOvlToKill = DLL_NONE;
             }
 #endif
             if (omnextovl >= 0 && fadeStat == 0) {
@@ -94,19 +94,19 @@ static void omWatchOverlayProc(void)
                 OSReport("objman>Init esp\n");
                 espInit();
                 OSReport("objman>Call objectsetup\n");
-                HuAudVoiceInit(omnextovl);
+                HuAudSndCharGrpSet(omnextovl);
                 HuAudDllSndGrpSet(omnextovl);
                 omcurovl = omnextovl;
                 omovlevtno = omnextovlevtno;
                 omovlstat = omnextovlstat;
-                omnextovl = OVL_INVALID;
+                omnextovl = DLL_NONE;
                 if (_CheckFlag(FLAG_ID_MAKE(1, 12))) {
                     MGSeqPracticeInit();
                 }
                 omSysPauseEnable(TRUE);
                 omcurdll = omDLLStart(omcurovl, 0);
                 OSReport("objman>ObjectSetup end\n");
-                if (omcurovl != OVL_INVALID) {
+                if (omcurovl != DLL_NONE) {
                     goto watch_child;
                 }
                 else {
@@ -124,7 +124,7 @@ static void omWatchOverlayProc(void)
     }
 }
 
-void omOvlCallEx(OverlayID overlay, s16 arg2, s32 event, s32 stat)
+void omOvlCallEx(OMOVL overlay, s16 arg2, s32 event, s32 stat)
 {
     OSReport("objman>Call New Ovl %d(%d)\n", overlay, arg2);
     if (omovlhisidx >= OM_OVL_HIS_MAX) {
@@ -138,7 +138,7 @@ void omOvlCallEx(OverlayID overlay, s16 arg2, s32 event, s32 stat)
     omOvlGotoEx(overlay, arg2, event, stat);
 }
 
-void omOvlGotoEx(OverlayID overlay, s16 arg2, s32 event, s32 stat)
+void omOvlGotoEx(OMOVL overlay, s16 arg2, s32 event, s32 stat)
 {
     omprevovl = omcurovl;
     if (omcurovl >= 0) {
@@ -183,11 +183,11 @@ void omOvlKill(s16 arg)
 #else
     omDLLNumEnd(omcurovl, arg);
 #endif
-    omcurovl = OVL_INVALID;
+    omcurovl = DLL_NONE;
     omDBGSysKeyObj = NULL;
 }
 
-void omOvlHisChg(s32 level, OverlayID overlay, s32 event, s32 stat)
+void omOvlHisChg(s32 level, OMOVL overlay, s32 event, s32 stat)
 {
     omOvlHisData *history;
     if (omovlhisidx - level < 0 || omovlhisidx - level >= OM_OVL_HIS_MAX) {
@@ -603,7 +603,7 @@ char omPauseChk(void)
     }
 }
 
-OverlayID omCurrentOvlGet(void)
+OMOVL omCurrentOvlGet(void)
 {
     return omcurovl;
 }

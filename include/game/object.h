@@ -12,15 +12,15 @@
 
 #define OM_DLL_MAX 20
 
-#define OVL_DEFINE(name, path) name,
+#define DLL(name) DLL_##name,
 
-typedef enum {
-    OVL_INVALID = -1,
+typedef enum omOvl_e {
+    DLL_NONE = -1,
     #include "ovl_table.h"
-    OVL_COUNT
-} OverlayID;
+    DLL_MAX
+} OMOVL;
 
-#undef OVL_DEFINE
+#undef DLL
 
 #define OM_STAT_DELETED 0x1
 #define OM_STAT_DISABLED 0x2
@@ -38,7 +38,7 @@ struct om_obj_data;
 typedef void (*omObjFunc)(struct om_obj_data *);
 
 typedef struct om_ovl_his_data {
-    OverlayID overlay;
+    OMOVL overlay;
     s32 event;
     s32 stat;
 } omOvlHisData;
@@ -79,12 +79,12 @@ typedef struct om_dll_data {
 
 } omDllData;
 
-void omMasterInit(s32 prio, FileListEntry *ovl_list, s32 ovl_count, OverlayID start_ovl);
-void omOvlCallEx(OverlayID overlay, s16 arg2, s32 event, s32 stat);
-void omOvlGotoEx(OverlayID overlay, s16 arg2, s32 event, s32 stat);
+void omMasterInit(s32 prio, FileListEntry *ovl_list, s32 ovl_count, OMOVL start_ovl);
+void omOvlCallEx(OMOVL overlay, s16 arg2, s32 event, s32 stat);
+void omOvlGotoEx(OMOVL overlay, s16 arg2, s32 event, s32 stat);
 void omOvlReturnEx(s16 level, s16 arg2);
 void omOvlKill(s16 arg);
-void omOvlHisChg(s32 level, OverlayID overlay, s32 event, s32 stat);
+void omOvlHisChg(s32 level, OMOVL overlay, s32 event, s32 stat);
 omOvlHisData *omOvlHisGet(s32 level);
 Process *omInitObjMan(s16 max_objs, s32 prio);
 void omDestroyObjMan(void);
@@ -102,7 +102,7 @@ void omSetSca(omObjData *obj, float x, float y, float z);
 void omMain(void);
 void omAllPause(BOOL pause);
 char omPauseChk(void);
-OverlayID omCurrentOvlGet(void);
+OMOVL omCurrentOvlGet(void);
 
 
 void omDLLDBGOut(void);
@@ -125,8 +125,8 @@ void omSysPauseCtrl(s16 flag);
 
 extern omObjData *omDBGSysKeyObj;
 extern Process *omwatchproc;
-extern OverlayID omnextovl;
-SHARED_SYM extern OverlayID omcurovl;
+extern OMOVL omnextovl;
+SHARED_SYM extern OMOVL omcurovl;
 extern s32 omcurdll;
 SHARED_SYM extern s32 omovlhisidx;
 SHARED_SYM extern s32 omovlevtno;
@@ -136,7 +136,7 @@ extern char omUPauseFlag;
 SHARED_SYM extern s16 omSysExitReq;
 extern s16 omdispinfo;
 extern u8 omSysPauseEnableFlag;
-extern OverlayID omprevovl;
+extern OMOVL omprevovl;
 
 extern omDllData *omDLLinfoTbl[OM_DLL_MAX];
 

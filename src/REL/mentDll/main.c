@@ -495,7 +495,7 @@ void fn_1_7684(void)
     {
         omOvlHisData *sp8 = omOvlHisGet(0);
     }
-    omOvlHisChg(0, OVL_MSTORY3, 0, 0);
+    omOvlHisChg(0, DLL_mstory3dll, 0, 0);
     do {
         fn_1_4D8();
     } while (lbl_1_bss_D8 != 1);
@@ -839,7 +839,7 @@ void fn_1_88A4(void)
         {
             omOvlHisData *sp8 = omOvlHisGet(0);
         }
-        omOvlHisChg(0, OVL_MENT, 0, 1);
+        omOvlHisChg(0, DLL_mentdll, 0, 1);
         fn_1_C174(2);
     }
     else {
@@ -1954,7 +1954,7 @@ void fn_1_C174(s32 arg0)
     if (arg0 != 0) {
         if (arg0 == 1 || arg0 == 3) {
             omOvlHisData *sp8 = omOvlHisGet(0);
-            omOvlHisChg(0, OVL_MSTORY3, 0, 0);
+            omOvlHisChg(0, DLL_mstory3dll, 0, 0);
         }
         do {
             fn_1_4D8();
@@ -2055,7 +2055,7 @@ void fn_1_C4B8(void)
             if (_CheckFlag(FLAG_ID_MAKE(0, 7)) != 0 && _CheckFlag(FLAG_ID_MAKE(0, 9)) != 0) {
                 OSReport("########## Next to Ending\n");
                 fn_1_E654(1);
-                omOvlGotoEx(OVL_MSTORY2, 1, 4, 0);
+                omOvlGotoEx(DLL_mstory2dll, 1, 4, 0);
             }
             else {
                 if (_CheckFlag(0x10000) != 0) {
@@ -2071,23 +2071,23 @@ void fn_1_C4B8(void)
                             if (fn_1_C440() != 0) {
                                 OSReport("########## Next to MapSelect KoopaEvent\n");
                                 fn_1_E654(1);
-                                omOvlGotoEx(OVL_MSTORY2, 1, 0, 0);
+                                omOvlGotoEx(DLL_mstory2dll, 1, 0, 0);
                             }
                             else {
                                 OSReport("########## Next to MapSelect NormalEvent\n");
                                 fn_1_E654(1);
-                                omOvlGotoEx(OVL_MENT, 1, 0xA, 0);
+                                omOvlGotoEx(DLL_mentdll, 1, 0xA, 0);
                             }
                         }
                         else if (GWSystem.board == 5) {
                             OSReport("########## Next to BoardClear KoopaEvent\n");
                             fn_1_E654(0);
-                            omOvlGotoEx(OVL_MSTORY2, 1, 1, 0);
+                            omOvlGotoEx(DLL_mstory2dll, 1, 1, 0);
                         }
                         else {
                             OSReport("########## Next to BoardClear NormalEvent\n");
                             fn_1_E654(0);
-                            omOvlGotoEx(OVL_MSTORY, 1, 0, 0);
+                            omOvlGotoEx(DLL_mstorydll, 1, 0, 0);
                         }
                     }
                     else {
@@ -2095,12 +2095,12 @@ void fn_1_C4B8(void)
                             if (GWSystem.board == 5) {
                                 OSReport("########## Next to BoardMiss KoopaEvent\n");
                                 fn_1_E654(0);
-                                omOvlGotoEx(OVL_MSTORY2, 1, 2, 0);
+                                omOvlGotoEx(DLL_mstory2dll, 1, 2, 0);
                             }
                             else {
                                 OSReport("########### Next to BoardMiss NormalEvent\n");
                                 fn_1_E654(0);
-                                omOvlGotoEx(OVL_MSTORY, 1, 1, 0);
+                                omOvlGotoEx(DLL_mstorydll, 1, 1, 0);
                             }
                         }
                         else {
@@ -2158,7 +2158,7 @@ void fn_1_CAE4(void)
         {
             omOvlHisData *sp8 = omOvlHisGet(0);
         }
-        omOvlHisChg(0, OVL_MENT, 1, 1);
+        omOvlHisChg(0, DLL_mentdll, 1, 1);
         fn_1_C174(2);
     }
     else {
@@ -2681,7 +2681,7 @@ void fn_1_E71C(s32 arg0)
     {
         omOvlHisData *sp8 = omOvlHisGet(0);
     }
-    omOvlHisChg(0, OVL_MSTORY3, 0, 0);
+    omOvlHisChg(0, DLL_mstory3dll, 0, 0);
     do {
         fn_1_4D8();
     } while (lbl_1_bss_D8 != 1);
@@ -2861,7 +2861,7 @@ void fn_1_1053C(void)
     MGSeqKillAll();
     HuAudFXAllStop();
     HuAudSStreamAllStop();
-    omOvlGotoEx(OVL_OPTION, 1, 0, 0);
+    omOvlGotoEx(DLL_option, 1, 0, 0);
     while (1) {
         fn_1_4D8();
     }
@@ -2919,7 +2919,7 @@ void fn_1_10C5C(void)
     MGSeqKillAll();
     HuAudFXAllStop();
     HuAudSStreamAllStop();
-    omOvlGotoEx(OVL_PRESENT, 1, 0, 0);
+    omOvlGotoEx(DLL_present, 1, 0, 0);
     while (1) {
         fn_1_4D8();
     }

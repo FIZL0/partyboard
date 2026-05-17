@@ -759,8 +759,8 @@ EXPORTS
     HuARDMACheck
     HuAudAUXVolSet
     HuAudAllStop
-    HuAudCharVoicePlay
-    HuAudCharVoicePlayPos
+    CharFXPlay
+    CharFXPlayPos
     HuAudFXAllStop
     HuAudFXEmiterPlay
     HuAudFXEmiterUpDate
@@ -778,7 +778,7 @@ EXPORTS
     HuAudFXStop
     HuAudFXVolSet
     HuAudFadeOut
-    HuAudPlayerVoicePlay
+    PlayerFXPlay
     HuAudSStreamAllFadeOut
     HuAudSStreamAllStop
     HuAudSStreamFadeOut
@@ -795,7 +795,7 @@ EXPORTS
     HuAudSndGrpSetSet
     HuAudStreamFadeOut
     HuAudStreamPlay
-    HuAudVoiceInit
+    HuAudSndCharGrpSet
     HuCardCheck
     HuCardClose
     HuCardCreate

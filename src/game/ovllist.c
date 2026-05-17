@@ -4,21 +4,21 @@
 #ifdef TARGET_PC
 
 #ifdef _WIN32
-#define OVL_DEFINE(name, path) { path ".dll", 0 },
+#define DLL(name) { #name ".dll", 0 },
 #elif defined(__APPLE__)
-#define OVL_DEFINE(name, path) { path ".dylib", 0 },
+#define DLL(name) { #name ".dylib", 0 },
 #else
-#define OVL_DEFINE(name, path) { path ".so", 0 },
+#define DLL(name) { #name ".so", 0 },
 #endif
 
 #else
 
-#define OVL_DEFINE(name, path) { "dll/" path ".rel", 0 },
+#define DLL(name) { "dll/" #name ".rel", 0 },
 #endif
 
-FileListEntry _ovltbl[OVL_COUNT+1] = {
+FileListEntry _ovltbl[] = {
     #include "ovl_table.h"
     { NULL, -1 }
 };
 
-#undef OVL_DEFINE
+#undef DLL

@@ -352,97 +352,97 @@ s32 HuAudSStreamStatGet(s32 seNo) {
 }
 
 SHARED_SYM SNDGRPTBL sndGrpTable[] = {
-    { OVL_BOOT, -1, 0,  1, -1, -1 },
-    { OVL_INST, -1, 0,  1, -1, -1 },
-    { OVL_M401, 18, 0,  2, 64, 64 },
-    { OVL_M402, 19, 0,  3, 48, 32 },
-    { OVL_M403, 20, 0,  1, -1, -1 },
-    { OVL_M404, 21, 0,  1, -1, -1 },
-    { OVL_M405, 22, 0,  1, 64, 32 },
-    { OVL_M406, 23, 0,  1, -1, -1 },
-    { OVL_M407, 24, 0,  1, -1, -1 },
-    { OVL_M408, 25, 0,  1, -1, -1 },
-    { OVL_M409, 26, 0,  4, -1, -1 },
-    { OVL_M410, 27, 0,  1, -1, -1 },
-    { OVL_M411, 28, 0,  1, -1, -1 },
-    { OVL_M412, 29, 0,  1, -1, -1 },
-    { OVL_M413, 30, 0,  1, -1, -1 },
-    { OVL_M414, 31, 0,  1, -1, -1 },
-    { OVL_M415, 32, 0,  1, -1, -1 },
-    { OVL_M416, 33, 0,  1, -1, -1 },
-    { OVL_M417, 34, 0,  1, -1, -1 },
-    { OVL_M418, 35, 0,  1, 64, 64 },
-    { OVL_M419, 36, 0,  6, -1, -1 },
-    { OVL_M420, 37, 0,  1, -1, -1 },
-    { OVL_M421, 38, 0,  1, -1, -1 },
-    { OVL_M422, 39, 0,  1, -1, -1 },
-    { OVL_M423, 40, 0,  1, -1, -1 },
-    { OVL_M424, 41, 0,  1, -1, -1 },
-    { OVL_M425, 42, 0,  1, -1, -1 },
-    { OVL_M426, 43, 0,  1, -1, -1 },
-    { OVL_M427, 44, 0,  1, 64, 72 },
-    { OVL_M428, 45, 0,  1, -1, -1 },
-    { OVL_M429, 46, 0,  1, -1, -1 },
-    { OVL_M430, 47, 0,  1, -1, -1 },
-    { OVL_M431, 48, 0,  1, -1, -1 },
-    { OVL_M432, 49, 0,  1, 48, 32 },
-    { OVL_M433, 50, 0,  1, -1, -1 },
-    { OVL_M434, 51, 0,  1, -1, -1 },
-    { OVL_M435, 52, 0,  9, 32, 64 },
-    { OVL_M436, 53, 0, 10, 32, 64 },
-    { OVL_M437, 54, 0,  1, 32, 64 },
-    { OVL_M438, 55, 0, 11, -1, -1 },
-    { OVL_M439, 56, 0, 12, 48, 32 },
-    { OVL_M440, 57, 0,  1, -1, -1 },
-    { OVL_M441, 58, 0,  1, -1, -1 },
-    { OVL_M442, 59, 0,  1, -1, -1 },
-    { OVL_M443, 60, 0,  1, -1, -1 },
-    { OVL_M444, 61, 0,  1, -1, -1 },
-    { OVL_M445, 62, 0,  1, -1, -1 },
-    { OVL_M446, 63, 0,  1, -1, -1 },
-    { OVL_M447, 64, 0,  1, -1, -1 },
-    { OVL_M448, 65, 0,  1, -1, -1 },
-    { OVL_M449, 66, 0,  1, -1, -1 },
-    { OVL_M450, 67, 0, 13, 64, 64 },
-    { OVL_M451, 68, 0,  1, -1, -1 },
-    { OVL_M453, 69, 0,  1, -1, -1 },
-    { OVL_M455, 70, 0,  1, -1, -1 },
-    { OVL_M456, 71, 0,  1, -1, -1 },
-    { OVL_M457, 72, 0, 14, 64, 32 },
-    { OVL_M458, 73, 0, 15, 64, 32 },
-    { OVL_M459, 74, 0,  1, -1, -1 },
-    { OVL_M460, 75, 0,  1, -1, -1 },
-    { OVL_M461, 76, 0,  1, -1, -1 },
-    { OVL_M462, 77, 0,  1, -1, -1 },
-    { OVL_M463, 78, 0,  1, -1, -1 },
-    { OVL_MENT, -1, 0,  1, -1, -1 },
-    { OVL_MGMODE, 1, 0,  1, -1, -1 },
-    { OVL_MODESEL, 0, 0,  1, -1, -1 },
-    { OVL_MODELTEST, 18, 0,  1, -1, -1 },
-    { OVL_MSETUP, 0, 0,  1, -1, -1 },
-    { OVL_MSTORY, 5, 0,  1, -1, -1 },
-    { OVL_MSTORY2, 5, 0,  1, -1, -1 },
-    { OVL_MSTORY3, 8, 0,  1, -1, -1 },
-    { OVL_NIS, 9, 0,  1, -1, -1 },
-    { OVL_OPTION, -1, 0,  1, -1, -1 },
-    { OVL_PRESENT, -1, 0,  1, -1, -1 },
-    { OVL_RESULT, -1, 0,  1, -1, -1 },
-    { OVL_SAF, 0, 0,  2, 127, 127 },
-    { OVL_SELMENU, 0, 0,  1, -1, -1 },
-    { OVL_W01, 9, 0,  1, -1, -1 },
-    { OVL_W02, 10, 0,  1, -1, -1 },
-    { OVL_W03, 11, 0,  1, -1, -1 },
-    { OVL_W04, 12, 0,  1, -1, -1 },
-    { OVL_W05, 13, 0,  1, -1, -1 },
-    { OVL_W06, 14, 0,  1, -1, -1 },
-    { OVL_W10, 15, 0,  1, -1, -1 },
-    { OVL_W20, 16, 0,  1, -1, -1 },
-    { OVL_W21, 17, 0,  1, -1, -1 },
-    { OVL_MPEX, 4, 0,  1, -1, -1 },
-    { OVL_ZTAR, -1, 0,  1, -1, -1 },
-    { OVL_E3SETUP, 0, 0,  1, -1, -1 },
-    { OVL_STAFF, -1, 0,  1, -1, -1 },
-    { OVL_INVALID, -1, 0,  1, 0, 0 }
+    { DLL_bootdll, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_instdll, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m401dll, MSM_GRPSET_MG401, MSM_AUXA_DEFAULT, 2, 64, 64 },
+    { DLL_m402dll, MSM_GRPSET_MG402, MSM_AUXA_DEFAULT, 3, 48, 32 },
+    { DLL_m403dll, MSM_GRPSET_MG403, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m404dll, MSM_GRPSET_MG404, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m405dll, MSM_GRPSET_MG405, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, 64, 32 },
+    { DLL_m406dll, MSM_GRPSET_MG406, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m407dll, MSM_GRPSET_MG407, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m408dll, MSM_GRPSET_MG408, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m409dll, MSM_GRPSET_MG409, MSM_AUXA_DEFAULT, 4, -1, -1 },
+    { DLL_m410dll, MSM_GRPSET_MG410, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m411dll, MSM_GRPSET_MG411, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m412dll, MSM_GRPSET_MG412, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m413dll, MSM_GRPSET_MG413, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m414dll, MSM_GRPSET_MG414, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m415dll, MSM_GRPSET_MG415, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m416dll, MSM_GRPSET_MG416, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m417dll, MSM_GRPSET_MG417, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m418dll, MSM_GRPSET_MG418, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, 64, 64 },
+    { DLL_m419dll, MSM_GRPSET_MG419, MSM_AUXA_DEFAULT, 6, -1, -1 },
+    { DLL_m420dll, MSM_GRPSET_MG420, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m421dll, MSM_GRPSET_MG421, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m422dll, MSM_GRPSET_MG422, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m423dll, MSM_GRPSET_MG423, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m424dll, MSM_GRPSET_MG424, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m425dll, MSM_GRPSET_MG425, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m426dll, MSM_GRPSET_MG426, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m427dll, MSM_GRPSET_MG427, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, 64, 72 },
+    { DLL_m428dll, MSM_GRPSET_MG428, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m429dll, MSM_GRPSET_MG429, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m430dll, MSM_GRPSET_MG430, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m431dll, MSM_GRPSET_MG431, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m432dll, MSM_GRPSET_MG432, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, 48, 32 },
+    { DLL_m433dll, MSM_GRPSET_MG433, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m434dll, MSM_GRPSET_MG434, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m435dll, MSM_GRPSET_MG435, MSM_AUXA_DEFAULT, 9, 32, 64 },
+    { DLL_m436dll, MSM_GRPSET_MG436, MSM_AUXA_DEFAULT, 10, 32, 64 },
+    { DLL_m437dll, MSM_GRPSET_MG437, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, 32, 64 },
+    { DLL_m438dll, MSM_GRPSET_MG438, MSM_AUXA_DEFAULT, 11, -1, -1 },
+    { DLL_m439dll, MSM_GRPSET_MG439, MSM_AUXA_DEFAULT, 12, 48, 32 },
+    { DLL_m440dll, MSM_GRPSET_MG440, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m441dll, MSM_GRPSET_MG441, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m442dll, MSM_GRPSET_MG442, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m443dll, MSM_GRPSET_MG443, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m444dll, MSM_GRPSET_MG444, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m445dll, MSM_GRPSET_MG445, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m446dll, MSM_GRPSET_MG446, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m447dll, MSM_GRPSET_MG447, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m448dll, MSM_GRPSET_MG448, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m449dll, MSM_GRPSET_MG449, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m450dll, MSM_GRPSET_MG450, MSM_AUXA_DEFAULT, 13, 64, 64 },
+    { DLL_m451dll, MSM_GRPSET_MG451, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m453dll, MSM_GRPSET_MG453, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m455dll, MSM_GRPSET_MG455, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m456dll, MSM_GRPSET_MG456, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m457dll, MSM_GRPSET_MG457, MSM_AUXA_DEFAULT, 14, 64, 32 },
+    { DLL_m458dll, MSM_GRPSET_MG458, MSM_AUXA_DEFAULT, 15, 64, 32 },
+    { DLL_m459dll, MSM_GRPSET_MG459, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m460dll, MSM_GRPSET_MG460, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m461dll, MSM_GRPSET_MG461, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m462dll, MSM_GRPSET_MG462, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_m463dll, MSM_GRPSET_MG463, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_mentdll, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_mgmodedll, MSM_GRPSET_CMN, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_modeseldll, MSM_GRPSET_INIT, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_modeltestdll, MSM_GRPSET_MG401, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_msetupdll, MSM_GRPSET_INIT, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_mstorydll, MSM_GRPSET_MSTORY, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_mstory2dll, MSM_GRPSET_MSTORY, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_mstory3dll, MSM_GRPSET_MSTORY3, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_nisdll, MSM_GRPSET_BD1, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_option, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_present, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_resultdll, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_safdll, MSM_GRPSET_INIT, MSM_AUXA_DEFAULT, 2, 127, 127 },
+    { DLL_selmenuDLL, MSM_GRPSET_INIT, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w01dll, MSM_GRPSET_BD1, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w02dll, MSM_GRPSET_BD2, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w03dll, MSM_GRPSET_BD3, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w04dll, MSM_GRPSET_BD4, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w05dll, MSM_GRPSET_BD5, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w06dll, MSM_GRPSET_BD6, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w10dll, MSM_GRPSET_BD10, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w20dll, MSM_GRPSET_BD20, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_w21dll, MSM_GRPSET_BD21, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_mpexdll, 4, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_ztardll, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_e3setupDLL, MSM_GRPSET_INIT, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_staffdll, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
+    { DLL_NONE, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, 0, 0 }
 };
 
 void HuAudDllSndGrpSet(u16 ovl) {
@@ -455,7 +455,7 @@ void HuAudDllSndGrpSet(u16 ovl) {
             grpSet = sndGrp->grpSet;
             break;
         }
-        if (sndGrp->ovl == OVL_INVALID) {
+        if (sndGrp->ovl == DLL_NONE) {
             grpSet = 0x12;
             break;
         }
@@ -529,7 +529,7 @@ void HuAudAUXVolSet(s8 auxA, s8 auxB) {
     HuAuxBVol = auxB;
 }
 
-void HuAudVoiceInit(s16 ovl) {
+void HuAudSndCharGrpSet(s16 ovl) {
     SNDGRPTBL *sndGrp;
     OSTick osTick;
     s16 numNotChars;
@@ -540,13 +540,13 @@ void HuAudVoiceInit(s16 ovl) {
     void *buf;
     s16 i;
 
-    if (ovl != OVL_INVALID) {
+    if (ovl != DLL_NONE) {
         sndGrp = sndGrpTable;
         while (1) {
             if (sndGrp->ovl == ovl && sndGrp->grpSet == -1) {
                 return;
             }
-            if (sndGrp->ovl == OVL_INVALID) {
+            if (sndGrp->ovl == DLL_NONE) {
                 break;
             }
             sndGrp++;
@@ -592,25 +592,25 @@ void HuAudVoiceInit(s16 ovl) {
     }
 }
 
-s32 HuAudPlayerVoicePlay(s16 player, s16 seId) {
+s32 PlayerFXPlay(s16 player, s16 seId) {
     s16 charNo = GWPlayerCfg[player].character;
 
-    return HuAudCharVoicePlay(charNo, seId);
+    return CharFXPlay(charNo, seId);
 }
 
-s32 HuAudPlayerVoicePlayPos(s16 player, s16 seId, Vec *pos) {
+s32 PlayerFXPlayPos(s16 player, s16 seId, Vec *pos) {
     s16 charNo = GWPlayerCfg[player].character;
 
-    return HuAudCharVoicePlayPos(charNo, seId, pos);
+    return CharFXPlayPos(charNo, seId, pos);
 }
 
-void HuAudPlayerVoicePlayEntry(s16 player, s16 seId) {
+void PlayerFXStop(s16 player, s16 seId) {
     s16 charNo = GWPlayerCfg[player].character;
 
-    HuAudCharVoicePlayEntry(charNo, seId);
+    CharFXStop(charNo, seId);
 }
 
-s32 HuAudCharVoicePlay(s16 charNo, s16 seId)
+s32 CharFXPlay(s16 charNo, s16 seId)
 {
     MSM_SEPARAM param;
 
@@ -630,7 +630,7 @@ s32 HuAudCharVoicePlay(s16 charNo, s16 seId)
     return HuSePlay(seId, &param);
 }
 
-s32 HuAudCharVoicePlayPos(s16 charNo, s16 seId, Vec *pos) {
+s32 CharFXPlayPos(s16 charNo, s16 seId, Vec *pos) {
     MSM_SEPARAM param;
 
     // if (omSysExitReq != 0) {
@@ -652,7 +652,7 @@ s32 HuAudCharVoicePlayPos(s16 charNo, s16 seId, Vec *pos) {
     return HuSePlay(seId, &param);
 }
 
-void HuAudCharVoicePlayEntry(s16 charNo, s16 seId) {
+void CharFXStop(s16 charNo, s16 seId) {
     // int seNoTbl[MSM_ENTRY_SENO_MAX]; // size unknown (min: 30, max: 33)
     // u16 id;
     // u16 i;
