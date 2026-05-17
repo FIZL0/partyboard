@@ -993,7 +993,7 @@ static void VertexLoad(void)
     HsfBuffer *file_vertex;
     HsfBuffer *new_vertex;
     void *data;
-    HsfVector3f *data_elem;
+    HuVecF *data_elem;
     void *temp_data;
 
     if(head.vertex.count) {
@@ -1008,7 +1008,7 @@ static void VertexLoad(void)
         data = (void *)&file_vertex[head.vertex.count];
         for(i=0; i<head.vertex.count; i++, file_vertex++) {
             for(j=0; j<(u32)file_vertex->count; j++) {
-                data_elem = (HsfVector3f *)(((uintptr_t)data)+((uintptr_t)file_vertex->data)+(j*sizeof(HsfVector3f)));
+                data_elem = (HuVecF *)(((uintptr_t)data)+((uintptr_t)file_vertex->data)+(j*sizeof(HuVecF)));
             }
         }
 #endif
@@ -1027,14 +1027,14 @@ static void VertexLoad(void)
             new_vertex->name = SetName((u32 *)&file_vertex->name);
             new_vertex->data = (void *)((uintptr_t)data + (uintptr_t)temp_data);
             for(j=0; j<new_vertex->count; j++) {
-                data_elem = (HsfVector3f *)((uintptr_t)data + (uintptr_t)temp_data + (j * sizeof(HsfVector3f)));
+                data_elem = (HuVecF *)((uintptr_t)data + (uintptr_t)temp_data + (j * sizeof(HuVecF)));
 #ifdef BYTESWAPPING
                 // TODO we should do extra allocations for these elements and don't swap the dvd data directly to avoid double byteswaps
                 byteswap_hsfvec3f(data_elem);
 #endif
-                ((HsfVector3f *)new_vertex->data)[j].x = data_elem->x;
-                ((HsfVector3f *)new_vertex->data)[j].y = data_elem->y;
-                ((HsfVector3f *)new_vertex->data)[j].z = data_elem->z;
+                ((HuVecF *)new_vertex->data)[j].x = data_elem->x;
+                ((HuVecF *)new_vertex->data)[j].y = data_elem->y;
+                ((HuVecF *)new_vertex->data)[j].z = data_elem->z;
             }
         }
     }
@@ -1095,7 +1095,7 @@ static void STLoad(void)
     HsfBuffer *temp_st;
     HsfBuffer *new_st;
     void *data;
-    HsfVector2f *data_elem;
+    HuVec2f *data_elem;
     void *temp_data;
 
     if(head.st.count) {
@@ -1110,7 +1110,7 @@ static void STLoad(void)
         data = (void *)&file_st[head.st.count];
         for(i=0; i<head.st.count; i++, file_st++) {
             for(j=0; j<(u32)file_st->count; j++) {
-                data_elem = (HsfVector2f *)(((u32)data)+((u32)file_st->data)+(j*sizeof(HsfVector2f)));
+                data_elem = (HuVec2f *)(((u32)data)+((u32)file_st->data)+(j*sizeof(HuVec2f)));
             }
         }
 #endif
@@ -1129,12 +1129,12 @@ static void STLoad(void)
             new_st->name = SetName((u32 *)&file_st->name);
             new_st->data = (void *)((uintptr_t)data + (uintptr_t)temp_data);
             for(j=0; j<new_st->count; j++) {
-                data_elem = (HsfVector2f *)((uintptr_t)data + (uintptr_t)temp_data + (j*sizeof(HsfVector2f)));
+                data_elem = (HuVec2f *)((uintptr_t)data + (uintptr_t)temp_data + (j*sizeof(HuVec2f)));
 #ifdef BYTESWAPPING
                 byteswap_hsfvec2f(data_elem);
 #endif
-                ((HsfVector2f *)new_st->data)[j].x = data_elem->x;
-                ((HsfVector2f *)new_st->data)[j].y = data_elem->y;
+                ((HuVec2f *)new_st->data)[j].x = data_elem->x;
+                ((HuVec2f *)new_st->data)[j].y = data_elem->y;
             }
         }
     }
@@ -2590,6 +2590,7 @@ static char *GetMotionString(u16 *str_ofs)
     char *ret = &StringTable[*str_ofs];
     return ret;
 }
+
 
 #ifdef TARGET_PC
 void KillHSF(HsfData *data)

@@ -784,16 +784,16 @@ void fn_1_3208(omObjData *object)
 
     for (var_r28 = 0; var_r28 < 10; var_r28++) {
         if ((lbl_1_data_80[var_r28] & 0xFFFF0000) != 0) {
-            object->motion[var_r28] = CharModelMotionCreate(var_r31->unk1, var_r31->unk1 + lbl_1_data_80[var_r28]);
+            object->motion[var_r28] = CharMotionCreate(var_r31->unk1, var_r31->unk1 + lbl_1_data_80[var_r28]);
         }
         else {
-            object->motion[var_r28] = CharModelMotionCreate(var_r31->unk1, lbl_1_data_80[var_r28]);
+            object->motion[var_r28] = CharMotionCreate(var_r31->unk1, lbl_1_data_80[var_r28]);
         }
     }
-    CharModelMotionDataClose(var_r31->unk1);
-    CharModelMotionSet(var_r31->unk1, object->motion[var_r31->unk18]);
-    CharModelStepTypeSet(var_r31->unk1, 1);
-    CharModelVoiceEnableSet(var_r31->unk1, object->motion[2], 0);
+    CharMotionDataClose(var_r31->unk1);
+    CharMotionSet(var_r31->unk1, object->motion[var_r31->unk18]);
+    CharModelStepFxSet(var_r31->unk1, 1);
+    CharMotionVoiceOnSet(var_r31->unk1, object->motion[2], 0);
     object->model[2] = var_r29 = Hu3DModelCreateFile(var_r31->unk0 + DATA_MAKE_NUM(DATADIR_M415, 0x03));
     object->model[3] = Hu3DJointMotion(var_r29, HuDataSelHeapReadNum(DATA_MAKE_NUM(DATADIR_M415, 0x07), MEMORY_DEFAULT_NUM, HEAP_DATA));
     object->model[4] = Hu3DJointMotion(var_r29, HuDataSelHeapReadNum(DATA_MAKE_NUM(DATADIR_M415, 0x08), MEMORY_DEFAULT_NUM, HEAP_DATA));
@@ -964,7 +964,7 @@ void fn_1_3B44(omObjData *object)
             }
             break;
         case 3:
-            if (CharModelMotionEndCheck(temp_r31->unk1) != 0) {
+            if (CharMotionEndCheck(temp_r31->unk1) != 0) {
                 var_r29 = 0;
                 var_r28 = 1;
             }
@@ -1076,8 +1076,8 @@ void fn_1_3B44(omObjData *object)
     temp_r31->unk18 = var_r29;
     if (var_r29 != temp_r31->unk1A) {
         temp_r31->unk1A = var_r29;
-        CharModelMotionShiftSet(temp_r31->unk1, object->motion[temp_r31->unk18], 0.0f, 8.0f, var_r28);
-        temp_r31->unk28 = CharModelMotionMaxTimeGet(temp_r31->unk1);
+        CharMotionShiftSet(temp_r31->unk1, object->motion[temp_r31->unk18], 0.0f, 8.0f, var_r28);
+        temp_r31->unk28 = CharMotionMaxTimeGet(temp_r31->unk1);
         if (var_r25 != 0) {
             Hu3DMotionShiftSet(object->model[2], object->model[var_r25], 0.0f, 8.0f, HU3D_MOTATTR_NONE);
         }

@@ -15,7 +15,7 @@ typedef void (*ParticleDLCallFunc)(ParticleData *particle);
 
 typedef void (*ParticleHook)(ModelData *model, ParticleData *particle, Mtx matrix);
 
-typedef struct {
+typedef struct Hu3DParticleData_s {
     /* 0x00 */ s16 unk00;
     /* 0x02 */ s16 unk02;
     /* 0x04 */ s16 unk04;
