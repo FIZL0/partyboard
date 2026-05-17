@@ -194,8 +194,8 @@ typedef struct HsfObjectData32b {
     HsfTransform curr;
     union {
         struct {
-            HsfVector3f min;
-            HsfVector3f max;
+            HuVecF min;
+            HuVecF max;
             float baseMorph;
             float morphWeight[32];
             u32 unkF0;
@@ -303,8 +303,8 @@ void byteswap_s32(s32 *src);
 void byteswap_float(float *src);
 void byteswap_vec(Vec *src);
 void byteswap_vec2f(Vec2f *src);
-void byteswap_hsfvec3f(HsfVector3f *src);
-void byteswap_hsfvec2f(HsfVector2f *src);
+void byteswap_hsfvec3f(HuVecF *src);
+void byteswap_hsfvec2f(HuVec2f *src);
 
 void byteswap_animdata(void *src, AnimData *dest);
 void byteswap_animbankdata(AnimBankData32b *src, AnimBankData *dest);

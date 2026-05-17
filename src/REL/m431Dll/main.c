@@ -2097,7 +2097,7 @@ void fn_1_72B4(ModelData *model, Mtx mtx)
     GXSETARRAY(GX_VA_CLR0, temp_r30->unk24, temp_r30->unk0 * sizeof(GXColor), sizeof(GXColor), TRUE);
     GXSetVtxDesc(GX_VA_TEX0, GX_INDEX16);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
-    GXSETARRAY(GX_VA_TEX0, temp_r30->unk20, temp_r30->unk0 * sizeof(HsfVector2f) * 4, sizeof(HuVec2f), TRUE);
+    GXSETARRAY(GX_VA_TEX0, temp_r30->unk20, temp_r30->unk0 * sizeof(HuVec2f) * 4, sizeof(HuVec2f), TRUE);
     fn_1_79FC(mtx, sp128);
     MTXReorder(sp128, spF8);
     if (!omPauseChk() && temp_r30->unkC) {

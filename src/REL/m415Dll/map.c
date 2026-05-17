@@ -253,7 +253,7 @@ void fn_1_88B8(unkSubStruct2 *arg0)
             for (var_r27 = 0; var_r27 < var_r31->unk33; var_r27++) {
                 GXSetVtxDesc(var_r27 + GX_VA_TEX0, GX_INDEX16);
                 GXSetVtxAttrFmt(GX_VTXFMT0, var_r27 + GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
-                GXSETARRAY(var_r27 + GX_VA_TEX0, var_r31->unk54[var_r27].unk4, 4 * sizeof(HsfVector2f), 8, TRUE);
+                GXSETARRAY(var_r27 + GX_VA_TEX0, var_r31->unk54[var_r27].unk4, 4 * sizeof(HuVec2f), 8, TRUE);
             }
             GXSetVtxDesc(GX_VA_NRM, GX_INDEX16);
             GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);

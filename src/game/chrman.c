@@ -1168,10 +1168,10 @@ static void EyeBmpUpdate(s16 charNo)
         for (i = 0; i < modelP->hsfData->attributeCnt; i++, attrP++) {
             if ((attrP->bitmap->name[0] == eyeBmp[0][0] && strcmp(attrP->bitmap->name, eyeBmp[0]) == 0)
             || (attrP->bitmap->name[0] == eyeBmp[1][0] && strcmp(attrP->bitmap->name, eyeBmp[1]) == 0)) {
-                if (attrP->unk04) {
-                    HsfdrawStruct01 *particleDataP = attrP->unk04;
+                if (attrP->animWorkP) {
+                    HsfdrawStruct01 *particleDataP = attrP->animWorkP;
                     particleDataP->unk08 = particleDataP->unk0C = particleDataP->unk10 = 0.0f;
-                    particleDataP->unk14 = particleDataP->unk18 = particleDataP->unk1C = 0.0f;
+                    particleDataP->rot.x = particleDataP->rot.y = particleDataP->rot.z = 0.0f;
                 }
             }
         }
@@ -1704,7 +1704,7 @@ typedef struct NpcDustWork_s {
     s16 npcNo;
 } NPCDUSTWORK;
 
-s32 CharNpcDustSet(HU3DMODELID modelId, HU3DMOTID motId, s16 type, s16 npcNo)
+Process *CharNpcDustSet(HU3DMODELID modelId, HU3DMOTID motId, s16 type, s16 npcNo)
 {
     Process *parent = HuPrcCurrentGet();
     Process *process = HuPrcChildCreate(UpdateNpcDust, 0x64, 0x2000, 0, parent);
@@ -1719,7 +1719,7 @@ s32 CharNpcDustSet(HU3DMODELID modelId, HU3DMOTID motId, s16 type, s16 npcNo)
         EffectInit();
     }
 #ifdef NON_MATCHING
-    return var_r27;
+    return process;
 #endif
 }
 

@@ -220,7 +220,7 @@ void fn_1_C164(unkStruct8 *arg0)
             for (var_r26 = 0; var_r26 < var_r31->unk32; var_r26++) {
                 GXSetVtxDesc(var_r26 + GX_VA_TEX0, GX_INDEX16);
                 GXSetVtxAttrFmt(GX_VTXFMT0, var_r26 + GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
-                GXSETARRAY(var_r26 + GX_VA_TEX0, var_r31->unk54[var_r26].unk4, sizeof(HsfVector2f[4]), sizeof(HsfVector2f), TRUE);
+                GXSETARRAY(var_r26 + GX_VA_TEX0, var_r31->unk54[var_r26].unk4, sizeof(HuVec2f[4]), sizeof(HuVec2f), TRUE);
             }
             GXSetVtxDesc(GX_VA_NRM, GX_INDEX16);
             GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
@@ -768,7 +768,7 @@ s32 fn_1_E2A8(s16 arg0, u8 arg1, u32 arg2, s16 arg3, s16 arg4)
         temp_r31->unkC = 1.0f;
         temp_r31->unk10 = 0.0f;
         if (temp_r31->unk4 == NULL) {
-            temp_r31->unk4 = HuMemDirectMallocNum(HEAP_SYSTEM, 4 * sizeof(HsfVector2f), MEMORY_DEFAULT_NUM);
+            temp_r31->unk4 = HuMemDirectMallocNum(HEAP_SYSTEM, 4 * sizeof(HuVec2f), MEMORY_DEFAULT_NUM);
         }
         temp_r31->unk4[0].x = temp_r31->unk0 * temp_r30->unk54;
         temp_r31->unk4[0].y = temp_r31->unk0 * temp_r30->unk58;

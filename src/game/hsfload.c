@@ -92,25 +92,25 @@ static void LoadEnvelopeSourceData(HsfObject *object, HsfObjectData *data)
         return;
     }
     if (data->vtxtop != NULL && object->data.vertex != NULL) {
-        HsfVector3f *vtx = (HsfVector3f *)((uintptr_t)fileptr + (uintptr_t)data->vtxtop);
+        HuVecF *vtx = (HuVecF *)((uintptr_t)fileptr + (uintptr_t)data->vtxtop);
         for (int i = 0; i < object->data.vertex->count; i++) {
             byteswap_hsfvec3f(&vtx[i]);
         }
         object->data.vtxtop = vtx;
         // object->data.vtxtop = CopyByteSwappedVec3Data(
-        //     (HsfVector3f *)((uintptr_t)fileptr + (uintptr_t)data->vtxtop),
+        //     (HuVecF *)((uintptr_t)fileptr + (uintptr_t)data->vtxtop),
         //     object->data.vertex->count);
     } else {
         object->data.vtxtop = NULL;
     }
     if (data->normtop != NULL && object->data.normal != NULL) {
-        HsfVector3f *norm = (HsfVector3f *)((uintptr_t)fileptr + (uintptr_t)data->normtop);
+        HuVecF *norm = (HuVecF *)((uintptr_t)fileptr + (uintptr_t)data->normtop);
         for (int i = 0; i < object->data.normal->count; i++) {
             byteswap_hsfvec3f(&norm[i]);
         }
         object->data.normtop = norm;
         // object->data.normtop = CopyByteSwappedVec3Data(
-        //     (HsfVector3f *)((uintptr_t)fileptr + (uintptr_t)data->normtop),
+        //     (HuVecF *)((uintptr_t)fileptr + (uintptr_t)data->normtop),
         //     object->data.normal->count);
     } else {
         object->data.normtop = NULL;
@@ -121,19 +121,19 @@ static void LoadEnvelopeSourceData(HsfObject *object, HsfObjectData *data)
 #ifdef TARGET_PC
 static FILE *g_dump_file = NULL;
 
-static void DumpVec3f(const char *label, HsfVector3f *v) {
+static void DumpVec3f(const char *label, HuVecF *v) {
     fprintf(g_dump_file, "    %s: (%.4f, %.4f, %.4f)\n", label, v->x, v->y, v->z);
 }
 
-static void DumpVec2f(const char *label, HsfVector2f *v) {
+static void DumpVec2f(const char *label, HuVec2f *v) {
     fprintf(g_dump_file, "    %s: (%.4f, %.4f)\n", label, v->x, v->y);
 }
 
 static void DumpTransform(const char *label, HsfTransform *t) {
     fprintf(g_dump_file, "  %s:\n", label);
-    DumpVec3f("pos",   (HsfVector3f*)&t->pos);
-    DumpVec3f("rot",   (HsfVector3f*)&t->rot);
-    DumpVec3f("scale", (HsfVector3f*)&t->scale);
+    DumpVec3f("pos",   (HuVecF*)&t->pos);
+    DumpVec3f("rot",   (HuVecF*)&t->rot);
+    DumpVec3f("scale", (HuVecF*)&t->scale);
 }
 
 static void DumpScene(HsfData *hsf) {
@@ -213,7 +213,7 @@ static void DumpVertexBuffers(HsfData *hsf) {
         HsfBuffer *buf = &hsf->vertex[i];
         fprintf(g_dump_file, "[%d] name=%s count=%d\n",
             i, buf->name ? buf->name : "(null)", buf->count);
-        HsfVector3f *verts = (HsfVector3f *)buf->data;
+        HuVecF *verts = (HuVecF *)buf->data;
         for (j = 0; j < buf->count; j++) {
             fprintf(g_dump_file, "  [%d] (%.6f, %.6f, %.6f)\n",
                 j, verts[j].x, verts[j].y, verts[j].z);
@@ -228,7 +228,7 @@ static void DumpNormalBuffers(HsfData *hsf) {
         HsfBuffer *buf = &hsf->normal[i];
         fprintf(g_dump_file, "[%d] name=%s count=%d\n",
             i, buf->name ? buf->name : "(null)", buf->count);
-        HsfVector3f *normals = (HsfVector3f *)buf->data;
+        HuVecF *normals = (HuVecF *)buf->data;
         for (j = 0; j < buf->count; j++) {
             fprintf(g_dump_file, "  [%d] (%.6f, %.6f, %.6f)\n",
                 j, normals[j].x, normals[j].y, normals[j].z);
@@ -243,7 +243,7 @@ static void DumpStBuffers(HsfData *hsf) {
         HsfBuffer *buf = &hsf->st[i];
         fprintf(g_dump_file, "[%d] name=%s count=%d\n",
             i, buf->name ? buf->name : "(null)", buf->count);
-        HsfVector2f *st = (HsfVector2f *)buf->data;
+        HuVec2f *st = (HuVec2f *)buf->data;
         for (j = 0; j < buf->count; j++) {
             fprintf(g_dump_file, "  [%d] (%.6f, %.6f)\n",
                 j, st[j].x, st[j].y);
@@ -1079,7 +1079,7 @@ static void NormalLoad(void)
 #ifdef BYTESWAPPING
             if (cenv_count != 0) {
                 for (j = 0; j < new_normal->count; j++) {
-                    HsfVector3f *normalData = &((HsfVector3f *)new_normal->data)[j];
+                    HuVecF *normalData = &((HuVecF *)new_normal->data)[j];
                     byteswap_hsfvec3f(normalData);
                 }
             }

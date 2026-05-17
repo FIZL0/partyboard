@@ -197,13 +197,6 @@ template <typename B> void bswap(B &base, Vec2f &vec)
     bswap(base, vec.y);
 }
 
-template <typename B> void bswap(B &base, HsfVector3f &vec)
-{
-    bswap(base, vec.x);
-    bswap(base, vec.y);
-    bswap(base, vec.z);
-}
-
 template <typename B> void bswap(B &base, AnimData32b &obj, AnimData &dest)
 {
     bswap(base, obj.bankNum);
@@ -699,8 +692,8 @@ template <typename B> void bswap(B &base, HsfObjectData32b &obj, HsfObjectData &
     dest.cluster = reinterpret_cast<HsfCluster **>(static_cast<uintptr_t>(obj.cluster));
     dest.cenvCnt = obj.cenvCnt;
     dest.cenv = reinterpret_cast<HsfCenv *>(static_cast<uintptr_t>(obj.cenv));
-    dest.vtxtop = reinterpret_cast<HsfVector3f *>(static_cast<uintptr_t>(obj.vtxtop));
-    dest.normtop = reinterpret_cast<HsfVector3f *>(static_cast<uintptr_t>(obj.normtop));
+    dest.vtxtop = reinterpret_cast<HuVecF *>(static_cast<uintptr_t>(obj.vtxtop));
+    dest.normtop = reinterpret_cast<HuVecF *>(static_cast<uintptr_t>(obj.normtop));
 
     switch (type) {
         case HSF_OBJ_MESH:
@@ -916,12 +909,12 @@ void byteswap_vec2f(Vec2f *src)
     bswap(*src, *src);
 }
 
-void byteswap_hsfvec3f(HsfVector3f *src)
+void byteswap_hsfvec3f(HuVecF *src)
 {
     bswap(*src, *src);
 }
 
-void byteswap_hsfvec2f(HsfVector2f *src)
+void byteswap_hsfvec2f(HuVec2f *src)
 {
     auto *vec = reinterpret_cast<Vec2f *>(src);
     bswap(*vec, *vec);

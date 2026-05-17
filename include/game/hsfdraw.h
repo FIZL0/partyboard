@@ -16,8 +16,8 @@ typedef struct hsfdraw_struct_01 {
     /* 0x10 */ float unk10;
     /* 0x14 */ Vec rot;
     /* 0x20 */ Vec trans3D;
-    /* 0x2C */ HsfVector2f scale;
-    /* 0x34 */ HsfVector2f trans;
+    /* 0x2C */ HuVec2f scale;
+    /* 0x34 */ HuVec2f trans;
     /* 0x3C */ HsfBitmap *unk3C;
     /* 0x40 */ char unk40[4];
 } HsfdrawStruct01; // Size 0x44

@@ -59,7 +59,7 @@ void CharModelLayerSetAll2(s16 layerNo);
 void CharMotionVoiceOnSet(s16 charNo, s16 motion, BOOL voiceOn);
 void CharModelVoicePanAutoSet(s16 charNo, BOOL voicePanAuto);
 void CharModelFxFlagSet(s16 charNo, BOOL fxFlag);
-s32 CharNpcDustSet(HU3DMODELID modelId, HU3DMOTID motId, s16 type, s16 npcNo);
+Process *CharNpcDustSet(HU3DMODELID modelId, HU3DMOTID motId, s16 type, s16 npcNo);
 s32 CharNpcDustVoiceOffSet(HU3DMODELID modelId, HU3DMOTID motId, s16 type);
 void CharModelStepFxSet(s16 charNo, s32 stepFx);
 

@@ -147,8 +147,8 @@ typedef struct hsf_attribute {
     u8 unk18[8];
     float unk20;
     u8 unk24[4];
-    HsfVector2f scale;
-    HsfVector2f trans;
+    HuVec2f scale;
+    HuVec2f trans;
     u8 unk38[44];
     u32 wrap_s;
     u32 wrap_t;
@@ -325,8 +325,8 @@ typedef struct hsf_object_data {
     HsfCluster **cluster;
     u32 cenvCnt;
     HsfCenv *cenv;
-    HsfVector3f *vtxtop;
-    HsfVector3f *normtop;
+    HuVecF *vtxtop;
+    HuVecF *normtop;
 } HsfObjectData;
 
 typedef struct hsf_camera {
