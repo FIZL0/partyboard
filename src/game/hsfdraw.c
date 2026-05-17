@@ -1823,7 +1823,7 @@ static void LoadTexture(ModelData *arg0, HsfBitmap *arg1, HsfAttribute *arg2, s1
 
     if (arg1 == 0) {
         OSReport("Error: No Texture\n");
-        return 0;
+        return;
     }
     var_r27 = arg1->sizeX;
     var_r26 = arg1->sizeY;
@@ -1957,7 +1957,6 @@ static void LoadTexture(ModelData *arg0, HsfBitmap *arg1, HsfAttribute *arg2, s1
     }
     arg2->tex_initialized = TRUE;
     GXLoadTexObj(tex_obj, arg3);
-    return 0;
 }
 #else
 {
@@ -3068,6 +3067,9 @@ static s32 MakeCalcNBT(HsfObject *arg0, HsfFace *arg1, s16 arg2, s16 arg3)
     GXNormal3s16(sp10.x * 256.0f, sp10.y * 256.0f, sp10.z * 256.0f);
     GXNormal3s16(NBTB.x * 256.0f, NBTB.y * 256.0f, NBTB.z * 256.0f);
     GXNormal3s16(NBTT.x * 256.0f, NBTT.y * 256.0f, NBTT.z * 256.0f);
+#ifdef NON_MATCHING
+    return 0;
+#endif
 }
 
 static s32 MakeNBT(HsfObject *arg0, HsfFace *arg1, s16 arg2, s16 arg3)
@@ -3096,6 +3098,9 @@ static s32 MakeNBT(HsfObject *arg0, HsfFace *arg1, s16 arg2, s16 arg3)
     GXNormal3s16(sp10.x * 256.0f, sp10.y * 256.0f, sp10.z * 256.0f);
     GXNormal3s16(NBTB.x * 256.0f, NBTB.y * 256.0f, NBTB.z * 256.0f);
     GXNormal3s16(NBTT.x * 256.0f, NBTT.y * 256.0f, NBTT.z * 256.0f);
+#ifdef NON_MATCHING
+    return 0;
+#endif
 }
 
 static void MDFaceCnt(HsfObject *arg0, HsfFace *arg1)

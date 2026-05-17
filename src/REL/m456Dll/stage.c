@@ -12,6 +12,9 @@
 #include "version.h"
 #include <string.h>
 
+#ifdef NON_MATCHING
+#include "game/frand.h"
+#endif
 
 Process *lbl_1_bss_B8;
 omObjData *lbl_1_bss_B4;
