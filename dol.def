@@ -59,7 +59,7 @@ EXPORTS
     BoardCharWheelTargetSet
     BoardCharWheelWait
     BoardCoinChgCreate
-    BoardCoinChgExist
+    BoardCoinChgKillCheck
     BoardComFarPlayerFind
     BoardComKeySetDown
     BoardComKeySetLeft

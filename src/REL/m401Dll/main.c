@@ -513,7 +513,7 @@ void fn_2_1A38(omObjData *object)
     Vec sp20;
     Vec sp14;
     Vec sp8;
-    HsfObject *temp_r31 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[0]);
+    HSFOBJECT *temp_r31 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[0]);
     omObjData *temp_r30;
     temp_r31->type = 2;
     sp20.x = -2500;
@@ -534,7 +534,7 @@ void fn_2_1B80(omObjData *object)
     Vec sp14;
     Vec sp8;
     omObjData *temp_r31;
-    HsfObject *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[1]);
+    HSFOBJECT *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[1]);
     temp_r30->type = 2;
     sp14.x = -1000;
     sp14.y = 0;
@@ -553,7 +553,7 @@ void fn_2_1CF0(omObjData *object)
     Vec sp20;
     Vec sp14;
     Vec sp8;
-    HsfObject *temp_r31 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[2]);
+    HSFOBJECT *temp_r31 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[2]);
     temp_r31->type = 2;
     sp20.x = 500;
     sp20.y = 0;
@@ -576,7 +576,7 @@ void fn_2_1DE8(omObjData *object)
     Vec sp14;
     Vec sp8;
     omObjData *temp_r31;
-    HsfObject *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[3]);
+    HSFOBJECT *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[3]);
     temp_r30->type = 2;
     sp2C.x = 0;
     sp2C.y = -150.0f + ((1.0f / 255.0f) * (300.0f * frandu8()));
@@ -607,7 +607,7 @@ void fn_2_1DE8(omObjData *object)
 void fn_2_20B0(omObjData *object)
 {
     Vec sp8;
-    HsfObject *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[4]);
+    HSFOBJECT *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[4]);
     temp_r30->type = 2;
     Hu3DModelAttrReset(object->model[7], HU3D_ATTR_DISPOFF);
     sp8.x = 0;
@@ -631,7 +631,7 @@ void fn_2_21F8(omObjData *object)
     Vec sp14;
     Vec sp8;
     s32 temp_r30;
-    HsfObject *temp_r29 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[0]);
+    HSFOBJECT *temp_r29 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[0]);
     s32 temp_r28;
     temp_r29->type = 2;
     Hu3DModelAttrReset(object->model[0], HU3D_ATTR_DISPOFF);
@@ -761,7 +761,7 @@ void fn_2_26E0(omObjData *object)
 
 void fn_2_2CBC(omObjData *object)
 {
-    HsfObject *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[0]);
+    HSFOBJECT *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[0]);
     temp_r30->type = -1;
     Hu3DModelAttrSet(object->model[3], HU3D_ATTR_DISPOFF);
     lbl_2_bss_D8->work[0] = 1;
@@ -772,20 +772,20 @@ void fn_2_2CBC(omObjData *object)
 
 void fn_2_2D64(omObjData *object)
 {
-    HsfObject *temp_r31 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[1]);
+    HSFOBJECT *temp_r31 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[1]);
     temp_r31->type = -1;
     lbl_2_bss_D4->work[0] = 1;
 }
 
 void fn_2_2DCC(omObjData *object)
 {
-    HsfObject *temp_r31 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[2]);
+    HSFOBJECT *temp_r31 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[2]);
     temp_r31->type = -1;
 }
 
 void fn_2_2E20(omObjData *object)
 {
-    HsfObject *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[3]);
+    HSFOBJECT *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[3]);
     temp_r30->type = -1;
     Hu3DModelAttrSet(lbl_2_bss_100[0]->model[0], HU3D_ATTR_DISPOFF);
     Hu3DModelAttrSet(lbl_2_bss_100[1]->model[0], HU3D_ATTR_DISPOFF);
@@ -795,7 +795,7 @@ void fn_2_2E20(omObjData *object)
 
 void fn_2_2ED0(omObjData *object)
 {
-    HsfObject *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[4]);
+    HSFOBJECT *temp_r30 = Hu3DModelObjPtrGet(object->model[0], lbl_2_data_124[4]);
     temp_r30->type = -1;
     Hu3DModelAttrSet(object->model[7], HU3D_ATTR_DISPOFF);
     Hu3DModelAttrSet(object->model[0], HU3D_ATTR_DISPOFF);
@@ -816,7 +816,7 @@ void fn_2_2FA4(omObjData *object)
 {
     Work2FA4 *temp_r30;
     s32 temp_r29;
-    HsfObject *temp_r28;
+    HSFOBJECT *temp_r28;
     object->data = HuMemDirectMallocNum(HEAP_SYSTEM, sizeof(Work2FA4), MEMORY_DEFAULT_NUM);
     temp_r30 = object->data;
     fn_2_D088(NULL);

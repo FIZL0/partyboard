@@ -115,7 +115,7 @@ typedef s16 HU3DANIMID;
 typedef s16 HU3DTEXSCRID;
 
 typedef struct model_data ModelData;
-typedef struct particle_data ParticleData;
+typedef struct Hu3DParticle_s ParticleData;
 
 typedef void (*ModelHookFunc)(struct model_data *, Mtx);
 
@@ -163,10 +163,10 @@ struct model_data {
     float unk_A4[4];
     float unk_B4[4];
     union {
-        HsfData *hsfData;
+        HSFDATA *hsfData;
         ModelHookFunc hook;
     };
-    HsfData *unk_C8;
+    HSFDATA *unk_C8;
     Vec pos;
     Vec rot;
     Vec scale;
@@ -258,7 +258,7 @@ void Hu3DModelClusterAttrSet(s16, s16, s32);
 void Hu3DModelClusterAttrReset(s16, s16, s32);
 void Hu3DModelCameraSet(s16, u16);
 void Hu3DModelLayerSet(s16, s16);
-HsfObject *Hu3DModelObjPtrGet(s16, char *);
+HSFOBJECT *Hu3DModelObjPtrGet(s16, char *);
 void Hu3DModelTPLvlSet(s16, float);
 void Hu3DModelHiliteMapSet(s16, AnimData *);
 void Hu3DModelShadowSet(s16);

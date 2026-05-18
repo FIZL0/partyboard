@@ -328,7 +328,7 @@ void fn_1_D54(ModelData *arg0, ParticleData *arg1, Mtx arg2, s32 arg3)
     float var_f28;
     double var_f27;
 
-    HsfanimStruct01 *var_r31;
+    HU3DPARTICLEDATA *var_r31;
     UnkM414BssF0Struct *var_r30;
     s16 var_r28;
     s16 var_r27;
@@ -336,13 +336,13 @@ void fn_1_D54(ModelData *arg0, ParticleData *arg1, Mtx arg2, s32 arg3)
     s32 var_r25;
 
     if (arg1->unk_34 == 0) {
-        var_r31 = arg1->unk_48;
+        var_r31 = arg1->data;
 
         for (var_r28 = 0; var_r28 < arg1->unk_30; var_r28++, var_r31++) {
             var_r31->unk14.x = var_r31->unk2C = 0.0f;
         }
     }
-    var_r31 = arg1->unk_48;
+    var_r31 = arg1->data;
     var_r30 = &lbl_1_bss_F0[arg3];
     if (var_r30->unk_54 == 1) {
         for (var_r27 = 0; var_r27 < 2; var_r27++) {
@@ -374,7 +374,7 @@ void fn_1_D54(ModelData *arg0, ParticleData *arg1, Mtx arg2, s32 arg3)
         }
         var_r30->unk_54++;
     }
-    var_r31 = arg1->unk_48;
+    var_r31 = arg1->data;
     for (var_r28 = 0; var_r28 < arg1->unk_30; var_r28++, var_r31++) {
         if (0.0f != var_r31->unk14.x) {
             VECAdd(&var_r31->unk08, &var_r31->unk34, &var_r31->unk34);
@@ -418,18 +418,18 @@ void fn_1_143C(ModelData *arg0, ParticleData *arg1, Mtx arg2)
 
 void fn_1_1478(ModelData *arg0, ParticleData *arg1, Mtx arg2, s32 arg3)
 {
-    HsfanimStruct01 *var_r31;
+    HU3DPARTICLEDATA *var_r31;
     s16 var_r30;
     UnkM414BssF0Struct *var_r29;
     s32 var_r28;
 
     if (arg1->unk_34 == 0) {
-        var_r31 = arg1->unk_48;
+        var_r31 = arg1->data;
         for (var_r30 = 0; var_r30 < arg1->unk_30; var_r30++, var_r31++) {
             var_r31->unk14.x = var_r31->unk2C = 0.0f;
         }
     }
-    var_r31 = arg1->unk_48;
+    var_r31 = arg1->data;
     var_r29 = &lbl_1_bss_F0[arg3];
     if (var_r29->unk_54 == 2) {
         for (var_r30 = 0; var_r30 < arg1->unk_30; var_r30++, var_r31++) {
@@ -450,7 +450,7 @@ void fn_1_1478(ModelData *arg0, ParticleData *arg1, Mtx arg2, s32 arg3)
         }
         var_r29->unk_54++;
     }
-    var_r31 = arg1->unk_48;
+    var_r31 = arg1->data;
     for (var_r30 = 0; var_r30 < arg1->unk_30; var_r30++, var_r31++) {
         if (0.0f != var_r31->unk14.x) {
             if (var_r31->unk14.x > 25.0f) {
@@ -496,19 +496,19 @@ void fn_1_177C(ModelData *arg1, ParticleData *arg2, Mtx arg3, s32 arg4)
     float var_f31;
     float var_f30;
 
-    HsfanimStruct01 *var_r31;
+    HU3DPARTICLEDATA *var_r31;
     UnkM414BssF0Struct *var_r29;
     s16 var_r28;
     s16 var_r27;
     s32 var_r26;
 
     if (arg2->unk_34 == 0) {
-        var_r31 = arg2->unk_48;
+        var_r31 = arg2->data;
         for (var_r28 = 0; var_r28 < arg2->unk_30; var_r28++, var_r31++) {
             var_r31->unk14.x = var_r31->unk2C = 0.0f;
         }
     }
-    var_r31 = arg2->unk_48;
+    var_r31 = arg2->data;
     var_r29 = &lbl_1_bss_F0[arg4];
     if (var_r29->unk_54 == 3) {
         for (var_r27 = 0, var_f30 = 0.0f; var_r27 < 8; var_r27++, var_f30 += 45.0f) {
@@ -534,7 +534,7 @@ void fn_1_177C(ModelData *arg1, ParticleData *arg2, Mtx arg3, s32 arg4)
         }
         var_r29->unk_54++;
     }
-    var_r31 = arg2->unk_48;
+    var_r31 = arg2->data;
     for (var_r28 = 0; var_r28 < arg2->unk_30; var_r28++, var_r31++) {
         if (0.0f != var_r31->unk14.x) {
             var_r26 = var_r31->unk40.a - 8;

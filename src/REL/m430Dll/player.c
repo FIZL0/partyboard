@@ -362,8 +362,8 @@ void fn_1_C1E4(omObjData *object)
     s32 var_r29;
     M430PlayerBss174Struct *var_r28;
     u32 var_r27;
-    HsfData *var_r26;
-    HsfMaterial *var_r25;
+    HSFDATA *var_r26;
+    HSFMATERIAL *var_r25;
     ModelData *var_r24;
     s32 var_r23;
 
@@ -513,7 +513,7 @@ void fn_1_C1E4(omObjData *object)
     if (work->unk_0C != 0) {
         var_r24 = &Hu3DData[object->model[1]];
         var_r26 = var_r24->hsfData;
-        for (var_r25 = var_r26->material, var_r29 = 0; var_r29 < var_r26->materialCnt; var_r29++, var_r25++) {
+        for (var_r25 = var_r26->material, var_r29 = 0; var_r29 < var_r26->materialNum; var_r29++, var_r25++) {
             var_r25->flags |= 2;
         }
     }
@@ -531,8 +531,8 @@ void fn_1_CA3C(omObjData *object)
     M430PlayerWork *work;
     s32 var_r29;
     M430PlayerBss174Struct *var_r28;
-    HsfData *var_r27;
-    HsfMaterial *var_r26;
+    HSFDATA *var_r27;
+    HSFMATERIAL *var_r26;
     ModelData *var_r25;
 
     work = object->data;
@@ -627,7 +627,7 @@ void fn_1_CA3C(omObjData *object)
         else {
             var_r25 = &Hu3DData[object->model[1]];
             var_r27 = var_r25->hsfData;
-            for (var_r26 = var_r27->material, var_r29 = 0; var_r29 < var_r27->materialCnt; var_r29++, var_r26++) {
+            for (var_r26 = var_r27->material, var_r29 = 0; var_r29 < var_r27->materialNum; var_r29++, var_r26++) {
                 var_r26->flags &= 0xFFFFFFFD;
             }
             if (work->unk_6C != -1) {
@@ -2022,7 +2022,7 @@ void fn_1_11C1C(void)
 void fn_1_11D70(void)
 {
     M430PlayerBss164Struct *var_r31;
-    HsfanimStruct01 *var_r30;
+    HU3DPARTICLEDATA *var_r30;
     ParticleData *var_r29;
     s32 var_r28;
     s32 var_r27;
@@ -2035,8 +2035,8 @@ void fn_1_11D70(void)
             if (var_r31->unk_10 > 1) {
                 var_r25 = &Hu3DData[var_r31->unk_04];
                 var_r29 = var_r25->unk_120;
-                for (var_r30 = var_r29->unk_48, var_r27 = 0; var_r27 < var_r29->unk_30; var_r27++, var_r30++) {
-                    if (++var_r30->unk00 > var_r30->unk02) {
+                for (var_r30 = var_r29->data, var_r27 = 0; var_r27 < var_r29->unk_30; var_r27++, var_r30++) {
+                    if (++var_r30->time > var_r30->unk02) {
                         var_r24 = var_r30->unk40.a - 9;
                         if (var_r24 < 0) {
                             var_r30->unk2C = 0.0f;
@@ -2081,7 +2081,7 @@ s32 fn_1_11F90(s32 arg0, float arg8, float arg9, float argA)
     float var_f27;
     float var_f26;
     M430PlayerBss164Struct *var_r31;
-    HsfanimStruct01 *var_r30;
+    HU3DPARTICLEDATA *var_r30;
     s32 var_r29;
     ParticleData *var_r28;
     ModelData *var_r27;
@@ -2107,7 +2107,7 @@ s32 fn_1_11F90(s32 arg0, float arg8, float arg9, float argA)
     var_r27 = &Hu3DData[var_r31->unk_04];
     var_r28 = var_r27->unk_120;
     var_r28->unk_2C = 1;
-    for (var_r30 = var_r28->unk_48, var_r29 = 0; var_r29 < var_r28->unk_30; var_r29++, var_r30++) {
+    for (var_r30 = var_r28->data, var_r29 = 0; var_r29 < var_r28->unk_30; var_r29++, var_r30++) {
         var_f30 = (frand() % 30) + 0x4B;
         var_f29 = frand() % 360;
         var_f27 = sind(var_f30);
@@ -2117,7 +2117,7 @@ s32 fn_1_11F90(s32 arg0, float arg8, float arg9, float argA)
         var_r30->unk08.x = var_f31 * (0.6499999761581421 * (50.0 * (var_f28 * sind(var_f29))));
         var_r30->unk08.y = var_f31 * (50.0f * var_f27 * var_f26);
         var_r30->unk08.z = var_f31 * (0.6499999761581421 * (50.0 * (var_f28 * cosd(var_f29))));
-        var_r30->unk00 = 0;
+        var_r30->time = 0;
         var_r30->unk02 = (frand() % 7) + 0xA;
         var_r30->unk2C = 45.0f;
         var_r30->unk34.x = 0.25f * ((frand() & 0x7F) - 0x40);

@@ -191,14 +191,14 @@ void fn_1_8BC(void)
     s32 var_r28;
     s32 var_r26;
     unkStruct2 *temp_r25;
-    HsfTransform *temp_r24;
+    HSFTRANSFORM *temp_r24;
     Process *var_r23;
     s32 temp_r22;
     AnimData *var_r21;
     s16 var_r20;
     s16 var_r19;
     s32 var_r18;
-    HsfObject *var_r17;
+    HSFOBJECT *var_r17;
 
     nMap = 0;
     HuAudSndGrpSet(0x25);
@@ -375,7 +375,7 @@ void fn_1_8BC(void)
             OSReport("objname %s\n", lbl_1_data_298[var_r28]);
             OSPanic("m412.c", 0x258, "ObjPtr");
         }
-        temp_r24 = &var_r17->data.base;
+        temp_r24 = &var_r17->mesh.base;
         lbl_1_bss_13C[var_r28].x = temp_r24->pos.x;
         lbl_1_bss_13C[var_r28].y = temp_r24->pos.y;
         lbl_1_bss_13C[var_r28].z = temp_r24->pos.z;
@@ -509,8 +509,8 @@ void fn_1_1D88(void)
 void fn_1_1DBC(void)
 {
     Vec sp8;
-    HsfObject *var_r27;
-    HsfTransform *temp_r31;
+    HSFOBJECT *var_r27;
+    HSFTRANSFORM *temp_r31;
     unkStruct4 *temp_r30;
     Vec *temp_r29;
     s32 var_r28;
@@ -524,7 +524,7 @@ void fn_1_1DBC(void)
         OSReport("objname %s\n", lbl_1_data_298[temp_r30->unk4]);
         OSPanic("m412.c", 0x32E, "ObjPtr");
     }
-    temp_r31 = &var_r27->data.base;
+    temp_r31 = &var_r27->mesh.base;
     temp_r29 = &lbl_1_bss_13C[temp_r30->unk4];
     temp_r31->pos.x = temp_r29->x;
     temp_r31->pos.y = temp_r29->y;
@@ -1768,7 +1768,7 @@ loop_6:
 
 void fn_1_A01C(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
 {
-    HsfanimStruct01 *var_r31;
+    HU3DPARTICLEDATA *var_r31;
     f32 var_f29;
     f32 var_f28;
     f32 var_f30;
@@ -1781,12 +1781,12 @@ void fn_1_A01C(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
     unkStruct *temp_r30;
 
     if (particle->unk_34 == 0) {
-        var_r31 = particle->unk_48;
+        var_r31 = particle->data;
         for (var_r28 = 0; var_r28 < particle->unk_30; var_r28++, var_r31++) {
             var_r31->unk14.x = var_r31->unk2C = 0.0f;
         }
     }
-    var_r31 = particle->unk_48;
+    var_r31 = particle->data;
 
     for (var_r26 = 0; var_r26 < 0x20; var_r26++) {
         temp_r30 = lbl_1_bss_278[var_r26];
@@ -1829,7 +1829,7 @@ void fn_1_A01C(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
             temp_r30->unkA++;
         }
     }
-    var_r31 = particle->unk_48;
+    var_r31 = particle->data;
     for (var_r28 = 0; var_r28 < particle->unk_30; var_r28++, var_r31++) {
         if (var_r31->unk14.x != 0.0f) {
             VECAdd(&var_r31->unk08, &var_r31->unk34, &var_r31->unk34);
@@ -1856,7 +1856,7 @@ void fn_1_A01C(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
 
 void fn_1_A618(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
 {
-    HsfanimStruct01 *var_r31;
+    HU3DPARTICLEDATA *var_r31;
     f32 var_f31;
     f32 var_f30;
     f32 var_f29;
@@ -1868,13 +1868,13 @@ void fn_1_A618(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
     unkStruct *temp_r28;
 
     if (particle->unk_34 == 0) {
-        var_r31 = particle->unk_48;
+        var_r31 = particle->data;
 
         for (var_r29 = 0; var_r29 < particle->unk_30; var_r29++, var_r31++) {
             var_r31->unk14.x = var_r31->unk2C = 0.0f;
         }
     }
-    var_r31 = particle->unk_48;
+    var_r31 = particle->data;
 
     for (var_r26 = 0; var_r26 < 0x20; var_r26++) {
         temp_r28 = lbl_1_bss_278[var_r26];
@@ -1910,7 +1910,7 @@ void fn_1_A618(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
             temp_r28->unkA = 0;
         }
     }
-    var_r31 = particle->unk_48;
+    var_r31 = particle->data;
     for (var_r29 = 0; var_r29 < particle->unk_30; var_r29++, var_r31++) {
         if (0.0f != var_r31->unk14.x) {
             VECAdd(&var_r31->unk08, &var_r31->unk34, &var_r31->unk34);
@@ -1937,20 +1937,20 @@ void fn_1_A618(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
 
 void fn_1_AA88(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
 {
-    HsfanimStruct01 *var_r31;
+    HU3DPARTICLEDATA *var_r31;
     f32 var_f31;
     s16 var_r27;
     s16 var_r28;
     unkStruct2 *temp_r29;
 
     if (particle->unk_34 == 0) {
-        var_r31 = particle->unk_48;
+        var_r31 = particle->data;
 
         for (var_r28 = 0; var_r28 < particle->unk_30; var_r28++, var_r31++) {
             var_r31->unk14.x = var_r31->unk2C = 0.0f;
         }
     }
-    var_r31 = particle->unk_48;
+    var_r31 = particle->data;
 
     for (var_r27 = 0; var_r27 < 6; var_r27++) {
         temp_r29 = &lbl_1_bss_33C[var_r27];
@@ -1972,7 +1972,7 @@ void fn_1_AA88(ModelData *model, ParticleData *particle, f32 (*matrix)[4])
         var_r31->unk14.z = 17.0f;
         temp_r29->unk20 = 0;
     }
-    var_r31 = particle->unk_48;
+    var_r31 = particle->data;
 
     for (var_r28 = 0; var_r28 < particle->unk_30; var_r28++, var_r31++) {
         if (0.0f != var_r31->unk14.x) {

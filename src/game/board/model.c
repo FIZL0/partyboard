@@ -28,8 +28,8 @@ typedef struct board_model {
     s16 id;
     s16 mot_id[BOARD_MOT_MAX];
     s16 curr_mot;
-    HsfData *data;
-    HsfData *mot_data[BOARD_MOT_MAX];
+    HSFDATA *data;
+    HSFDATA *mot_data[BOARD_MOT_MAX];
     float unk_D4;
     s32 data_num;
     float mot_start;
@@ -740,7 +740,7 @@ float BoardModelMotionShapeMaxTimeGet(s16 model)
     else {
         ModelData *hsf_model;
         MotionData *motion;
-        HsfMotion *motion_hsf;
+        HSFMOTION *motion_hsf;
         if (model_ptr->character != -1) {
             return -1;
         }
@@ -750,7 +750,7 @@ float BoardModelMotionShapeMaxTimeGet(s16 model)
         }
         motion = &Hu3DMotion[hsf_model->unk_0E];
         motion_hsf = motion->hsfData->motion;
-        return motion_hsf->len;
+        return motion_hsf->maxTime;
     }
 }
 
