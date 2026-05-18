@@ -1790,7 +1790,11 @@ void fn_1_7578(s16 layer)
     }
     else {
         MTXCopy(lbl_1_bss_44[Hu3DCameraNo - 1], Hu3DShadowData.lookAtMtx);
+#ifdef TARGET_PC
+        Hu3DShadowData.buf = lbl_1_bss_11C[Hu3DCameraNo - 1];
+#else
         memcpy(Hu3DShadowData.buf, lbl_1_bss_11C[Hu3DCameraNo - 1], dataSize);
+#endif
         DCFlushRangeNoSync(Hu3DShadowData.buf, dataSize);
     }
 }
