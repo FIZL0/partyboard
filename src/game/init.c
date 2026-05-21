@@ -9,7 +9,9 @@
 #include "game/memory.h"
 #include "game/sreset.h"
 
+#ifdef __MWERKS__
 #include "dolphin/demo/DEMOStats.h"
+#endif
 
 #ifdef TARGET_PC
 #include <port/ui.h>
