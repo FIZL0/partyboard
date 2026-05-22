@@ -20,6 +20,8 @@
 
 #include "data_num/title.h"
 
+#include <string.h>
+
 s32 flagFileTbl[] = {
     TITLE_FLAG_EN_ANM,
     TITLE_FLAG_ES_ANM,

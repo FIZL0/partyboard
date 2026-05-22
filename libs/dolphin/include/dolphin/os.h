@@ -146,12 +146,12 @@ void OSSetSoundMode(u32 mode);
 u32 OSGetProgressiveMode(void);
 void OSSetProgressiveMode(u32 on);
 
-#define OS_LANG_ENGLISH 0u
-#define OS_LANG_GERMAN 1u
-#define OS_LANG_FRENCH 2u
-#define OS_LANG_SPANISH 3u
-#define OS_LANG_ITALIAN 4u
-#define OS_LANG_DUTCH 5u
+#define OS_LANGUAGE_ENGLISH 0u
+#define OS_LANGUAGE_GERMAN 1u
+#define OS_LANGUAGE_FRENCH 2u
+#define OS_LANGUAGE_SPANISH 3u
+#define OS_LANGUAGE_ITALIAN 4u
+#define OS_LANGUAGE_DUTCH 5u
 
 u8 OSGetLanguage(void);
 void OSSetLanguage(u8 language);
