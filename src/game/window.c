@@ -19,6 +19,7 @@
 
 #ifdef TARGET_PC
 #include <assert.h>
+#include "port/port_version.h"
 #endif
 
 typedef struct {
@@ -65,7 +66,7 @@ SHARED_SYM void *messDataPtr;
 static s32 messDataNo;
 static s16 winMaxWidth;
 static s16 winMaxHeight;
-#if VERSION_NTSC
+#if VERSION_NTSC && !defined(TARGET_PC)
 static u8 mesWInsert[8];
 #else
 static u16 mesWInsert[8];
@@ -89,7 +90,7 @@ static spcFontTblData spcFontTbl[] = { { &iconAnim, 0, 20, 24, 10, 12 }, { &icon
     { &iconAnim, 15, 20, 24, 10, 12 }, { &iconAnim, 16, 20, 24, 10, 12 }, { &iconAnim, 17, 20, 24, 10, 12 }, { &iconAnim, 18, 20, 24, 10, 12 },
     { &iconAnim, 19, 24, 24, 12, 12 }, { &cursorAnim, 0, 40, 32, -15, 18 }, { &cardAnimA, 0, 32, 32, 16, 16 }, { &cardAnimB, 0, 32, 32, 16, 16 } };
 
-#if VERSION_ENG
+#if VERSION_ENG && !defined(TARGET_PC)
 u8 charWETbl[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 18, 20, 12, 12, 11, 14, 8, 13, 12, 12, 12, 12, 12, 12, 12, 9, 11, 12, 11, 15, 12, 13, 12,
     13, 12, 12, 11, 12, 11, 15, 12, 13, 11, 12, 6, 8, 8, 12, 20, 12, 11, 12, 11, 11, 9, 12, 11, 4, 8, 11, 4, 14, 11, 12, 11, 12, 9, 11, 9, 11, 11, 15,
@@ -136,7 +137,7 @@ static u8 ATTRIBUTE_ALIGN(32) charColPal[2 * 3 * 10] = { 0x00, 0x00, 0x00, 0x00,
 
 static s32 frameFileTbl[] = { WIN_FRAME1_ANM, WIN_FRAME2_ANM, WIN_FRAME3_ANM, WIN_FRAME1_ANM };
 
-#if VERSION_NTSC
+#if VERSION_NTSC && !defined(TARGET_PC)
 static char *mesDataTbl[] = { "mess/mini.dat", "mess/board.dat", "mess/mini_e.dat", "mess/board_e.dat" };
 #else
 static char *mesDataTbl[] = { "mess/mini.dat", "mess/board.dat", "mess/mini_e.dat", "mess/board_e.dat", "mess/mini_g.dat", "mess/board_g.dat",
@@ -799,6 +800,34 @@ static void HuWinDrawMes(s16 window)
             }
             c = window_ptr->mess[0];
             window_ptr->attr |= 0x200;
+#ifdef TARGET_PC
+            if (partyboard_version_is_ntsc()) {
+                if (window_ptr->mess[1] == 128) {
+                    if (c >= 150 && c <= 164) {
+                        c = c + 106;
+                    }
+                    else if (c >= 170 && c <= 174) {
+                        c = c + 101;
+                    }
+                    else if (c >= 214 && c <= 228) {
+                        c = c + 67;
+                    }
+                    else if (c >= 234 && c <= 238) {
+                        c = c + 62;
+                    }
+                    window_ptr->mess++;
+                }
+                else if (window_ptr->mess[1] == 129) {
+                    if (c >= 170 && c <= 174) {
+                        c = c + 106;
+                    }
+                    else if (c >= 234 && c <= 238) {
+                        c = c + 67;
+                    }
+                    window_ptr->mess++;
+                }
+            }
+#else
 #if VERSION_NTSC
             if (window_ptr->mess[1] == 128) {
                 if (c >= 150 && c <= 164) {
@@ -824,6 +853,7 @@ static void HuWinDrawMes(s16 window)
                 }
                 window_ptr->mess++;
             }
+#endif
 #endif
             color = (window_ptr->attr & 0x20) ? 8 : window_ptr->mess_color;
             if (window_ptr->attr & 1) {
@@ -1307,6 +1337,18 @@ void HuWinMesRead(s32 mess_data_no)
         HuMemDirectFree(messDataPtr);
     }
     messDataNo = mess_data_no;
+#ifdef TARGET_PC
+    if (partyboard_version_is_ntsc()) {
+        if (LanguageNo == 0) {
+            mess_path = mesDataTbl[messDataNo];
+        }
+        else {
+            mess_path = mesDataTbl[messDataNo + 2];
+        }
+    } else {
+        mess_path = mesDataTbl[messDataNo + (LanguageNo * 2)];
+    }
+#else
 #if VERSION_NTSC
     if (LanguageNo == 0) {
         mess_path = mesDataTbl[messDataNo];
@@ -1316,6 +1358,7 @@ void HuWinMesRead(s32 mess_data_no)
     }
 #else
     mess_path = mesDataTbl[messDataNo + (LanguageNo * 2)];
+#endif
 #endif
     dvd_mess = HuDvdDataRead(mess_path);
     messDataPtr = HuMemDirectMalloc(HEAP_SYSTEM, DirDataSize);
@@ -1806,6 +1849,14 @@ static void GetMesMaxSizeSub(u32 mess)
                 char_w = mesWInsert[*mess_data - 1];
                 break;
         }
+#ifdef TARGET_PC
+        if ((*mess_data != 255 && *mess_data >= 32) || *mess_data == 16) {
+            cr_flag = 1;
+        }
+        if (partyboard_version_is_pal() && mess_data[-1] == 31) {
+            cr_flag = 1;
+        }
+#else
 #if VERSION_NTSC
         if ((*mess_data != 255 && *mess_data >= 32) || *mess_data == 16) {
             cr_flag = 1;
@@ -1814,6 +1865,7 @@ static void GetMesMaxSizeSub(u32 mess)
         if ((*mess_data != 255 && *mess_data >= 32) || *mess_data == 16 || mess_data[-1] == 31) {
             cr_flag = 1;
         }
+#endif
 #endif
         line_w += char_w;
         line_h += char_h;
@@ -1908,6 +1960,14 @@ static void GetMesMaxSizeSubPtr(uintptr_t mess)
                 char_w = mesWInsert[*mess_data - 1];
                 break;
         }
+#ifdef TARGET_PC
+        if ((*mess_data != 255 && *mess_data >= 32) || *mess_data == 16) {
+            cr_flag = 1;
+        }
+        if (partyboard_version_is_pal() && mess_data[-1] == 31) {
+            cr_flag = 1;
+        }
+#else
 #if VERSION_NTSC
         if ((*mess_data != 255 && *mess_data >= 32) || *mess_data == 16) {
             cr_flag = 1;
@@ -1916,6 +1976,7 @@ static void GetMesMaxSizeSubPtr(uintptr_t mess)
         if ((*mess_data != 255 && *mess_data >= 32) || *mess_data == 16 || mess_data[-1] == 31) {
             cr_flag = 1;
         }
+#endif
 #endif
         line_w += char_w;
         line_h += char_h;

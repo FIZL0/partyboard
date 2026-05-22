@@ -543,3 +543,8 @@ s32 HuTHPTotalFrameGet(void)
 void HuTHPSetVolume(s32 left, s32 right)
 {
 }
+
+f32 GXGetYScaleFactor(u16 efbHeight, u16 xfbHeight)
+{
+    return 1.0f;
+}

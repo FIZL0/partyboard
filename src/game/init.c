@@ -89,13 +89,7 @@ void HuSysInit(GXRenderModeObj *mode)
     minimumVcount = minimumVcountf = 1.0f;
     worstVcount = 0;
     OSInitFastCast();
-#if TARGET_PC
-    if (!ui_is_prelaunch_open()) {
-        HuCardInit();
-    }
-#else
     HuCardInit();
-#endif
 }
 
 static void InitRenderMode(GXRenderModeObj *mode)

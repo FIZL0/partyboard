@@ -22,9 +22,11 @@
 #include <port/dolassets.h>
 #include <port/main.h>
 #include <port/settings.h>
+#include <port/port_version.h>
 
 #include <aurora/dvd.h>
 #include <aurora/lib/logging.hpp>
+#include <game/card.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -39,6 +41,23 @@ AuroraInfo auroraInfo;
 std::filesystem::path PartyBoard_ConfigPath;
 
 aurora::Module PartyBoardMainLog("partyboard::main");
+
+static u8 selectedLanguage;
+
+u8 OSGetLanguage() {
+    return selectedLanguage;
+}
+
+static void LanguageInit() {
+    // Keep language at 0 (English) if not on a PAL disc.
+    // Doubt this matters, but avoid funky shit.
+    if (!partyboard::version::isRegionPal()) {
+        return;
+    }
+
+    // Cache this to avoid funky shenanigans.
+    selectedLanguage = static_cast<u8>(partyboard::getSettings().game.language.getValue());
+}
 
 bool launchUILoop() {
     while (PartyBoard_IsRunning && !PartyBoard_IsGameLaunched) {
@@ -501,8 +520,8 @@ extern "C" int port_main(int argc, char* argv[]) {
         partyboard::ui::push_document(std::make_unique<partyboard::ui::PresetWindow>());
     }
 
-    // partyboard::version::init();
-    // LanguageInit();
+    partyboard::version::init();
+    LanguageInit();
 
     // OSInit();
 
