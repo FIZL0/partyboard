@@ -93,6 +93,7 @@ set(PORT_FILES
         src/port/portmain.cpp
         src/port/settings.cpp
         src/port/stubs.c
+        src/port/version.cpp
 
         src/port/ui/achievements.cpp
         src/port/ui/achievements.hpp

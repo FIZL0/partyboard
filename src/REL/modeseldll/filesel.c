@@ -21,6 +21,10 @@ s32 msmSysGetOutputMode(void);
 #include "game/hsfex.h"
 #endif
 
+#ifdef TARGET_PC
+#include "port/port_version.h"
+#endif
+
 s16 lbl_1_data_100 = -1;
 float lbl_1_data_104[] = { -55, 0, 0, 0, 60, -57, 806, -71, 0, 0, 0, 100, -131, 900, -87, 0, 0, 0, 46, -117, 566, -87, 0, 0, 0, 46, -117, 566, -90, 0,
     0, -22, 39, -153, 432, -40, 0, 0, 0, 130, -186, 6530, -23, 0, 0, -9, 1, -70, 1318, -25, 0, 0, 0, 242, 90, 343, -30, 0, 0, 0, 223, -60, 505, -23,
@@ -129,9 +133,15 @@ s32 fn_1_37DC(void)
         }
         if (!SLSaveFlagGet()) {
             GWGameStatReset();
+#ifdef TARGET_PC
+            if (partyboard_version_is_pal()) {
+                _ClearFlag(0x1000B);
+            }
+#else
             #if VERSION_PAL
             _ClearFlag(0x1000B);
             #endif
+#endif
             GWGameStat.sound_mode = msmSysGetOutputMode();
             result = 1;
             break;
@@ -438,11 +448,19 @@ loop_exit:
             temp_r29 = 0;
             if (temp_r28 == -2) {
                 HU_WIN_INSERT_MES_SET_PTR(lbl_1_bss_148, MAKE_MESSID_PTR(lbl_1_data_278[temp_r31]), 0);
+#ifdef TARGET_PC
+                if (partyboard_version_is_ntsc()) {
+                    HuWinMesSet(lbl_1_bss_148, MAKE_MESSID(16, 0x39));
+                } else {
+                    HuWinMesSet(lbl_1_bss_148, MAKE_MESSID(16, 0x37));
+                }
+#else
                 #if VERSION_PAL
                 HuWinMesSet(lbl_1_bss_148, MAKE_MESSID(16, 0x39));
                 #else
                 HuWinMesSet(lbl_1_bss_148, MAKE_MESSID(16, 0x37));
                 #endif
+#endif
                 HuWinMesWait(lbl_1_bss_148);
                 temp_r29 = 1;
             }
@@ -984,9 +1002,15 @@ s32 fn_1_61B4(void)
                     sp8 = OSGetTime();
                     SLSaveDataMake(1, &sp8);
                     GWGameStatReset();
+#ifdef TARGET_PC
+                    if (partyboard_version_is_pal()) {
+                        _ClearFlag(0x1000B);
+                    }
+#else
                     #if VERSION_PAL
                     _ClearFlag(0x1000B);
                     #endif
+#endif
                     GWGameStat.sound_mode = msmSysGetOutputMode();
                     SLCommonSet();
                     fn_1_B8CC(MAKE_MESSID(16, 0x3C));
@@ -1028,6 +1052,14 @@ s32 fn_1_61B4(void)
                             if (SLCheckSumCheck()) {
                                 fn_1_9E14();
                                 SLLoadGameStat();
+#ifdef TARGET_PC
+                                if (partyboard_version_is_pal()) {
+                                    if(GwLanguageSave != -1) {
+                                        GWGameStat.language = GwLanguageSave;
+                                    }
+                                    GwLanguage = GWGameStat.language;
+                                }
+#else
                                 #if VERSION_PAL
                                 if(GwLanguageSave != -1) {
                                     GWGameStat.language = GwLanguageSave;
@@ -1035,6 +1067,7 @@ s32 fn_1_61B4(void)
                                 GwLanguage = GWGameStat.language;
                                 _ClearFlag(0x1000B);
                                 #endif
+#endif
                                 temp_r31 = 1;
                                 break;
                             }
@@ -1196,11 +1229,19 @@ s32 fn_1_76B4(char *name, s16 slotno)
         }
         if (result == -2) {
             HU_WIN_INSERT_MES_SET_PTR(lbl_1_bss_148, MAKE_MESSID_PTR(lbl_1_data_278[slotno]), 0);
+#ifdef TARGET_PC
+            if (partyboard_version_is_pal()) {
+                HuWinMesSet(lbl_1_bss_148, MAKE_MESSID(16, 0x39));
+            } else {
+                HuWinMesSet(lbl_1_bss_148, MAKE_MESSID(16, 0x37));
+            }
+#else
             #if VERSION_PAL
             HuWinMesSet(lbl_1_bss_148, MAKE_MESSID(16, 0x39));
             #else
             HuWinMesSet(lbl_1_bss_148, MAKE_MESSID(16, 0x37));
             #endif
+#endif
             HuWinMesWait(lbl_1_bss_148);
             return result;
         }
@@ -2030,6 +2071,27 @@ void fn_1_AAB8(void)
                 HuSprGrpPosSet(lbl_1_bss_110[temp_r30], sp14.x, sp14.y);
                 HuSprGrpScaleSet(lbl_1_bss_110[temp_r30], temp_f31, temp_f31);
                 OSTicksToCalendarTime(lbl_1_bss_D0[temp_r30], &sp20);
+#ifdef TARGET_PC
+                if (partyboard_version_is_pal()) {
+                    temp_r29 = sp20.mday;
+                    HuSprBankSet(lbl_1_bss_110[temp_r30], 0, temp_r29 / 10);
+                    temp_r29 -= (temp_r29 / 10) * 10;
+                    HuSprBankSet(lbl_1_bss_110[temp_r30], 1, temp_r29);
+                    temp_r29 = sp20.mon+1;
+                    HuSprBankSet(lbl_1_bss_110[temp_r30], 3, temp_r29 / 10);
+                    temp_r29 -= (temp_r29 / 10) * 10;
+                    HuSprBankSet(lbl_1_bss_110[temp_r30], 4, temp_r29);
+                } else {
+                    temp_r29 = sp20.mon + 1;
+                    HuSprBankSet(lbl_1_bss_110[temp_r30], 0, temp_r29 / 10);
+                    temp_r29 -= (temp_r29 / 10) * 10;
+                    HuSprBankSet(lbl_1_bss_110[temp_r30], 1, temp_r29);
+                    temp_r29 = sp20.mday;
+                    HuSprBankSet(lbl_1_bss_110[temp_r30], 3, temp_r29 / 10);
+                    temp_r29 -= (temp_r29 / 10) * 10;
+                    HuSprBankSet(lbl_1_bss_110[temp_r30], 4, temp_r29);
+                }
+#else
                 #if VERSION_PAL
                 temp_r29 = sp20.mday;
                 HuSprBankSet(lbl_1_bss_110[temp_r30], 0, temp_r29 / 10);
@@ -2049,6 +2111,7 @@ void fn_1_AAB8(void)
                 temp_r29 -= (temp_r29 / 10) * 10;
                 HuSprBankSet(lbl_1_bss_110[temp_r30], 4, temp_r29);
                 #endif
+#endif
                 temp_r29 = sp20.hour;
                 HuSprBankSet(lbl_1_bss_110[temp_r30], 6, temp_r29 / 10);
                 temp_r29 -= (temp_r29 / 10) * 10;

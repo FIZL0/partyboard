@@ -9,10 +9,11 @@
 #include "game/memory.h"
 #include "game/sreset.h"
 
-
-#ifndef TARGET_PC
+#ifdef __MWERKS__
 #include "dolphin/demo/DEMOStats.h"
-#else
+#endif
+
+#ifdef TARGET_PC
 #include <port/ui.h>
 #endif
 
@@ -88,13 +89,7 @@ void HuSysInit(GXRenderModeObj *mode)
     minimumVcount = minimumVcountf = 1.0f;
     worstVcount = 0;
     OSInitFastCast();
-#if TARGET_PC
-    if (!ui_is_prelaunch_open()) {
-        HuCardInit();
-    }
-#else
     HuCardInit();
-#endif
 }
 
 static void InitRenderMode(GXRenderModeObj *mode)
