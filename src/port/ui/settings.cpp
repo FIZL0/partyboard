@@ -642,6 +642,8 @@ SettingsWindow::SettingsWindow(bool prelaunch)
 
         // leftPane.add_section("Resources");
         // addCheat("Infinite Hearts", getSettings().game.infiniteHearts, "Keeps your health full.");
+
+        // leftPane.add_section("Abilities");
     });
 
     add_tab("Interface", [this](Rml::Element *content) {
