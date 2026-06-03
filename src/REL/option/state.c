@@ -1,5 +1,5 @@
 #include "REL/option.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/window.h"
 #include "game/wipe.h"
@@ -42,7 +42,7 @@ static UnkShadowDataStruct shadowPosTbl = {
 
 omObjData *OptionStateCreate(void)
 {
-    LightData *lightData;
+    HU3DLIGHT *lightData;
 
     omObjData *object = omAddObjEx(optionObjMan, 1000, 0, 0, 4, ExecState);
     StateWork *work = HuMemDirectMallocNum(HEAP_SYSTEM, sizeof(StateWork), MEMORY_DEFAULT_NUM);

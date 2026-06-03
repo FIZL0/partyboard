@@ -82,7 +82,7 @@ struct unk_72B4_data_18;
 struct work_72B4;
 
 typedef void (*unkHook72B4Data18)(struct unk_72B4_data_18 *);
-typedef void (*unkHook72B4)(ModelData *, struct work_72B4 *, Mtx);
+typedef void (*unkHook72B4)(HU3DMODEL *, struct work_72B4 *, Mtx);
 
 typedef struct unk_72B4_data_18 {
     Vec unk0;
@@ -105,7 +105,7 @@ typedef struct work_72B4 {
     u32 unk4;
     u8 unk8;
     unkHook72B4 unkC;
-    AnimData *unk10;
+    ANIMDATA *unk10;
     s16 unk14;
     Unk72B4Data18 *unk18;
     Vec *unk1C;

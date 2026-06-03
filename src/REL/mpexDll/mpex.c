@@ -4,8 +4,7 @@
 #include "game/esprite.h"
 #include "game/gamework.h"
 #include "game/gamework_data.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
 #include "game/objsub.h"
@@ -1895,7 +1894,7 @@ void fn_1_B004(void)
     s32 var_r31;
     s32 var_r30;
     s32 var_r29;
-    AnimData *var_r28;
+    ANIMDATA *var_r28;
 
     var_r29 = HuSprGrpCreate(0x1B);
     lbl_1_bss_10C = var_r29;
@@ -2080,15 +2079,15 @@ void fn_1_BB34(s32 arg0, s32 arg1)
 {
     float sp10[2];
     s32 var_r31;
-    HuSprGrp *var_r30;
-    HuSprite *var_r29;
+    HUSPRGRP *var_r30;
+    HUSPRITE *var_r29;
 
     var_r30 = &HuSprGrpData[winData[arg0].group];
     HuWinMesMaxSizeGet(1, sp10, arg1);
     for (var_r31 = 0; var_r31 < var_r30->capacity; var_r31++) {
         var_r29 = &HuSprData[var_r30->members[var_r31]];
-        var_r29->x -= sp10[0] / 2;
-        var_r29->y -= 30.0f;
+        var_r29->pos.x -= sp10[0] / 2;
+        var_r29->pos.y -= 30.0f;
     }
 }
 
@@ -2197,7 +2196,7 @@ void fn_1_C544(void)
     s32 var_r31;
     s32 var_r30;
     s32 var_r29;
-    AnimData *var_r28;
+    ANIMDATA *var_r28;
 
     var_r29 = HuSprGrpCreate(0x25);
     lbl_1_data_324 = var_r29;

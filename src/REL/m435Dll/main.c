@@ -5,10 +5,8 @@
 #include "game/esprite.h"
 #include "game/gamework.h"
 #include "game/gamework_data.h"
-#include "game/hsfdraw.h"
 #include "game/hsfex.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/objsub.h"
 #include "game/pad.h"
@@ -1021,7 +1019,7 @@ float lbl_1_data_2C4 = 270.0f;
 void fn_1_3B14(omObjData* arg0) {
     Vec sp14;
     Vec sp8;
-    ModelData* temp_r30;
+    HU3DMODEL* temp_r30;
     StructBssC30* var_r29;
     s32 var_r28;
 
@@ -1143,8 +1141,8 @@ void fn_1_4130(omObjData* arg0) {
     Vec spC;
     StructBss4EE8* sp8;
     StructBssC30* var_r31;
-    ModelData* temp_r28;
-    ModelData* temp_r29;
+    HU3DMODEL* temp_r28;
+    HU3DMODEL* temp_r29;
     s32 temp_r26;
     s32 i;
 
@@ -2082,7 +2080,7 @@ void fn_1_984C(omObjData* arg0) {
     char** temp_r27;
     s32 var_r23;
     s32 i, j;
-    ModelData* temp_r25;
+    HU3DMODEL* temp_r25;
     HSFATTRIBUTE* temp_r24;
 
     temp_r30 = &lbl_1_bss_E88[arg0->work[0]];
@@ -2091,10 +2089,10 @@ void fn_1_984C(omObjData* arg0) {
     }
     var_r23 = 1;
     temp_r25 = &Hu3DData[arg0->model[0]];
-    temp_r28 = temp_r25->hsfData;
+    temp_r28 = temp_r25->hsf;
     var_r31 = temp_r28->material;
     if (temp_r30->unk34 == 3) {
-        for (i = 0; i < temp_r25->hsfData->materialNum; i++, var_r31++) {
+        for (i = 0; i < temp_r25->hsf->materialNum; i++, var_r31++) {
             if (i == 1 || i == 2) {
                 continue;
             }
@@ -2605,7 +2603,7 @@ void fn_1_BF80(void) {
     StructBssC30* var_r29;
     StructBss2A4* sp8;
     StructBssE08* var_r31;
-    ModelData* temp_r30;
+    HU3DMODEL* temp_r30;
 
     var_r29 = &lbl_1_bss_C30;
     sp8 = &lbl_1_bss_2A4[1];

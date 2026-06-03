@@ -4,9 +4,7 @@
 #include "game/data.h"
 #include "game/gamework.h"
 #include "game/gamework_data.h"
-#include "game/hsfanim.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/msm.h"
 #include "game/objsub.h"
 #include "game/pad.h"
@@ -67,7 +65,7 @@ static s16 lbl_1_bss_134[3];
 static s16 lbl_1_bss_114[4][4];
 static Vec lbl_1_bss_108;
 static Process *lbl_1_bss_104;
-static AnimData *lbl_1_bss_100;
+static ANIMDATA *lbl_1_bss_100;
 
 static char *lbl_1_data_3CC[] = {
     "picture", "picture2", "clock", "hari", "papa"
@@ -1127,7 +1125,7 @@ void fn_1_9EBC(void) {
     BoardEventFlagReset();
 }
 
-static HsfanimStruct00 lbl_1_data_49C = {
+static HU3DPARMANPARAM lbl_1_data_49C = {
     0x001E,
     { 0x00, 0x00 }, // padding?
      3.3f,

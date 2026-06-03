@@ -5,8 +5,7 @@
 #include "game/esprite.h"
 #include "game/gamework.h"
 #include "game/hsfex.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/objsub.h"
 #include "game/pad.h"
@@ -1684,7 +1683,7 @@ M459DllData70Struct lbl_1_data_70 = { { 0.0f, 300.0f, 0.0f }, { 0.0f, -300.0f, -
 
 void fn_1_535C(void)
 {
-    LightData *sp8;
+    HU3DLIGHT *sp8;
     s16 *var_r31;
 
     var_r31 = lbl_1_bss_48;

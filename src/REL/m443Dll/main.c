@@ -4,7 +4,7 @@
 #include "game/disp.h"
 #include "game/flag.h"
 #include "game/gamework.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
@@ -72,7 +72,7 @@ void fn_1_32C0(Process *arg0);
 void fn_1_3370(omObjData *object);
 void fn_1_3710(omObjData *);
 void fn_1_3770(omObjData *object);
-void fn_1_3D78(ModelData *, float[3][4]);
+void fn_1_3D78(HU3DMODEL *, float[3][4]);
 void fn_1_420(omObjData *object);
 void fn_1_584(omObjData *arg0);
 void fn_1_6D0(omObjData *);
@@ -117,7 +117,7 @@ void ObjectSetup(void)
     Vec sp14;
     Vec sp8;
     Process *var_r31;
-    LightData *var_r30;
+    HU3DLIGHT *var_r30;
 
     HuAudSndGrpSet(0x45);
     lbl_1_bss_C = lbl_1_bss_8 = -1;
@@ -925,7 +925,7 @@ void fn_1_3770(omObjData *arg0)
 
 GXColor lbl_1_data_208 = { 0x00, 0x00, 0x00, 0x00 };
 
-void fn_1_3D78(ModelData *arg0, Mtx arg1)
+void fn_1_3D78(HU3DMODEL *arg0, Mtx arg1)
 {
     Mtx spC;
 

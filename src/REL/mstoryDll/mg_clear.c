@@ -3,13 +3,11 @@
 #include "game/data.h"
 #include "game/flag.h"
 #include "game/gamework.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/objsub.h"
 
 #ifndef __MWERKS__
 #include "game/audio.h"
-#include "game/hsfdraw.h"
 #include "game/msm.h"
 #endif
 
@@ -56,7 +54,7 @@ StructBss19C lbl_1_bss_5E0;
 StructBss19C lbl_1_bss_5B8;
 StructBss19C lbl_1_bss_590;
 StructBss19C lbl_1_bss_568;
-AnimData* lbl_1_bss_560[2];
+ANIMDATA* lbl_1_bss_560[2];
 s32 lbl_1_bss_55C;
 Process* lbl_1_bss_558;
 

@@ -1,8 +1,7 @@
 #include <game/audio.h>
 #include "game/disp.h"
 #include "game/gamework_data.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
 #include "game/objsub.h"
@@ -76,7 +75,7 @@ void ObjectSetup(void)
     Vec sp14;
     Vec sp8;
     Process *var_r31;
-    LightData *var_r30;
+    HU3DLIGHT *var_r30;
 
     HuAudSndGrpSet(35);
     lbl_1_bss_4 = lbl_1_bss_0 = -1;

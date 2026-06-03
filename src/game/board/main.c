@@ -14,8 +14,7 @@
 #include "game/disp.h"
 #include "game/flag.h"
 #include "game/gamework_data.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/msm.h"
 #include "game/object.h"
 #include "game/pad.h"
@@ -1546,7 +1545,7 @@ typedef struct filter_work {
 } FilterWork;
 
 static void UpdateFilter(omObjData *object);
-static void DrawFilter(ModelData *model, Mtx matrix);
+static void DrawFilter(HU3DMODEL *model, Mtx matrix);
 
 void BoardFilterFadeOut(s16 len)
 {
@@ -1641,7 +1640,7 @@ static void UpdateFilter(omObjData *object)
     }
 }
 
-static void DrawFilter(ModelData *model, Mtx matrix)
+static void DrawFilter(HU3DMODEL *model, Mtx matrix)
 {
     static GXColor colorN = { 0xFF, 0xFF, 0xFF, 0xFF };
     Mtx44 proj;
@@ -1717,7 +1716,7 @@ typedef struct confetti_work {
 static void UpdateConfetti(omObjData *object);
 static void SpawnConfetti(omObjData *object);
 static void MoveConfetti(omObjData *object);
-static void DrawConfetti(ModelData *model, Mtx matrix);
+static void DrawConfetti(HU3DMODEL *model, Mtx matrix);
 
 
 void BoardConfettiCreate(Vec *pos, s16 count, float range)
@@ -1892,16 +1891,16 @@ static Vec confettiLightTbl[6] = {
     { 1, 8, 0.3 }
 };
 
-static void DrawConfetti(ModelData *model, Mtx matrix)
+static void DrawConfetti(HU3DMODEL *model, Mtx matrix)
 {
     if(!confettiObj || BoardIsKill()) {
         return;
     } else {
         ConfettiWork *work = OM_GET_WORK_PTR(confettiObj, ConfettiWork);
-        ModelData *model = &Hu3DData[work->gfx_mdl];
+        HU3DMODEL *model = &Hu3DData[work->gfx_mdl];
         ConfettiParticle *particle;
         s32 i;
-        if(!model->hsfData) {
+        if(!model->hsf) {
             return;
         }
         particle = work->data;
@@ -2014,9 +2013,9 @@ void BoardLast5GfxInit(void)
             HuSprPosSet(work->group, i, last5GfxPosTbl[lastF][i][0], last5GfxPosTbl[lastF][i][1]);
         }
         if(!work->is_last) {
-            HuSprite *sprite = &HuSprData[HuSprGrpData[work->group].members[1]];
+            HUSPRITE *sprite = &HuSprData[HuSprGrpData[work->group].members[1]];
             HuSprBankSet(work->group, 1, 0);
-            sprite->frame = turn_remain;
+            sprite->animNo = turn_remain;
         } else {
             HuSprAttrSet(work->group, 1, HUSPR_ATTR_DISPOFF);
         }

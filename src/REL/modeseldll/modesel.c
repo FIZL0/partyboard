@@ -1,7 +1,6 @@
 #include "game/audio.h"
 #include "game/gamework_data.h"
-#include "game/hsfanim.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/object.h"
 #include "game/pad.h"
 #include "game/process.h"
@@ -45,8 +44,8 @@ s32 fn_1_2490(void)
     s16 temp_r26;
     s32 temp_r25;
     WindowData *temp_r24;
-    AnimData *temp_r23;
-    AnimData *temp_r22;
+    ANIMDATA *temp_r23;
+    ANIMDATA *temp_r22;
     s16 temp_r21;
     fn_1_3668();
     fn_1_1EC0(1);

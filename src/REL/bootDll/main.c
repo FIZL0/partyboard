@@ -4,7 +4,7 @@
 #include "game/data.h"
 #include "game/disp.h"
 #include "game/gamework_data.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/memory.h"
 #include "game/msm.h"
@@ -95,7 +95,7 @@ void ObjectSetup(void)
 
  void BootExec(void)
  {
-     AnimData *data;
+     ANIMDATA *data;
      s16 group;
      s16 sprite_nintendo;
      s16 sprite_hudson;
@@ -397,7 +397,7 @@ void ObjectSetup(void)
      s16 option;
      s16 group;
      s16 sprite;
-     AnimData *data;
+     ANIMDATA *data;
 #ifdef TARGET_PC
      return;
 #else
@@ -589,7 +589,7 @@ void ObjectSetup(void)
  {
      s16 model;
      s16 sprite;
-     AnimData *sprite_data;
+     ANIMDATA *sprite_data;
      s16 i;
      titleMdlId[0] = model = Hu3DModelCreateFile(TITLE_ANM_VER_ADJUSTED(TITLE_CHAR_HSF));
      Hu3DModelAttrSet(model, HU3D_ATTR_DISPOFF);

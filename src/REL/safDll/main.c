@@ -1,5 +1,5 @@
 #include "dolphin.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/gamework_data.h"
 #include "game/printfunc.h"
 #include "game/pad.h"
@@ -23,8 +23,8 @@ void fn_1_0(void)
 
 void safMarioEyeDim(s16 id)
 {
-	ModelData *model = &Hu3DData[id];
-	HSFDATA *hsf = model->hsfData;
+	HU3DMODEL *model = &Hu3DData[id];
+	HSFDATA *hsf = model->hsf;
 	HSFMATERIAL *material = hsf->material;
 	s16 i, j;
 	for(i=0; i<hsf->materialNum; i++, material++) {

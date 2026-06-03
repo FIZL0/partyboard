@@ -3,8 +3,7 @@
 #include "ext_math.h"
 #include "game/audio.h"
 #include "game/gamework.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
@@ -66,7 +65,7 @@ void fn_1_32CC(Process *process);
 void fn_1_337C(omObjData *object);
 void fn_1_35F0(omObjData *object);
 void fn_1_3618(omObjData *object);
-void fn_1_3BC0(ModelData *model, Mtx mtx);
+void fn_1_3BC0(HU3DMODEL *model, Mtx mtx);
 M460DllCameraStruct *fn_1_3E90(s32 arg0);
 M460DllCameraStruct *fn_1_3F2C(s32 arg0);
 void fn_1_42BC(u32 arg0);
@@ -120,7 +119,7 @@ void ObjectSetup(void)
 {
     Mtx sp2C;
     Process *var_r31;
-    LightData *var_r30;
+    HU3DLIGHT *var_r30;
 
     Vec sp20 = { 0.0f, 0.0f, 0.0f };
     Vec sp14 = { 0.0f, 0.0f, -1.0f };
@@ -721,7 +720,7 @@ void fn_1_3618(omObjData *var_r28)
     }
 }
 
-void fn_1_3BC0(ModelData *model, Mtx mtx)
+void fn_1_3BC0(HU3DMODEL *model, Mtx mtx)
 {
     Mtx sp3C;
 #ifdef NON_MATCHING

@@ -1,7 +1,7 @@
 #include "ext_math.h"
 #include "game/audio.h"
 #include "game/chrman.h"
-#include "game/hsfdraw.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/objsub.h"
 #include "game/wipe.h"
@@ -66,7 +66,7 @@ void ObjectSetup(void)
     Vec sp8;
 
     Process *var_r31;
-    LightData *var_r30;
+    HU3DLIGHT *var_r30;
 
     HuAudSndGrpSet(42);
     HuAudFXListnerSetEX(&sp2C, &sp20, 10000.0f, 1000.0f, 0.0f, 300.0f, 300.0f);

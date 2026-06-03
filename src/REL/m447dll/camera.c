@@ -1,6 +1,6 @@
 #include "REL/m447dll.h"
 #include "game/disp.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/pad.h"
 #include "game/printfunc.h"
 #include "game/process.h"

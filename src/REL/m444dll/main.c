@@ -1,7 +1,6 @@
 #include "game/disp.h"
 #include "game/hsfex.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/object.h"
 #include "game/objsub.h"
 
@@ -160,7 +159,7 @@ void fn_1_470(void)
     s16 temp_r26;
     s16 temp_r25;
     u32 temp_r24;
-    ModelData *temp_r23;
+    HU3DMODEL *temp_r23;
 
     Vec sp1C;
     Vec sp10;

@@ -3,7 +3,7 @@
 #include "ext_math.h"
 #include "game/audio.h"
 #include "game/disp.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/objsub.h"
 #include "game/wipe.h"
@@ -65,7 +65,7 @@ f32 fn_1_16C0(f32, f32, f32);
 void ObjectSetup(void) {
     s32 var_r31;
     Process* var_r30;
-    CameraData* var_r29;
+    HU3DCAMERA* var_r29;
 
     OSReport("******* M424ObjectSetup *********\n");
     var_r30 = omInitObjMan(0x32, 0x2000);
@@ -137,7 +137,7 @@ void fn_1_41C(omObjData* object) {
     f32 var_f31; // ! - uninitalized
     s32 var_r31;
     s32 var_r30;
-    CameraData* var_r29;
+    HU3DCAMERA* var_r29;
 
     switch (lbl_1_bss_40) {
         case 0:

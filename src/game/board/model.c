@@ -1,8 +1,7 @@
 #include "game/board/model.h"
 #include "game/board/main.h"
 #include "game/chrman.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/object.h"
 
@@ -612,7 +611,7 @@ float BoardModelMotionTimeGet(s16 model)
     else {
         float time;
         if (model_ptr->character == -1) {
-            time = Hu3DData[model_ptr->id].unk_64;
+            time = Hu3DData[model_ptr->id].motWork.time;
         }
         else {
             time = CharMotionTimeGet(model_ptr->character);
@@ -646,8 +645,8 @@ float BoardModelMotionSpeedGet(s16 model)
         return -1;
     }
     else {
-        ModelData *hsf_model = &Hu3DData[model_ptr->id];
-        return hsf_model->unk_68;
+        HU3DMODEL *hsf_model = &Hu3DData[model_ptr->id];
+        return hsf_model->motWork.speed;
     }
 }
 
@@ -658,7 +657,7 @@ s32 BoardModelMotionSpeedSet(s16 model, float speed)
         return -1;
     }
     else {
-        ModelData *hsf_model;
+        HU3DMODEL *hsf_model;
         if (model_ptr->character == -1) {
             Hu3DMotionSpeedSet(model_ptr->id, speed);
         }
@@ -666,7 +665,7 @@ s32 BoardModelMotionSpeedSet(s16 model, float speed)
             CharMotionSpeedSet(model_ptr->character, speed);
         }
         hsf_model = &Hu3DData[model_ptr->id];
-        hsf_model->unk_88 = speed;
+        hsf_model->motShiftWork.speed = speed;
         return 0;
     }
 }
@@ -696,7 +695,7 @@ s32 BoardModelMotionShapeSet(s16 model, s32 motion, u32 attr)
         return -1;
     }
     else {
-        ModelData *hsf_model;
+        HU3DMODEL *hsf_model;
         if (model_ptr->character != -1) {
             return -1;
         }
@@ -704,11 +703,11 @@ s32 BoardModelMotionShapeSet(s16 model, s32 motion, u32 attr)
             return -1;
         }
         hsf_model = &Hu3DData[model_ptr->id];
-        hsf_model->unk_98 = 1.0f;
+        hsf_model->motShapeWork.speed = 1.0f;
         Hu3DMotionShapeSet(model_ptr->id, model_ptr->mot_id[motion]);
         if (attr & 0x40000100) {
             float max_time = Hu3DMotionMaxTimeGet(model_ptr->id);
-            hsf_model->unk_94 = max_time;
+            hsf_model->motShapeWork.time = max_time;
         }
         Hu3DModelAttrSet(model_ptr->id, attr);
         return 0;
@@ -722,12 +721,12 @@ float BoardModelMotionShapeTimeGet(s16 model)
         return -1;
     }
     else {
-        ModelData *hsf_model;
+        HU3DMODEL *hsf_model;
         if (model_ptr->character != -1) {
             return -1;
         }
         hsf_model = &Hu3DData[model_ptr->id];
-        return hsf_model->unk_94;
+        return hsf_model->motShapeWork.time;
     }
 }
 
@@ -738,18 +737,18 @@ float BoardModelMotionShapeMaxTimeGet(s16 model)
         return -1;
     }
     else {
-        ModelData *hsf_model;
-        MotionData *motion;
+        HU3DMODEL *hsf_model;
+        HU3DMOTION *motion;
         HSFMOTION *motion_hsf;
         if (model_ptr->character != -1) {
             return -1;
         }
         hsf_model = &Hu3DData[model_ptr->id];
-        if (hsf_model->unk_0E == -1) {
+        if (hsf_model->motIdShape == -1) {
             return 0;
         }
-        motion = &Hu3DMotion[hsf_model->unk_0E];
-        motion_hsf = motion->hsfData->motion;
+        motion = &Hu3DMotion[hsf_model->motIdShape];
+        motion_hsf = motion->hsf->motion;
         return motion_hsf->maxTime;
     }
 }
@@ -761,12 +760,12 @@ s32 BoardModelMotionShapeSpeedSet(s16 model, float speed)
         return -1;
     }
     else {
-        ModelData *hsf_model;
+        HU3DMODEL *hsf_model;
         if (model_ptr->character != -1) {
             return -1;
         }
         hsf_model = &Hu3DData[model_ptr->id];
-        hsf_model->unk_98 = speed;
+        hsf_model->motShapeWork.speed = speed;
         return 0;
     }
 }
@@ -778,9 +777,9 @@ float BoardModelMotionShapeSpeedGet(s16 model, float speed)
         return -1;
     }
     else {
-        ModelData *hsf_model;
+        HU3DMODEL *hsf_model;
         hsf_model = &Hu3DData[model_ptr->id];
-        return hsf_model->unk_98;
+        return hsf_model->motShapeWork.speed;
     }
 }
 
@@ -791,15 +790,15 @@ s32 BoardModelMotionShapeEndCheck(s16 model)
         return 1;
     }
     else {
-        ModelData *hsf_model;
+        HU3DMODEL *hsf_model;
         if (model_ptr->character != -1) {
             return 1;
         }
         hsf_model = &Hu3DData[model_ptr->id];
         if (hsf_model->attr & 0x40000100) {
-            return hsf_model->unk_94 <= 0.0f;
+            return hsf_model->motShapeWork.time <= 0.0f;
         }
-        return BoardModelMotionShapeMaxTimeGet(model) <= hsf_model->unk_94;
+        return BoardModelMotionShapeMaxTimeGet(model) <= hsf_model->motShapeWork.time;
     }
 }
 
@@ -847,12 +846,12 @@ s32 BoardModelMtxSet(s16 model, Mtx *src)
         return -1;
     }
     else {
-        ModelData *hsf_model;
+        HU3DMODEL *hsf_model;
         if (!src) {
             return -1;
         }
         hsf_model = &Hu3DData[model_ptr->id];
-        MTXCopy(*src, hsf_model->unk_F0);
+        MTXCopy(*src, hsf_model->mtx);
         return 0;
     }
 }
@@ -864,12 +863,12 @@ s32 BoardModelMtxGet(s16 model, Mtx *dst)
         return -1;
     }
     else {
-        ModelData *hsf_model;
+        HU3DMODEL *hsf_model;
         if (!dst) {
             return -1;
         }
         hsf_model = &Hu3DData[model_ptr->id];
-        MTXCopy(hsf_model->unk_F0, *dst);
+        MTXCopy(hsf_model->mtx, *dst);
         return 0;
     }
 }
@@ -1223,7 +1222,7 @@ static s32 CreateBoardModelMotion(BoardModel *model, s32 count, s32 *data_num)
 {
     void *data;
     s32 i;
-    model->mot_id[0] = Hu3DData[model->id].unk_08;
+    model->mot_id[0] = Hu3DData[model->id].motId;
     if (!data_num) {
         model->mot_count = 1;
         return 0;

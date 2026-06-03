@@ -3,9 +3,7 @@
 #include "game/chrman.h"
 #include "game/disp.h"
 #include "game/hsfex.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
 #include "game/objsub.h"
@@ -188,7 +186,7 @@ float fn_1_9960(Vec *arg0, Vec *arg1, Vec *arg2);
 float fn_1_A14C(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3);
 void fn_1_A60C(omObjData *object);
 void fn_1_A688(omObjData *object);
-void fn_1_A68C(ModelData *model, Mtx matrix);
+void fn_1_A68C(HU3DMODEL *model, Mtx matrix);
 s32 fn_1_AE18(u32 arg0, float arg8, Vec *arg1, Vec *arg2);
 float fn_1_B440(Vec *arg0, Vec *arg1, Vec *arg2);
 
@@ -230,7 +228,7 @@ void ObjectSetup(void)
     s32 var_r30;
     omObjData *var_r29;
     s32 var_r28;
-    LightData *var_r27;
+    HU3DLIGHT *var_r27;
     s32 var_r26;
 
     OSReport("******* M438ObjectSetup *********\n");
@@ -1283,7 +1281,7 @@ void fn_1_35C0(omObjData *object)
             break;
         case 3:
             var_r27 = 0;
-            if (Hu3DData[var_r25].unk_0C == -1 && CharMotionEndCheck(var_r31->unk_01)) {
+            if (Hu3DData[var_r25].motIdShift == -1 && CharMotionEndCheck(var_r31->unk_01)) {
                 var_r31->unk_88 += -122.5f / REFRESH_RATE_F;
             }
             else {
@@ -2859,7 +2857,7 @@ u32 lbl_1_data_584[25] = {
 #define getData(v, off)                                                                                                                              \
     &(&(*OM_GET_DATA_PTR(lbl_1_bss_DBC, M438UnkType))[(u32)(0.028235294f * (v.x - off))])[(u32)(0.028235294f * (v.z - off)) * 0x30]
 
-void fn_1_A68C(ModelData *model, Mtx matrix)
+void fn_1_A68C(HU3DMODEL *model, Mtx matrix)
 {
     Vec sp14;
     Vec sp8;

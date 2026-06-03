@@ -3,10 +3,7 @@
 #include "game/chrman.h"
 #include "game/flag.h"
 #include "game/frand.h"
-#include "game/hsfanim.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/sprite.h"
 #include "math.h"
@@ -402,15 +399,15 @@ void fn_1_67F0(omObjData *object)
     Hu3DMotionSpeedSet(object->model[2], 0.0f);
     Hu3DModelShadowSet(object->model[1]);
     Hu3DModelPosSet(object->model[1], 0.0f, 0.0f, -500.0f);
-    Hu3DData[object->model[3]].unk_94 = 0.0f;
-    Hu3DData[object->model[3]].unk_98 = 2.0f;
+    Hu3DData[object->model[3]].motShapeWork.time = 0.0f;
+    Hu3DData[object->model[3]].motShapeWork.speed = 2.0f;
     object->work[3] = 0x1E;
     object->func = fn_1_695C;
 }
 
 void fn_1_695C(omObjData *object)
 {
-    ModelData *var_r30;
+    HU3DMODEL *var_r30;
     M453MapUnkStruct *var_r29;
 
     if (lbl_1_bss_84 != 0) {
@@ -600,7 +597,7 @@ void fn_1_73C4(omObjData *object)
     M453MapUnkStruct *var_r30;
     s32 var_r29;
     s32 var_r28;
-    ModelData *var_r27;
+    HU3DMODEL *var_r27;
 
     var_r30 = object->data;
     if (lbl_1_bss_90 == 0) {
@@ -724,14 +721,14 @@ void fn_1_7A74(s16 arg0)
     HSFOBJECT *var_r30;
     s16 var_r29;
     HSFOBJECT *var_r28;
-    HsfConstData *var_r27;
+    HSFCONSTDATA *var_r27;
 
-    var_r31 = Hu3DData[arg0].hsfData;
+    var_r31 = Hu3DData[arg0].hsf;
     for (var_r28 = var_r31->object, var_r29 = 0; var_r29 < var_r31->objectNum; var_r29++, var_r28++) {
         var_r30 = var_r28;
         if (var_r30->constData) {
             var_r27 = var_r30->constData;
-            var_r27->flags &= 0xFFFFFFF7;
+            var_r27->attr &= 0xFFFFFFF7;
         }
     }
 }

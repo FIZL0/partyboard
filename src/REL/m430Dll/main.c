@@ -4,9 +4,7 @@
 #include "game/disp.h"
 #include "game/flag.h"
 #include "game/gamework_data.h"
-#include "game/hsfanim.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
@@ -96,7 +94,7 @@ void ObjectSetup(void)
     Vec sp14;
     Vec sp8;
     Process *var_r31;
-    LightData *var_r30;
+    HU3DLIGHT *var_r30;
 
     HuAudSndGrpSet(0x37);
     lbl_1_bss_C = lbl_1_bss_8 = -1;

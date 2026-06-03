@@ -1,5 +1,8 @@
 #include "game/esprite.h"
 #include "game/flag.h"
+#include "game/frand.h"
+#include "game/gamework.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/object.h"
 #include "game/objsub.h"

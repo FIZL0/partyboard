@@ -5,15 +5,12 @@
 #include "game/flag.h"
 #include "game/gamework.h"
 #include "game/gamework_data.h"
-#include "game/hsfanim.h"
 
 #ifndef __MWERKS__
 #include "game/audio.h"
 #endif
 
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
 #include "game/pad.h"
@@ -144,7 +141,7 @@ Vec lbl_1_data_130[] = {
     {  300.0f, 0.0f, 460.0f }
 };
 
-HsfanimStruct00 lbl_1_data_160 = {
+HU3DPARMANPARAM lbl_1_data_160 = {
     60, { 0, 0 },
     1000.0f, 0.0f, 180.0f,
     { 0.0f, -0.009f, 0.0f },
@@ -163,7 +160,7 @@ HsfanimStruct00 lbl_1_data_160 = {
     }
 };
 
-HsfanimStruct00 lbl_1_data_1B0 = {
+HU3DPARMANPARAM lbl_1_data_1B0 = {
     60, { 0, 0 },
     1000.0f, 0.0f, 180.0f,
     { 0.0f, -0.009f, 0.0f },
@@ -182,7 +179,7 @@ HsfanimStruct00 lbl_1_data_1B0 = {
     }
 };
 
-HsfanimStruct00 lbl_1_data_200 = {
+HU3DPARMANPARAM lbl_1_data_200 = {
     500, { 0, 0 },
     0.25f, 0.0f, 30.0f,
     { 0.0f, -0.009f, 0.001f },
@@ -2712,7 +2709,7 @@ void fn_1_1456C(s32 arg0) {
     HuAudFXPlay(0x303);
 }
 
-HsfanimStruct00 lbl_1_data_78C = {
+HU3DPARMANPARAM lbl_1_data_78C = {
     60, { 0, 0 },
     1000.0f, 0.0f, 180.0f,
     { 0.0f, 0.0f, 0.0f },

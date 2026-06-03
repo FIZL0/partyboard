@@ -1,7 +1,6 @@
 #include "game/thpmain.h"
 #include "game/THPSimple.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/init.h"
 #include "game/process.h"
 #include "game/sprite.h"
@@ -11,8 +10,8 @@
 #define THP_DECODE_STACK_SIZE 0x2000
 
 static void THPTestProc(void);
-static void THPViewFunc(ModelData *arg0, Mtx arg1);
-static void THPViewSprFunc(HuSprite *arg0);
+static void THPViewFunc(HU3DMODEL *arg0, Mtx arg1);
+static void THPViewSprFunc(HUSPRITE *arg0);
 static void THPDecodeFunc(void *param);
 
 static char THPFileName[64];
@@ -215,7 +214,7 @@ static void THPTestProc(void)
     }
 }
 
-static void THPViewFunc(ModelData *arg0, Mtx arg1)
+static void THPViewFunc(HU3DMODEL *arg0, Mtx arg1)
 {
     GXColor spC = { 0xFF, 0xFF, 0xFF, 0xFF };
 
@@ -228,7 +227,7 @@ static void THPViewFunc(ModelData *arg0, Mtx arg1)
     }
 }
 
-static void THPViewSprFunc(HuSprite *arg0)
+static void THPViewSprFunc(HUSPRITE *arg0)
 {
     Vec spC = { 0.0f, 0.0f, 1.0f };
     GXColor sp8;
@@ -242,16 +241,16 @@ static void THPViewSprFunc(HuSprite *arg0)
         sp8.g = arg0->g;
         sp8.b = arg0->b;
         sp8.a = arg0->a;
-        if (arg0->z_rot != 0.0f) {
-            MTXRotAxisRad(sp18, &spC, MTXDegToRad(arg0->z_rot));
-            MTXScale(sp48, arg0->scale_x, arg0->scale_y, 1.0f);
+        if (arg0->zRot != 0.0f) {
+            MTXRotAxisRad(sp18, &spC, MTXDegToRad(arg0->zRot));
+            MTXScale(sp48, arg0->scale.x, arg0->scale.y, 1.0f);
             MTXConcat(sp18, sp48, sp48);
         }
         else {
-            MTXScale(sp48, arg0->scale_x, arg0->scale_y, 1.0f);
+            MTXScale(sp48, arg0->scale.x, arg0->scale.y, 1.0f);
         }
-        mtxTransCat(sp48, arg0->x, arg0->y, 0.0f);
-        MTXConcat(*arg0->group_mtx, sp48, sp48);
+        mtxTransCat(sp48, arg0->pos.x, arg0->pos.y, 0.0f);
+        MTXConcat(*arg0->groupMtx, sp48, sp48);
         temp_r30 = -((s32)audioTrack.unk00 / 2);
         temp_r29 = -((s32)audioTrack.unk04 / 2);
         GXSetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);

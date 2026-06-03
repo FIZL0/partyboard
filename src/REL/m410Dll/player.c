@@ -3,9 +3,7 @@
 #include "game/chrman.h"
 #include "game/disp.h"
 #include "game/gamework_data.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/object.h"
 #include "game/pad.h"
@@ -22,7 +20,7 @@
 #endif
 
 omObjData *lbl_1_bss_74;
-AnimData *lbl_1_bss_70;
+ANIMDATA *lbl_1_bss_70;
 s32 lbl_1_bss_60[4];
 
 char *lbl_1_data_140[] = { "dmy-itemhook-r", "dmy-itemhook-r", "dmy-itemhook-r", "dmy-itemhook-r", "dmy-itemhook-r", "dmy-itemhook-r",
@@ -105,7 +103,7 @@ void fn_1_A0A4(omObjData *object);
 void fn_1_A3C0(omObjData *object);
 void fn_1_A828(u16 arg0, u16 arg1, u16 arg2);
 void fn_1_A9A4(UnkM410Struct13 *arg0);
-void fn_1_B140(ModelData *arg0, Mtx arg1);
+void fn_1_B140(HU3DMODEL *arg0, Mtx arg1);
 
 void fn_1_7E30(Process *objman)
 {
@@ -1067,7 +1065,7 @@ void fn_1_A9A4(UnkM410Struct13 *arg0)
     DCStoreRange(arg0, sizeof(UnkM410Struct13));
 }
 
-void fn_1_B140(ModelData *arg0, Mtx arg1)
+void fn_1_B140(HU3DMODEL *arg0, Mtx arg1)
 {
     Mtx sp124;
     Mtx spF4;

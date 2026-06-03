@@ -1,6 +1,5 @@
 #include "ext_math.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 
 #include "REL/m420dll.h"
 
@@ -788,7 +787,7 @@ void fn_1_6D0C(void)
 
 void fn_1_6D5C(void)
 {
-    LightData *var_r31;
+    HU3DLIGHT *var_r31;
 
     Hu3DLighInit();
     lbl_1_bss_9EC = Hu3DGLightCreateV(&lbl_1_data_138.unk_00, &lbl_1_data_138.unk_0C, &lbl_1_data_138.unk_18);

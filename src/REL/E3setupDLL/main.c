@@ -1,10 +1,9 @@
 #include "game/object.h"
 #include "game/audio.h"
 #include "game/gamework_data.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/wipe.h"
 #include "game/pad.h"
-#include "game/hsfmotion.h"
 #include "game/init.h"
 #include "game/minigame_seq.h"
 #include "game/chrman.h"
@@ -300,11 +299,11 @@ s16 E3PadRead(void)
 
 float MotionMaxTimeGet(s16 arg0)
 {
-    MotionData *temp_r31 = &Hu3DMotion[arg0];
+    HU3DMOTION *temp_r31 = &Hu3DMotion[arg0];
     HSFMOTION *temp_r30;
     s16 temp_r29;
 
-    temp_r30 = temp_r31->hsfData->motion;
+    temp_r30 = temp_r31->hsf->motion;
     temp_r29 = temp_r30->maxTime;
     return temp_r29;
 }
@@ -312,9 +311,9 @@ float MotionMaxTimeGet(s16 arg0)
 
 float MotionShiftTimeGet(s16 arg0)
 {
-    ModelData *temp_r31 = &Hu3DData[arg0];
+    HU3DMODEL *temp_r31 = &Hu3DData[arg0];
 
-    return temp_r31->unk_84;
+    return temp_r31->motShiftWork.time;
 }
 
 static void UpdateMenuControl(omObjData *object);
@@ -438,9 +437,9 @@ void E3OvlWatchInit(omObjData *object)
 }
 
 typedef struct e3_player_cnt_work {
-	AnimData *frame[3];
-	AnimData *arrow;
-	AnimData *arrowHilite;
+	ANIMDATA *frame[3];
+	ANIMDATA *arrow;
+	ANIMDATA *arrowHilite;
 	Vec2f winSize;
 	s16 frameGroup;
 	s16 arrowGroupL;
@@ -552,7 +551,7 @@ static void InitPlayerCnt(omObjData *object)
 	s16 index2;
 	s32 index;
 	s16 group;
-	AnimData *anim;
+	ANIMDATA *anim;
 	u32 mess;
 	float sizeMax[2]; //FIXME: Change to Vec2f
 	float size[2]; //FIXME: Change to Vec2f
@@ -642,7 +641,7 @@ static void InitPlayerCnt(omObjData *object)
 }
 
 typedef struct e3_char_sel_work {
-	AnimData *anims[24];
+	ANIMDATA *anims[24];
 	s16 frameGroup;
 	s16 charGroup;
 	s16 cursorGroup;
@@ -1039,7 +1038,7 @@ static void InitCharSel(omObjData *object)
 	s32 i;
 	s16 member;
 	s16 group;
-	AnimData *anim;
+	ANIMDATA *anim;
 	s16 sprite;
 	s16 j;
 	s16 x;
@@ -1132,9 +1131,9 @@ static void InitCharSel(omObjData *object)
 }
 
 typedef struct e3_rumble_cfg_work {
-	AnimData *frame[3];
-	AnimData *arrow;
-	AnimData *arrowHilite;
+	ANIMDATA *frame[3];
+	ANIMDATA *arrow;
+	ANIMDATA *arrowHilite;
 	Vec2f winSize;
 	s16 frameGroup;
 	s16 arrowGroupL;
@@ -1233,7 +1232,7 @@ static void InitRumbleCfg(omObjData *object)
 	s16 index2;
 	s16 group;
 	s32 index;
-	AnimData *anim;
+	ANIMDATA *anim;
 	u32 mess;
 	float sizeMax[2]; //FIXME: Change to Vec2f
 	float size[2]; //FIXME: Change to Vec2f
@@ -1313,7 +1312,7 @@ static void InitRumbleCfg(omObjData *object)
 }
 
 typedef struct e3_mode_sel_work {
-	AnimData *frame[7];
+	ANIMDATA *frame[7];
 	Vec2f winSizeMode;
 	Vec2f winSizeBoard;
 	s16 frameGroup;
@@ -1462,7 +1461,7 @@ static void InitModeSel(omObjData *object)
 	s16 index2;
 	s32 index;
 	s16 group;	
-	AnimData *anim;
+	ANIMDATA *anim;
 	float size[2]; //FIXME: Change to Vec2f
 	
 	omSetStatBit(object, 0x100);
@@ -1545,7 +1544,7 @@ typedef struct e3_bg_tile {
 } E3BGTile;
 
 typedef struct e3_bg_work {
-	AnimData *anim;
+	ANIMDATA *anim;
 	s16 group;
 	E3BGTile tiles[E3_BG_MAX_TILE];
 } E3BGWork;
@@ -1580,7 +1579,7 @@ void E3BGCreate(omObjData *object)
 	s16 group;
 	s16 col;
 	s16 row;
-	AnimData *anim;
+	ANIMDATA *anim;
 	s16 sprite;
 	float x;
 	float y;

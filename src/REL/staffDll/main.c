@@ -1,7 +1,7 @@
 #include "game/animdata.h"
 #include "game/audio.h"
 #include "game/disp.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #ifndef __MWERKS__
 #include "game/minigame_seq.h"
 #endif
@@ -316,7 +316,7 @@ static void ExitProc(void)
 static void CreateStaff(void)
 {
     void *var_r29;
-    AnimData *var_r28;
+    ANIMDATA *var_r28;
     s16 var_r30;
     s32 var_r31;
 

@@ -4,7 +4,6 @@
 #include "game/data.h"
 
 #ifndef __MWERKS__
-#include "game/hsfdraw.h"
 #include "game/hsfex.h"
 #endif
 
@@ -12,8 +11,7 @@
 #include "game/flag.h"
 #include "game/gamework.h"
 #include "game/gamework_data.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/object.h"
 #include "game/pad.h"
 #include "game/printfunc.h"
@@ -100,9 +98,9 @@ StructBss1530 lbl_1_bss_19E4;
 StructBss1530 lbl_1_bss_19BC;
 StructBss1530 lbl_1_bss_1994;
 StructBss1530 lbl_1_bss_18F4[4];
-AnimData* lbl_1_bss_18EC[2];
-AnimData* lbl_1_bss_18E4[2];
-AnimData* lbl_1_bss_18D8[3];
+ANIMDATA* lbl_1_bss_18EC[2];
+ANIMDATA* lbl_1_bss_18E4[2];
+ANIMDATA* lbl_1_bss_18D8[3];
 s32 lbl_1_bss_18D4;
 Process* lbl_1_bss_18D0;
 
@@ -905,7 +903,7 @@ void fn_1_18CFC(omObjData* arg0) {
     if (var_r28 < 0) {
         var_r28 = 0;
     }
-    temp_f31 = HuSprGrpData[arg0->work[2]].x;
+    temp_f31 = HuSprGrpData[arg0->work[2]].pos.x;
     var_f30 = 164 + lbl_1_bss_1A0C.unk2C4 * 66;
     temp_f31 = fn_1_5FC(temp_f31, var_f30, 2.0f);
     HuSprGrpPosSet(arg0->work[1], -5.0f, 25.0f);

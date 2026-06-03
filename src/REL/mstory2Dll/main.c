@@ -1,9 +1,7 @@
 #include "REL/mstory2Dll.h"
 #include "game/disp.h"
 #include "game/gamework_data.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
-#include "game/hsfdraw.h"
+#include "game/hu3d.h"
 #include "game/pad.h"
 #include "game/printfunc.h"
 #include "game/sprite.h"
@@ -454,14 +452,14 @@ void fn_1_1D4C(s32 arg0, s32 arg1, s32 arg2) {
 }
 
 void fn_1_1D8C(s16 arg0) {
-    ModelData* var_r28;
+    HU3DMODEL* var_r28;
     HSFMATERIAL* var_r31;
     HSFDATA* temp_r30;
     s16 var_r27;
     s32 i;
 
     var_r28 = &Hu3DData[arg0];
-    temp_r30 = var_r28->hsfData;
+    temp_r30 = var_r28->hsf;
     var_r27 = temp_r30->materialNum;
     var_r31 = temp_r30->material;
     for (i = 0; i < var_r27; var_r31++, i++) {
@@ -757,14 +755,14 @@ void fn_1_2D00(omObjData* arg0, s32 arg1, Vec arg2, float arg3, float arg4, floa
 }
 
 void fn_1_34F4(s16 arg0) {
-    ModelData* var_r28;
+    HU3DMODEL* var_r28;
     HSFDATA* temp_r30;
     HSFMATERIAL* var_r31;
     s16 var_r27;
     s32 i;
 
     var_r28 = &Hu3DData[arg0];
-    temp_r30 = var_r28->hsfData;
+    temp_r30 = var_r28->hsf;
     var_r27 = temp_r30->materialNum;
     var_r31 = temp_r30->material;
     for (i = 0; i < var_r27; var_r31++, i++) {
@@ -1174,13 +1172,13 @@ float lbl_1_data_368[8] = {
 void fn_1_7244(s16 modelId, char *objName, u32 constFlags, float ofs)
 {
     HSFOBJECT *obj = Hu3DModelObjPtrGet(modelId, objName);
-    HsfConstData *constData;
+    HSFCONSTDATA *constData;
     if(!obj->constData) {
-        constData = ObjConstantMake(obj, Hu3DData[modelId].unk_48);
+        constData = ObjConstantMake(obj, Hu3DData[modelId].mallocNo);
     } else {
         constData = obj->constData;
     }
-    constData->flags |= constFlags;
+    constData->attr |= constFlags;
     if(constFlags & 0x10) {
         obj->mesh.curr.pos.x += ofs;
     }

@@ -15,8 +15,7 @@
 #include "game/flag.h"
 #include "game/gamework.h"
 #include "game/gamework_data.h"
-#include "game/hsfanim.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/msm.h"
 #include "game/objsub.h"
 #include "game/window.h"
@@ -72,7 +71,7 @@ static Vec starCharPos;
 static s16 hostMot[2];
 static omObjData *showNextObj;
 static s16 starDoneF;
-static AnimData *starEffAnim;
+static ANIMDATA *starEffAnim;
 static omObjData *giveStarObj;
 static Process *starProc;
 
@@ -94,10 +93,31 @@ static s32 hostMotTbl[9][2] = { { DATA_MAKE_NUM(DATADIR_W01, 33), DATA_MAKE_NUM(
     { DATA_MAKE_NUM(DATADIR_W04, 11), DATA_MAKE_NUM(DATADIR_BOARD, 160) }, { DATA_MAKE_NUM(DATADIR_W05, 9), DATA_MAKE_NUM(DATADIR_BOARD, 161) },
     { DATA_MAKE_NUM(DATADIR_W06, 21), DATA_MAKE_NUM(DATADIR_BOARD, 162) } };
 
-static HsfanimStruct00 starEffParam = { 0x001E, { 0x00, 0x00 }, // padding?
-    3.3f, 70.0f, 7.0f, { 0.0f, -0.05f, 0.0f }, 2.0f, 1.0f, 20.0f, 0.98f, 0x0002,
-    { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x40, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
-    { 0xFF, 0x80, 0x80, 0x00, 0xFF, 0x40, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
+static HU3DPARMANPARAM starEffParam = {
+    0x001E,
+    { 0x00, 0x00 }, // padding?
+    3.3f,
+    70.0f,
+    7.0f,
+    { 0.0f, -0.05f, 0.0f },
+    2.0f,
+    1.0f,
+    20.0f,
+    0.98f,
+    0x0002,
+    {
+        0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0x40, 0xFF,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00
+    },
+    {
+        0xFF, 0x80, 0x80, 0x00,
+        0xFF, 0x40, 0x20, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00
+    }
+};
 
 void BoardStarHostSet(s16 arg0)
 {

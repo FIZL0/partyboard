@@ -1,7 +1,7 @@
 #define HUSPR_USE_OLD_DEFS
 #include "REL/m409Dll.h"
 
-#include "game/hsfdraw.h"
+#include "game/hu3d.h"
 #include "game/sprite.h"
 
 void fn_1_BF88(s16 arg0, s16 arg1)
@@ -51,7 +51,7 @@ SHARED_SYM extern u8 texMtxTbl[];
 
 void fn_1_C164(unkStruct8 *arg0)
 {
-    ModelData spEC;
+    HU3DMODEL spEC;
     Mtx spBC;
     Mtx sp8C;
     Mtx sp5C;
@@ -230,7 +230,7 @@ void fn_1_C164(unkStruct8 *arg0)
     }
 }
 
-void fn_1_CB98(ModelData *model, Mtx matrix)
+void fn_1_CB98(HU3DMODEL *model, Mtx matrix)
 {
     Mtx sp38;
     Mtx sp8;
@@ -646,7 +646,7 @@ void fn_1_DEF4(s16 arg0, s16 arg1, u8 arg2)
 
 s16 fn_1_DF20(u32 arg0, s16 arg1, s16 arg2)
 {
-    AnimData *temp_r30;
+    ANIMDATA *temp_r30;
     f32 var_f31;
     f32 var_f30;
     s32 var_r29;

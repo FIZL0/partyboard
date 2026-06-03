@@ -31,7 +31,7 @@ char *DicStringTable;
 void **NSymIndex;
 HSFOBJECT *objtop;
 HSFBUFFER *vtxtop;
-HsfCluster *ClusterTop;
+HSFCLUSTER *ClusterTop;
 HSFATTRIBUTE *AttributeTop;
 HSFMATERIAL *MaterialTop;
 #ifdef BYTESWAPPING
@@ -40,7 +40,7 @@ HSFBUFFER *StTop;
 HSFBUFFER *ColorTop;
 HSFBUFFER *FaceTop;
 HSFCENV *CenvTop;
-HsfPart *PartTop;
+HSFPART *PartTop;
 HSFBITMAP *BitmapTop;
 #endif
 
@@ -77,7 +77,7 @@ static HSFBUFFER *SearchStPtr(s32 id);
 static HSFBUFFER *SearchColorPtr(s32 id);
 static HSFBUFFER *SearchFacePtr(s32 id);
 static HSFCENV *SearchCenvPtr(s32 id);
-static HsfPart *SearchPartPtr(s32 id);
+static HSFPART *SearchPartPtr(s32 id);
 static HSFPALETTE *SearchPalettePtr(s32 id);
 
 static HSFBITMAP *SearchBitmapPtr(s32 id);
@@ -382,7 +382,7 @@ static void DumpParts(HSFDATA *hsf) {
     s32 i, j;
     fprintf(g_dump_file, "=== PARTS (%d) ===\n", hsf->partNum);
     for (i = 0; i < hsf->partNum; i++) {
-        HsfPart *p = &hsf->part[i];
+        HSFPART *p = &hsf->part[i];
         fprintf(g_dump_file, "[%d] name=%s count=%u\n",
             i, p->name ? p->name : "(null)", p->num);
         for (j = 0; j < (s32)p->num; j++) {
@@ -395,7 +395,7 @@ static void DumpClusters(HSFDATA *hsf) {
     s32 i, j;
     fprintf(g_dump_file, "=== CLUSTERS (%d) ===\n", hsf->clusterNum);
     for (i = 0; i < hsf->clusterNum; i++) {
-        HsfCluster *c = &hsf->cluster[i];
+        HSFCLUSTER *c = &hsf->cluster[i];
         fprintf(g_dump_file, "[%d] name[0]=%s name[1]=%s target=%d type=%u\n",
             i,
             c->name[0] ? c->name[0] : "(null)",
@@ -434,7 +434,7 @@ static void DumpCenvs(HSFDATA *hsf) {
             }
         }
         for (j = 0; j < (s32)c->multiCount; j++) {
-            HsfCenvMulti *m = &c->multiData[j];
+            HSFCENVMULTI *m = &c->multiData[j];
             s32 k;
             fprintf(g_dump_file, "  multi[%d] weightCnt=%u pos=%u posCnt=%u normal=%u normalNum=%u\n",
                 j, m->weightNum, m->pos, m->posNum, m->normal, m->normalNum);
@@ -450,7 +450,7 @@ static void DumpShapes(HSFDATA *hsf) {
     s32 i, j;
     fprintf(g_dump_file, "=== SHAPES (%d) ===\n", hsf->shapeNum);
     for (i = 0; i < hsf->shapeNum; i++) {
-        HsfShape *s = &hsf->shape[i];
+        HSFSHAPE *s = &hsf->shape[i];
         fprintf(g_dump_file, "[%d] name=%s count16[0]=%u count16[1]=%u\n",
             i, s->name ? s->name : "(null)", s->num16[0], s->num16[1]);
         for (j = 0; j < s->num16[1]; j++) {
@@ -704,7 +704,7 @@ HSFDATA *LoadHSF(void *data)
 
 void ClusterAdjustObject(HSFDATA *model, HSFDATA *src_model)
 {
-    HsfCluster *cluster;
+    HSFCLUSTER *cluster;
     s32 i;
     if(!src_model) {
         return;
@@ -740,7 +740,7 @@ static void FileLoad(void *data)
         NSymIndex[i] = (void *)(uintptr_t)file_symbol_real[i]; // TODO is this uintptr_t cast right?
     }
     StringTable = (char *)((uintptr_t)fileptr+head.string.ofs);
-    ClusterTop = HuMemDirectMallocNum(HEAP_DATA, sizeof(HsfCluster) * head.cluster.count, MEMORY_DEFAULT_NUM);
+    ClusterTop = HuMemDirectMallocNum(HEAP_DATA, sizeof(HSFCLUSTER) * head.cluster.count, MEMORY_DEFAULT_NUM);
     for (i = 0; i < head.cluster.count; i++) {
         HsfCluster32b *file_cluster_real = (HsfCluster32b *)((uintptr_t)fileptr + head.cluster.ofs);
         byteswap_hsfcluster(&file_cluster_real[i], &ClusterTop[i]);
@@ -758,7 +758,7 @@ static void FileLoad(void *data)
 #else
     NSymIndex = (void **)((uintptr_t)fileptr+head.symbol.ofs);
     StringTable = (char *)((uintptr_t)fileptr+head.string.ofs);
-    ClusterTop = (HsfCluster *)((uintptr_t)fileptr+head.cluster.ofs);
+    ClusterTop = (HSFCLUSTER *)((uintptr_t)fileptr+head.cluster.ofs);
     AttributeTop = (HSFATTRIBUTE *)((uintptr_t)fileptr + head.attribute.ofs);
     MaterialTop = (HSFMATERIAL *)((uintptr_t)fileptr + head.material.ofs);
 #endif
@@ -1221,7 +1221,7 @@ static void DispObject(HSFOBJECT *parent, HSFOBJECT *object)
     struct {
         HSFOBJECT *parent;
         HSFBUFFER *shape;
-        HsfCluster *cluster;
+        HSFCLUSTER *cluster;
     } temp;
 
     temp.parent = parent;
@@ -1255,7 +1255,7 @@ static void DispObject(HSFOBJECT *parent, HSFOBJECT *object)
                 temp.shape = &vtxtop[(uintptr_t)new_object->mesh.shape[i]];
                 new_object->mesh.shape[i] = temp.shape;
             }
-            new_object->mesh.cluster = (HsfCluster **)&NSymIndex[(uintptr_t)data->cluster];
+            new_object->mesh.cluster = (HSFCLUSTER **)&NSymIndex[(uintptr_t)data->cluster];
             for(i=0; i<new_object->mesh.clusterNum; i++) {
                 temp.cluster = &ClusterTop[(uintptr_t)new_object->mesh.cluster[i]];
                 new_object->mesh.cluster[i] = temp.cluster;
@@ -1497,8 +1497,8 @@ static void ObjectLoad(void)
 
 static void CenvLoad(void)
 {
-    HsfCenvMulti *multi_file;
-    HsfCenvMulti *multi_new;
+    HSFCENVMULTI *multi_file;
+    HSFCENVMULTI *multi_new;
     HSFCENVSINGLE *single_new;
     HSFCENVSINGLE *single_file;
     HSFCENVDUAL *dual_file;
@@ -1532,7 +1532,7 @@ static void CenvLoad(void)
             cenv_new[i].singleData = (HSFCENVSINGLE *)((uintptr_t)cenv_file[i].singleData + (uintptr_t)data_base);
 #ifndef BYTESWAPPING
             cenv_new[i].dualData = (HSFCENVDUAL *)((uintptr_t)cenv_file[i].dualData + (uintptr_t)data_base);
-            cenv_new[i].multiData = (HsfCenvMulti *)((uintptr_t)cenv_file[i].multiData + (uintptr_t)data_base);
+            cenv_new[i].multiData = (HSFCENVMULTI *)((uintptr_t)cenv_file[i].multiData + (uintptr_t)data_base);
 #endif
             cenv_new[i].singleCount = cenv_file[i].singleCount;
             cenv_new[i].dualCount = cenv_file[i].dualCount;
@@ -1546,7 +1546,7 @@ static void CenvLoad(void)
 #else
             weight_base = (void *)((uintptr_t)weight_base + (cenv_new[i].singleCount * sizeof(HSFCENVSINGLE)));
             weight_base = (void *)((uintptr_t)weight_base + (cenv_new[i].dualCount * sizeof(HSFCENVDUAL)));
-            weight_base = (void *)((uintptr_t)weight_base + (cenv_new[i].multiCount * sizeof(HsfCenvMulti)));
+            weight_base = (void *)((uintptr_t)weight_base + (cenv_new[i].multiCount * sizeof(HSFCENVMULTI)));
 #endif
         }
         for(i=0; i<head.cenv.count; i++) {
@@ -1554,7 +1554,7 @@ static void CenvLoad(void)
             HsfCenvDual32b *dual_data_real = (HsfCenvDual32b *)((uintptr_t)cenv_file[i].dualData + (uintptr_t)data_base);
             HsfCenvMulti32b *multi_data_real = (HsfCenvMulti32b *)((uintptr_t)cenv_file[i].multiData + (uintptr_t)data_base);
             cenv_new[i].dualData = HuMemDirectMallocNum(HEAP_DATA, cenv_file[i].dualCount * sizeof(HSFCENVDUAL), MEMORY_DEFAULT_NUM);
-            cenv_new[i].multiData = HuMemDirectMallocNum(HEAP_DATA, cenv_file[i].multiCount * sizeof(HsfCenvMulti), MEMORY_DEFAULT_NUM);
+            cenv_new[i].multiData = HuMemDirectMallocNum(HEAP_DATA, cenv_file[i].multiCount * sizeof(HSFCENVMULTI), MEMORY_DEFAULT_NUM);
 #endif
             single_new = single_file = cenv_new[i].singleData;
             for(j=0; j<cenv_new[i].singleCount; j++) {
@@ -1650,8 +1650,8 @@ static void SkeletonLoad(void)
 
 static void PartLoad(void)
 {
-    HsfPart *part_file;
-    HsfPart *part_new;
+    HSFPART *part_file;
+    HSFPART *part_new;
 
     u16 *data;
     s32 i, j;
@@ -1659,12 +1659,12 @@ static void PartLoad(void)
     if(head.part.count) {
 #ifdef BYTESWAPPING
         HsfPart32b *file_part_real = (HsfPart32b *)((uintptr_t)fileptr + head.part.ofs);
-        part_new = part_file = PartTop = HuMemDirectMallocNum(HEAP_DATA, sizeof(HsfPart) * head.part.count, MEMORY_DEFAULT_NUM);
+        part_new = part_file = PartTop = HuMemDirectMallocNum(HEAP_DATA, sizeof(HSFPART) * head.part.count, MEMORY_DEFAULT_NUM);
         for (i = 0; i < head.part.count; i++) {
             byteswap_hsfpart(&file_part_real[i], &part_file[i]);
         }
 #else
-        part_new = part_file = (HsfPart *)((u32)fileptr+head.part.ofs);
+        part_new = part_file = (HSFPART *)((u32)fileptr+head.part.ofs);
 #endif
         Model.partNum = head.part.count;
         Model.part = part_file;
@@ -1689,8 +1689,8 @@ static void PartLoad(void)
 
 static void ClusterLoad(void)
 {
-    HsfCluster *cluster_file;
-    HsfCluster *cluster_new;
+    HSFCLUSTER *cluster_file;
+    HSFCLUSTER *cluster_new;
 
     s32 i, j;
 
@@ -1698,7 +1698,7 @@ static void ClusterLoad(void)
 #ifdef BYTESWAPPING
         cluster_new = cluster_file = ClusterTop;
 #else
-        cluster_new = cluster_file = (HsfCluster *)((u32)fileptr+head.cluster.ofs);
+        cluster_new = cluster_file = (HSFCLUSTER *)((u32)fileptr+head.cluster.ofs);
 #endif
         Model.clusterNum = head.cluster.count;
         Model.cluster = cluster_file;
@@ -1725,18 +1725,18 @@ static void ClusterLoad(void)
 static void ShapeLoad(void)
 {
     s32 i, j;
-    HsfShape *shape_new;
-    HsfShape *shape_file;
+    HSFSHAPE *shape_new;
+    HSFSHAPE *shape_file;
 
     if(head.shape.count) {
 #ifdef BYTESWAPPING
         HsfShape32b *file_shape_real = (HsfShape32b *)((uintptr_t)fileptr + head.shape.ofs);
-        shape_new = shape_file = HuMemDirectMallocNum(HEAP_DATA, sizeof(HsfShape) * head.shape.count, MEMORY_DEFAULT_NUM);
+        shape_new = shape_file = HuMemDirectMallocNum(HEAP_DATA, sizeof(HSFSHAPE) * head.shape.count, MEMORY_DEFAULT_NUM);
         for (i = 0; i < head.shape.count; i++) {
             byteswap_hsfshape(&file_shape_real[i], &shape_file[i]);
         }
 #else
-        shape_new = shape_file = (HsfShape *)((u32)fileptr+head.shape.ofs);
+        shape_new = shape_file = (HSFSHAPE *)((u32)fileptr+head.shape.ofs);
 #endif
         Model.shapeNum = head.shape.count;
         Model.shape = shape_file;
@@ -1956,7 +1956,7 @@ static inline s32 FindObjectName(char *name)
 static inline s32 FindClusterName(char *name)
 {
     s32 i;
-    HsfCluster *cluster;
+    HSFCLUSTER *cluster;
 
     cluster = ClusterTop;
     for(i=0; i<head.cluster.count; i++, cluster++) {
@@ -1970,7 +1970,7 @@ static inline s32 FindClusterName(char *name)
 static inline s32 FindMotionClusterName(char *name)
 {
     s32 i;
-    HsfCluster *cluster;
+    HSFCLUSTER *cluster;
 
     cluster = MotionModel->cluster;
     for(i=0; i<MotionModel->clusterNum; i++, cluster++) {
@@ -2540,16 +2540,16 @@ static HSFCENV *SearchCenvPtr(s32 id)
     return cenv;
 }
 
-static HsfPart *SearchPartPtr(s32 id)
+static HSFPART *SearchPartPtr(s32 id)
 {
-    HsfPart *part;
+    HSFPART *part;
     if(id == -1) {
         return NULL;
     }
 #ifdef BYTESWAPPING
     part = PartTop;
 #else
-    part = (HsfPart *)((uintptr_t)fileptr+head.part.ofs);
+    part = (HSFPART *)((uintptr_t)fileptr+head.part.ofs);
 #endif
     part += id;
     return part;

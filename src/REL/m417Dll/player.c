@@ -2,8 +2,7 @@
 #include "game/audio.h"
 #include "game/chrman.h"
 #include "game/gamework_data.h"
-#include "game/hsfdraw.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/objsub.h"
 #include "game/pad.h"
 
@@ -1086,7 +1085,7 @@ void fn_1_AD24(omObjData *object)
     Hu3DModelPosSetV(object->model[0], &var_r30->unk_D4);
     Hu3DModelRotSet(object->model[0], 0.0f, var_r30->unk_64, 0.0f);
     Hu3DModelPosSetV(object->model[1], &var_r30->unk_F8);
-    MTXCopy(var_r30->unk_1C4, Hu3DData[object->model[1]].unk_F0);
+    MTXCopy(var_r30->unk_1C4, Hu3DData[object->model[1]].mtx);
 }
 
 void fn_1_ADC4(omObjData *object)

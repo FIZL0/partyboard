@@ -4,8 +4,7 @@
 #include "game/card.h"
 #include "game/saveload.h"
 #include "game/sprite.h"
-#include "game/hsfman.h"
-#include "game/hsfanim.h"
+#include "game/hu3d.h"
 #include "game/window.h"
 #include "game/gamework_data.h"
 #include "game/object.h"
@@ -47,7 +46,7 @@ BOOL LanguageMenuExec(void)
     s16 gid;
     s16 time;
     s16 choiceChange;
-    AnimData *anim;
+    ANIMDATA *anim;
     s16 sprid;
     s16 choice;
     omObjData *outView;

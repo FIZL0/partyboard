@@ -2,7 +2,7 @@
 #include "dolphin/mtx.h"
 #include "dolphin/vi.h"
 #include "game/disp.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/init.h"
 #include "game/sprite.h"
 
@@ -45,17 +45,17 @@ void HuSprDispInit(void)
     GXSetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
 }
 
-void HuSprDisp(HuSprite *sprite)
+void HuSprDisp(HUSPRITE *sprite)
 {
     short i;
-    AnimData *anim = sprite->data;
-    AnimPatData *pat = sprite->pat_data;
+    ANIMDATA *anim = sprite->data;
+    ANIMPAT *pat = sprite->patP;
     Vec axis = {0, 0, 1};
     Mtx modelview, rot;
     short color_sum;
-    HuSprFunc func;
+    HUSPRFUNC func;
     
-    GXSetScissor(sprite->scissor_x, sprite->scissor_y, sprite->scissor_w, sprite->scissor_h);
+    GXSetScissor(sprite->scissorX, sprite->scissorY, sprite->scissorW, sprite->scissorH);
     if(sprite->attr & HUSPR_ATTR_FUNC) {
         if(sprite->func) {
             func = sprite->func;
@@ -64,8 +64,8 @@ void HuSprDisp(HuSprite *sprite)
         }
         
     } else {
-        AnimLayerData *layer;
-        AnimBmpData *bg_bmp;
+        ANIMLAYER *layer;
+        ANIMBMP *bg_bmp;
         GXColor color;
         GXSetNumTexGens(1);
         GXSetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
@@ -93,9 +93,9 @@ void HuSprDisp(HuSprite *sprite)
             GXSetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP);
         }
         if(sprite->bg) {
-            AnimPatData *bg_pat;
-            AnimFrameData *bg_frame;
-            bg_frame = sprite->bg->bank[sprite->bg_bank].frame;
+            ANIMPAT *bg_pat;
+            ANIMFRAME *bg_frame;
+            bg_frame = sprite->bg->bank[sprite->bgBank].frame;
             bg_pat = &sprite->bg->pat[bg_frame->pat];
             layer = bg_pat->layer;
             bg_bmp = &sprite->bg->bmp[layer->bmpNo];
@@ -108,27 +108,27 @@ void HuSprDisp(HuSprite *sprite)
         }
         GXSetAlphaCompare(GX_GEQUAL, 1, GX_AOP_AND, GX_GEQUAL, 1);
         GXSetZCompLoc(GX_FALSE);
-        if(0 != sprite->z_rot) {
-            MTXRotAxisDeg(rot, &axis, sprite->z_rot);
-            MTXScale(modelview, sprite->scale_x, sprite->scale_y, 1.0f);
+        if(0 != sprite->zRot) {
+            MTXRotAxisDeg(rot, &axis, sprite->zRot);
+            MTXScale(modelview, sprite->scale.x, sprite->scale.y, 1.0f);
             MTXConcat(rot, modelview, modelview);
         } else {
-            MTXScale(modelview, sprite->scale_x, sprite->scale_y, 1.0f);
+            MTXScale(modelview, sprite->scale.x, sprite->scale.y, 1.0f);
         }
-        mtxTransCat(modelview, sprite->x, sprite->y, 0);
-        MTXConcat(*sprite->group_mtx, modelview, modelview);
+        mtxTransCat(modelview, sprite->pos.x, sprite->pos.y, 0);
+        MTXConcat(*sprite->groupMtx, modelview, modelview);
         GXLoadPosMtxImm(modelview, GX_PNMTX0);
         for(i=pat->layerNum-1; i>=0; i--) {
             float pos[4][2];
             float texcoord_x1, texcoord_y1, texcoord_x2, texcoord_y2;
-            AnimBmpData *bmp;
+            ANIMBMP *bmp;
             layer = &pat->layer[i];
             bmp = &anim->bmp[layer->bmpNo];
             if(!bmp) {
                 continue;
             }
             GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
-            HuSprTexLoad(anim, layer->bmpNo, 0, sprite->wrap_s, sprite->wrap_t, (sprite->attr & HUSPR_ATTR_LINEAR) ? GX_LINEAR : GX_NEAR);
+            HuSprTexLoad(anim, layer->bmpNo, 0, sprite->wrapS, sprite->wrapT, (sprite->attr & HUSPR_ATTR_LINEAR) ? GX_LINEAR : GX_NEAR);
             if(layer->alpha != 255 || color_sum != 255*4) {
                 color.a = (u16)(sprite->a*layer->alpha) >> 8;
                 GXSetTevColor(GX_TEVSTAGE1, color);
@@ -169,13 +169,13 @@ void HuSprDisp(HuSprite *sprite)
             }
             GXBegin(GX_QUADS, GX_VTXFMT0, 4);
             GXPosition3f32(pos[0][0], pos[0][1], 0);
-            GXTexCoord2f32(texcoord_x1*sprite->tex_scale_x, texcoord_y1*sprite->tex_scale_y);
+            GXTexCoord2f32(texcoord_x1*sprite->uvScaleX, texcoord_y1*sprite->uvScaleY);
             GXPosition3f32(pos[1][0], pos[1][1], 0);
-            GXTexCoord2f32(texcoord_x2*sprite->tex_scale_x, texcoord_y1*sprite->tex_scale_y);
+            GXTexCoord2f32(texcoord_x2*sprite->uvScaleX, texcoord_y1*sprite->uvScaleY);
             GXPosition3f32(pos[2][0], pos[2][1], 0);
-            GXTexCoord2f32(texcoord_x2*sprite->tex_scale_x, texcoord_y2*sprite->tex_scale_y);
+            GXTexCoord2f32(texcoord_x2*sprite->uvScaleX, texcoord_y2*sprite->uvScaleY);
             GXPosition3f32(pos[3][0], pos[3][1], 0);
-            GXTexCoord2f32(texcoord_x1*sprite->tex_scale_x, texcoord_y2*sprite->tex_scale_y);
+            GXTexCoord2f32(texcoord_x1*sprite->uvScaleX, texcoord_y2*sprite->uvScaleY);
             GXEnd();
         }
         if(sprite->bg) {
@@ -186,10 +186,10 @@ void HuSprDisp(HuSprite *sprite)
     }
 }
 
-void HuSprTexLoad(AnimData *anim, short bmp, short slot, GXTexWrapMode wrap_s, GXTexWrapMode wrap_t, GXTexFilter filter)
+void HuSprTexLoad(ANIMDATA *anim, short bmp, short slot, GXTexWrapMode wrap_s, GXTexWrapMode wrap_t, GXTexFilter filter)
 #ifdef OPTIMIZED_TEXTURE_LOADING
 {
-    AnimBmpData *bmp_ptr = &anim->bmp[bmp];
+    ANIMBMP *bmp_ptr = &anim->bmp[bmp];
     AnimTexData *tex_data = &bmp_ptr->texData[slot];
     GXTexObj *tex_obj = &tex_data->tex_obj;
     GXTlutObj *tlut_obj = &tex_data->tlut_obj;
@@ -278,7 +278,7 @@ void HuSprTexLoad(AnimData *anim, short bmp, short slot, GXTexWrapMode wrap_s, G
 {
     GXTexObj tex_obj;
     GXTlutObj tlut_obj;
-    AnimBmpData *bmp_ptr = &anim->bmp[bmp];
+    ANIMBMP *bmp_ptr = &anim->bmp[bmp];
     short sizeX = bmp_ptr->sizeX;
     short sizeY = bmp_ptr->sizeY;
     switch(bmp_ptr->dataFmt & ANIM_BMP_FMTMASK) {

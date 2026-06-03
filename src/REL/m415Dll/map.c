@@ -2,7 +2,7 @@
 #define HUSPR_USE_OLD_DEFS
 #include "REL/m415Dll.h"
 
-#include "game/hsfdraw.h"
+#include "game/hu3d.h"
 #include "game/sprite.h"
 
 #include <string.h>
@@ -34,7 +34,7 @@ void fn_1_8780(s16 arg0, s16 arg1)
 // This function draws the carpet, why is it so complicated?
 void fn_1_88B8(unkSubStruct2 *arg0)
 {
-    ModelData sp120;
+    HU3DMODEL sp120;
     Mtx spF0;
     Mtx spC0;
     Mtx sp90;
@@ -263,7 +263,7 @@ void fn_1_88B8(unkSubStruct2 *arg0)
     }
 }
 
-void fn_1_95C0(ModelData *arg0, Mtx arg1)
+void fn_1_95C0(HU3DMODEL *arg0, Mtx arg1)
 {
     Mtx sp38;
     Mtx sp8;
@@ -304,7 +304,7 @@ unkSubStruct *fn_1_9708(s16 arg0, s16 arg1)
     return &lbl_1_bss_36C.unk40[arg0].unk3C[arg1];
 }
 
-AnimData **fn_1_9734(s16 arg0)
+ANIMDATA **fn_1_9734(s16 arg0)
 {
     return &lbl_1_bss_36C.unk3C[arg0].unk0;
 }
@@ -704,7 +704,7 @@ void fn_1_A920(s16 arg0, s16 arg1, u8 arg2)
 
 s16 fn_1_A94C(u32 arg0, s16 arg1, s16 arg2)
 {
-    AnimData *var_r30;
+    ANIMDATA *var_r30;
     f32 var_f31;
     f32 var_f30;
     s32 var_r29;
@@ -772,7 +772,7 @@ void fn_1_ACF4(s16 arg0, s16 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5)
 {
     f32 var_f31;
     f32 var_f30;
-    AnimData *var_r30;
+    ANIMDATA *var_r30;
     unkSubStruct3 *var_r31;
 
     var_r31 = &lbl_1_bss_36C.unk3C[arg0];

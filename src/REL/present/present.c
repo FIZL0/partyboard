@@ -5,9 +5,8 @@
 #include "game/audio.h"
 #endif
 #include "game/gamework_data.h"
-#include "game/hsfdraw.h"
 #include "game/hsfex.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/window.h"
 #include "game/wipe.h"
 
@@ -362,7 +361,7 @@ omObjData *PresentCreate(void)
     s32 i;
     s32 j;
     s16 lightId;
-    LightData *lightData;
+    HU3DLIGHT *lightData;
 
     omObjData *object = omAddObjEx(presentObjMan, 1003, 0, 0, 1, NULL);
     PresentWork *work = HuMemDirectMallocNum(HEAP_SYSTEM, sizeof(PresentWork), MEMORY_DEFAULT_NUM);

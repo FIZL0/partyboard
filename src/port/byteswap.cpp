@@ -197,7 +197,7 @@ template <typename B> void bswap(B &base, Vec2f &vec)
     bswap(base, vec.y);
 }
 
-template <typename B> void bswap(B &base, AnimData32b &obj, AnimData &dest)
+template <typename B> void bswap(B &base, AnimData32b &obj, ANIMDATA &dest)
 {
     bswap(base, obj.bankNum);
     bswap(base, obj.patNum);
@@ -211,12 +211,12 @@ template <typename B> void bswap(B &base, AnimData32b &obj, AnimData &dest)
     dest.patNum = obj.patNum;
     dest.bmpNum = obj.bmpNum;
     dest.useNum = obj.useNum;
-    dest.bank = reinterpret_cast<AnimBankData *>(static_cast<uintptr_t>(obj.bank));
-    dest.pat = reinterpret_cast<AnimPatData *>(static_cast<uintptr_t>(obj.pat));
-    dest.bmp = reinterpret_cast<AnimBmpData *>(static_cast<uintptr_t>(obj.bmp));
+    dest.bank = reinterpret_cast<ANIMBANK *>(static_cast<uintptr_t>(obj.bank));
+    dest.pat = reinterpret_cast<ANIMPAT *>(static_cast<uintptr_t>(obj.pat));
+    dest.bmp = reinterpret_cast<ANIMBMP *>(static_cast<uintptr_t>(obj.bmp));
 }
 
-template <typename B> void bswap(B &base, AnimBankData32b &obj, AnimBankData &dest)
+template <typename B> void bswap(B &base, AnimBankData32b &obj, ANIMBANK &dest)
 {
     bswap(base, obj.timeNum);
     bswap(base, obj.unk);
@@ -224,10 +224,10 @@ template <typename B> void bswap(B &base, AnimBankData32b &obj, AnimBankData &de
 
     dest.timeNum = obj.timeNum;
     dest.unk = obj.unk;
-    dest.frame = reinterpret_cast<AnimFrameData *>(static_cast<uintptr_t>(obj.frame));
+    dest.frame = reinterpret_cast<ANIMFRAME *>(static_cast<uintptr_t>(obj.frame));
 }
 
-template <typename B> void bswap(B &base, AnimPatData32b &obj, AnimPatData &dest)
+template <typename B> void bswap(B &base, AnimPatData32b &obj, ANIMPAT &dest)
 {
     bswap(base, obj.layerNum);
     bswap(base, obj.centerX);
@@ -241,10 +241,10 @@ template <typename B> void bswap(B &base, AnimPatData32b &obj, AnimPatData &dest
     dest.centerY = obj.centerY;
     dest.sizeX = obj.sizeX;
     dest.sizeY = obj.sizeY;
-    dest.layer = reinterpret_cast<AnimLayerData *>(static_cast<uintptr_t>(obj.layer));
+    dest.layer = reinterpret_cast<ANIMLAYER *>(static_cast<uintptr_t>(obj.layer));
 }
 
-template <typename B> void bswap(B &base, AnimBmpData32b &obj, AnimBmpData &dest)
+template <typename B> void bswap(B &base, AnimBmpData32b &obj, ANIMBMP &dest)
 {
     bswap(base, obj.pixSize);
     bswap(base, obj.dataFmt);
@@ -265,7 +265,7 @@ template <typename B> void bswap(B &base, AnimBmpData32b &obj, AnimBmpData &dest
     dest.data = reinterpret_cast<void *>(static_cast<uintptr_t>(obj.data));
 }
 
-template <typename B> void bswap(B &base, AnimFrameData &obj)
+template <typename B> void bswap(B &base, ANIMFRAME &obj)
 {
     bswap(base, obj.pat);
     bswap(base, obj.time);
@@ -275,7 +275,7 @@ template <typename B> void bswap(B &base, AnimFrameData &obj)
     bswap(base, obj.pad);
 }
 
-template <typename B> void bswap(B &base, AnimLayerData &obj)
+template <typename B> void bswap(B &base, ANIMLAYER &obj)
 {
     bswap(base, obj.alpha);
     bswap(base, obj.flip);
@@ -320,7 +320,7 @@ template <typename B> void bswap(B &base, HSFHEADER &obj)
     bswap(base, obj.string);
 }
 
-template <typename B> void bswap(B &base, HsfCluster32b &obj, HsfCluster &dest)
+template <typename B> void bswap(B &base, HsfCluster32b &obj, HSFCLUSTER &dest)
 {
     bswap(base, obj.name[0]);
     bswap(base, obj.name[1]);
@@ -336,7 +336,7 @@ template <typename B> void bswap(B &base, HsfCluster32b &obj, HsfCluster &dest)
     dest.name[1] = reinterpret_cast<char *>(static_cast<uintptr_t>(obj.name[1]));
 
     dest.targetName = reinterpret_cast<char *>(static_cast<uintptr_t>(obj.targetName));
-    dest.part = reinterpret_cast<HsfPart *>(static_cast<uintptr_t>(obj.part));
+    dest.part = reinterpret_cast<HSFPART *>(static_cast<uintptr_t>(obj.part));
     dest.index = obj.index;
     std::copy(std::begin(obj.weight), std::end(obj.weight), dest.weight);
 
@@ -468,7 +468,7 @@ template <typename B> void bswap(B &base, HsfPalette32b &obj, HSFPALETTE &dest)
     dest.data = reinterpret_cast<u16 *>(static_cast<uintptr_t>(obj.data));
 }
 
-template <typename B> void bswap(B &base, HsfPart32b &obj, HsfPart &dest)
+template <typename B> void bswap(B &base, HsfPart32b &obj, HSFPART &dest)
 {
     bswap(base, obj.name);
     bswap(base, obj.num);
@@ -537,7 +537,7 @@ template <typename B> void bswap(B &base, HsfSkeleton32b &obj, HSFSKELETON &dest
     dest.transform = obj.transform;
 }
 
-template <typename B> void bswap(B &base, HsfShape32b &obj, HsfShape &dest)
+template <typename B> void bswap(B &base, HsfShape32b &obj, HSFSHAPE &dest)
 {
     bswap(base, obj.name);
     bswap(base, obj.num16[0]);
@@ -587,7 +587,7 @@ template <typename B> void bswap(B &base, HSFCENVMULTIWEIGHT &obj)
     bswap(base, obj.value);
 }
 
-template <typename B> void bswap(B &base, HsfCenvMulti32b &obj, HsfCenvMulti &dest)
+template <typename B> void bswap(B &base, HsfCenvMulti32b &obj, HSFCENVMULTI &dest)
 {
     bswap(base, obj.weightNum);
     bswap(base, obj.pos);
@@ -619,7 +619,7 @@ template <typename B> void bswap(B &base, HsfCenv32b &obj, HSFCENV &dest)
     dest.name = reinterpret_cast<char *>(static_cast<uintptr_t>(obj.name));
     dest.singleData = reinterpret_cast<HSFCENVSINGLE *>(static_cast<uintptr_t>(obj.singleData));
     dest.dualData = reinterpret_cast<HSFCENVDUAL *>(static_cast<uintptr_t>(obj.dualData));
-    dest.multiData = reinterpret_cast<HsfCenvMulti *>(static_cast<uintptr_t>(obj.multiData));
+    dest.multiData = reinterpret_cast<HSFCENVMULTI *>(static_cast<uintptr_t>(obj.multiData));
     dest.singleCount = obj.singleCount;
     dest.dualCount = obj.dualCount;
     dest.multiCount = obj.multiCount;
@@ -689,7 +689,7 @@ template <typename B> void bswap(B &base, HsfObjectData32b &obj, HSFMESH &dest, 
     dest.shapeNum = obj.shapeNum;
     dest.shape = reinterpret_cast<HSFBUFFER **>(static_cast<uintptr_t>(obj.shape));
     dest.clusterNum = obj.clusterNum;
-    dest.cluster = reinterpret_cast<HsfCluster **>(static_cast<uintptr_t>(obj.cluster));
+    dest.cluster = reinterpret_cast<HSFCLUSTER **>(static_cast<uintptr_t>(obj.cluster));
     dest.cenvNum = obj.cenvNum;
     dest.cenv = reinterpret_cast<HSFCENV *>(static_cast<uintptr_t>(obj.cenv));
     dest.vtxtop = reinterpret_cast<HuVecF *>(static_cast<uintptr_t>(obj.vtxtop));
@@ -920,33 +920,33 @@ void byteswap_hsfvec2f(HuVec2f *src)
     bswap(*vec, *vec);
 }
 
-void byteswap_animdata(void *src, AnimData *dest)
+void byteswap_animdata(void *src, ANIMDATA *dest)
 {
     auto *anim = reinterpret_cast<AnimData32b *>(src);
     bswap(*anim, *anim, *dest);
 }
 
-void byteswap_animbankdata(AnimBankData32b *src, AnimBankData *dest)
+void byteswap_animbankdata(AnimBankData32b *src, ANIMBANK *dest)
 {
     bswap(*src, *src, *dest);
 }
 
-void byteswap_animpatdata(AnimPatData32b *src, AnimPatData *dest)
+void byteswap_animpatdata(AnimPatData32b *src, ANIMPAT *dest)
 {
     bswap(*src, *src, *dest);
 }
 
-void byteswap_animbmpdata(AnimBmpData32b *src, AnimBmpData *dest)
+void byteswap_animbmpdata(AnimBmpData32b *src, ANIMBMP *dest)
 {
     bswap(*src, *src, *dest);
 }
 
-void byteswap_animframedata(AnimFrameData *src)
+void byteswap_animframedata(ANIMFRAME *src)
 {
     bswap(*src, *src);
 }
 
-void byteswap_animlayerdata(AnimLayerData *src)
+void byteswap_animlayerdata(ANIMLAYER *src)
 {
     bswap(*src, *src);
 }
@@ -956,7 +956,7 @@ void byteswap_hsfheader(HSFHEADER *src)
     bswap(*src, *src);
 }
 
-void byteswap_hsfcluster(HsfCluster32b *src, HsfCluster *dest)
+void byteswap_hsfcluster(HsfCluster32b *src, HSFCLUSTER *dest)
 {
     bswap(*src, *src, *dest);
 }
@@ -991,7 +991,7 @@ void byteswap_hsfpalette(HsfPalette32b *src, HSFPALETTE *dest)
     bswap(*src, *src, *dest);
 }
 
-void byteswap_hsfpart(HsfPart32b *src, HsfPart *dest)
+void byteswap_hsfpart(HsfPart32b *src, HSFPART *dest)
 {
     bswap(*src, *src, *dest);
 }
@@ -1011,7 +1011,7 @@ void byteswap_hsfskeleton(HsfSkeleton32b *src, HSFSKELETON *dest)
     bswap(*src, *src, *dest);
 }
 
-void byteswap_hsfshape(HsfShape32b *src, HsfShape *dest)
+void byteswap_hsfshape(HsfShape32b *src, HSFSHAPE *dest)
 {
     bswap(*src, *src, *dest);
 }
@@ -1036,7 +1036,7 @@ void byteswap_hsfcenv_multi_weight(HSFCENVMULTIWEIGHT *src)
     bswap(*src, *src);
 }
 
-void byteswap_hsfcenv_multi(HsfCenvMulti32b *src, HsfCenvMulti *dest)
+void byteswap_hsfcenv_multi(HsfCenvMulti32b *src, HSFCENVMULTI *dest)
 {
     bswap(*src, *src, *dest);
 }

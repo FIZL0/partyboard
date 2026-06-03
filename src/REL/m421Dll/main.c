@@ -2,8 +2,7 @@
 #include "game/audio.h"
 #include "game/disp.h"
 #include "game/gamework.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
@@ -53,7 +52,7 @@ void fn_1_3020(Process *process);
 void fn_1_30D0(omObjData *object);
 void fn_1_3334(omObjData *object);
 void fn_1_335C(omObjData *object);
-void fn_1_38FC(ModelData *model, Mtx mtx);
+void fn_1_38FC(HU3DMODEL *model, Mtx mtx);
 void fn_1_3B50(u32 arg0);
 M421DllCameraStruct *fn_1_3B78(s32 arg0);
 M421DllCameraStruct *fn_1_3CB0(u32 arg0);
@@ -104,7 +103,7 @@ void ObjectSetup(void)
     Vec sp14 = { 0.0f, 0.0f, -1.0f };
     Vec sp8;
     Process *process;
-    LightData *lightData;
+    HU3DLIGHT *lightData;
 
     lbl_1_bss_8 = 0;
     HuAudSndGrpSet(0x2E);
@@ -646,7 +645,7 @@ void fn_1_335C(omObjData *object)
     }
 }
 
-void fn_1_38FC(ModelData *model, Mtx mtx)
+void fn_1_38FC(HU3DMODEL *model, Mtx mtx)
 {
     Mtx spC;
     float var_f31;

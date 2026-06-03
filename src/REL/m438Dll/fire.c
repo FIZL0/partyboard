@@ -1,8 +1,8 @@
 #include "REL/m438Dll.h"
 
-#include "game/hsfdraw.h"
 #include "game/memory.h"
 #define HUSPR_USE_OLD_DEFS
+#include "game/hu3d.h"
 #include "game/sprite.h"
 #include <string.h>
 
@@ -12,7 +12,7 @@ SHARED_SYM extern u8 texMtxTbl[];
 
 // PROTO
 void fn_1_E790(M438UnkStruct2 *);
-void fn_1_F538(ModelData *, Mtx);
+void fn_1_F538(HU3DMODEL *, Mtx);
 void fn_1_FAB8(M438UnkStruct *);
 void fn_1_FD40(M438UnkStruct2 *);
 void fn_1_10F0C(s16);
@@ -46,7 +46,7 @@ void fn_1_E658(s16 arg0, s16 arg1)
 
 void fn_1_E790(M438UnkStruct2 *arg0)
 {
-    ModelData sp120;
+    HU3DMODEL sp120;
     Mtx spF0;
     Mtx spC0;
     Mtx sp90;
@@ -286,7 +286,7 @@ void fn_1_E790(M438UnkStruct2 *arg0)
     }
 }
 
-void fn_1_F538(ModelData *arg0, Mtx arg1)
+void fn_1_F538(HU3DMODEL *arg0, Mtx arg1)
 {
     Mtx sp38;
     Mtx sp8;
@@ -731,7 +731,7 @@ s16 fn_1_10910(u32 arg0, s16 arg1, s16 arg2)
 {
     f32 var_f31;
     f32 var_f30;
-    AnimData *var_r30;
+    ANIMDATA *var_r30;
     M438UnkStruct3 *var_r31;
     s32 var_r29;
 
@@ -797,7 +797,7 @@ void fn_1_10CB8(s16 arg0, s16 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5)
     f32 var_f31;
     f32 var_f30;
     M438UnkStruct3 *temp_r31;
-    AnimData *temp_r30;
+    ANIMDATA *temp_r30;
 
     temp_r31 = &lbl_1_bss_DE4.unk_3C[arg0];
     HuSprAnimKill(temp_r31->unk_00);

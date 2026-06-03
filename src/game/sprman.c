@@ -6,7 +6,7 @@
 #include "dolphin/mtx.h"
 
 #ifndef __MWERKS__
-#include "game/hsfdraw.h"
+#include "game/hu3d.h"
 #endif
 
 #ifdef TARGET_PC
@@ -25,8 +25,8 @@ typedef struct sprite_order {
     u16 next;
 } SpriteOrder;
 
-SHARED_SYM HuSprite HuSprData[HUSPR_MAX];
-SHARED_SYM HuSprGrp HuSprGrpData[HUSPR_GRP_MAX];
+SHARED_SYM HUSPRITE HuSprData[HUSPR_MAX];
+SHARED_SYM HUSPRGRP HuSprGrpData[HUSPR_GRP_MAX];
 static SpriteOrder HuSprOrder[HUSPR_MAX*2];
 
 static s16 HuSprOrderNum;
@@ -39,8 +39,8 @@ static void HuSprOrderEntry(s16 group, s16 sprite);
 void HuSprInit(void)
 {
     s16 i;
-    HuSprite *sprite;
-    HuSprGrp *group;
+    HUSPRITE *sprite;
+    HUSPRGRP *group;
     for(sprite = &HuSprData[1], i=1; i<HUSPR_MAX; i++, sprite++) {
         sprite->data = NULL;
     }
@@ -56,8 +56,8 @@ void HuSprInit(void)
 void HuSprClose(void)
 {
     s16 i;
-    HuSprGrp *group;
-    HuSprite *sprite;
+    HUSPRGRP *group;
+    HUSPRITE *sprite;
     
     for(group = HuSprGrpData, i=0; i<HUSPR_GRP_MAX; i++, group++) {
         if(group->capacity != 0) {
@@ -74,9 +74,9 @@ void HuSprClose(void)
 
 void HuSprExec(s16 draw_no)
 {
-    HuSprite *sprite;
+    HUSPRITE *sprite;
     while(sprite = HuSprCall()) {
-        if(!(sprite->attr & HUSPR_ATTR_DISPOFF) && sprite->draw_no == draw_no) {
+        if(!(sprite->attr & HUSPR_ATTR_DISPOFF) && sprite->drawNo == draw_no) {
             HuSprDisp(sprite);
         }
     }
@@ -87,19 +87,19 @@ void HuSprBegin(void)
     Mtx temp, rot;
     s16 i, j;
     Vec axis = {0, 0, 1};
-    HuSprGrp *group;
+    HUSPRGRP *group;
     group = HuSprGrpData;
     HuSprOrderNum = 1;
     HuSprOrder[0].next = 0;
     HuSprOrder[0].prio = -1;
     for(i=0; i<HUSPR_GRP_MAX; i++, group++) {
         if(group->capacity != 0) {
-            MTXTrans(temp, group->center_x*group->scale_x, group->center_y*group->scale_y, 0.0f);
-            MTXRotAxisDeg(rot, &axis, group->z_rot);
+            MTXTrans(temp, group->center.x*group->scale.x, group->center.y*group->scale.y, 0.0f);
+            MTXRotAxisDeg(rot, &axis, group->zRot);
             MTXConcat(rot, temp, group->mtx);
-            MTXScale(temp, group->scale_x, group->scale_y, 1.0f);
+            MTXScale(temp, group->scale.x, group->scale.y, 1.0f);
             MTXConcat(group->mtx, temp, group->mtx);
-            mtxTransCat(group->mtx, group->x, group->y, 0);
+            mtxTransCat(group->mtx, group->pos.x, group->pos.y, 0);
             for(j=0; j<group->capacity; j++) {
                 if(group->members[j] != -1) {
                     HuSprOrderEntry(i, group->members[j]);
@@ -133,57 +133,57 @@ static void HuSprOrderEntry(s16 group, s16 sprite)
     HuSprOrderNum++;
 }
 
-HuSprite *HuSprCall(void)
+HUSPRITE *HuSprCall(void)
 {
     HuSprOrderNo = HuSprOrder[HuSprOrderNo].next;
     if(HuSprOrderNo != 0) {
         SpriteOrder *order = &HuSprOrder[HuSprOrderNo];
-        HuSprite *sprite = &HuSprData[order->sprite];
-        sprite->group_mtx = &HuSprGrpData[order->group].mtx;
+        HUSPRITE *sprite = &HuSprData[order->sprite];
+        sprite->groupMtx = &HuSprGrpData[order->group].mtx;
         if(sprite->attr & HUSPR_ATTR_FUNC) {
             return sprite;
         }
-        sprite->frame_data = &sprite->data->bank[sprite->bank].frame[sprite->frame];
-        sprite->pat_data = &sprite->data->pat[sprite->frame_data->pat];
+        sprite->frameP = &sprite->data->bank[sprite->bank].frame[sprite->animNo];
+        sprite->patP = &sprite->data->pat[sprite->frameP->pat];
         return sprite;
     } else {
         return NULL;
     }
 }
 
-static inline void SpriteCalcFrame(HuSprite *sprite, AnimBankData *bank, AnimFrameData **frame, s16 loop)
+static inline void SpriteCalcFrame(HUSPRITE *sprite, ANIMBANK *bank, ANIMFRAME **frame, s16 loop)
 {
     if(sprite->time >= (*frame)->time) {
-        sprite->frame++;
+        sprite->animNo++;
         sprite->time -= (*frame)->time;
-        if(sprite->frame >= bank->timeNum || (*frame)[1].time == -1) {
+        if(sprite->animNo >= bank->timeNum || (*frame)[1].time == -1) {
             if(loop) {
-                sprite->frame = 0;
+                sprite->animNo = 0;
             } else {
-                sprite->frame = bank->timeNum-1;
+                sprite->animNo = bank->timeNum-1;
             }
         }
-        *frame = &bank->frame[sprite->frame];
+        *frame = &bank->frame[sprite->animNo];
     } else if(sprite->time < 0) {
-        sprite->frame--;
-        if(sprite->frame < 0) {
+        sprite->animNo--;
+        if(sprite->animNo < 0) {
             if(loop) {
-                sprite->frame = bank->timeNum-1;
+                sprite->animNo = bank->timeNum-1;
             } else {
-                sprite->frame = 0;
+                sprite->animNo = 0;
             }
         }
-        *frame = &bank->frame[sprite->frame];
+        *frame = &bank->frame[sprite->animNo];
         sprite->time += (*frame)->time;
     }
 }
 
 void HuSprFinish(void)
 {
-    AnimData *anim;
-    AnimBankData *bank;
-    AnimFrameData *frame;
-    HuSprite *sprite;
+    ANIMDATA *anim;
+    ANIMBANK *bank;
+    ANIMFRAME *frame;
+    HUSPRITE *sprite;
     s16 i;
     s16 j;
     s16 loop;
@@ -194,7 +194,7 @@ void HuSprFinish(void)
             if(!HuSprPauseF || (sprite->attr & HUSPR_ATTR_NOPAUSE)) {
                 anim = sprite->data;
                 bank = &anim->bank[sprite->bank];
-                frame = &bank->frame[sprite->frame];
+                frame = &bank->frame[sprite->animNo];
                 loop = (sprite->attr & HUSPR_ATTR_LOOP) ? 0 : 1;
                 if(!(sprite->attr & HUSPR_ATTR_NOANIM)) {
                     dir = (sprite->attr & HUSPR_ATTR_REVERSE) ? -1 : 1;
@@ -205,7 +205,7 @@ void HuSprFinish(void)
                     sprite->time += (sprite->speed*(float)minimumVcount)-j;
                     SpriteCalcFrame(sprite, bank, &frame, loop);
                 }
-                sprite->dirty_flag = 0;
+                sprite->dirty = 0;
             }
         }
     }
@@ -216,21 +216,21 @@ void HuSprPauseSet(BOOL value)
     HuSprPauseF = value;
 }
 
-AnimData *HuSprAnimRead(void *data)
+ANIMDATA *HuSprAnimRead(void *data)
 {
     s16 i;
-    AnimBmpData *bmp;
-    AnimBankData *bank;
-    AnimPatData *pat;
+    ANIMBMP *bmp;
+    ANIMBANK *bank;
+    ANIMPAT *pat;
 
-    AnimData *anim = data;
+    ANIMDATA *anim = data;
 #ifdef BYTESWAPPING
     s16 j;
     if (anim->valid == ANIM_DATA_ALLOCATION_VALID) {
         anim->useNum++;
         return anim;
     }
-    anim = HuMemDirectMalloc(HEAP_DATA, sizeof(AnimData));
+    anim = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMDATA));
     byteswap_animdata(data, anim);
     anim->valid = ANIM_DATA_ALLOCATION_VALID;
 #else
@@ -241,7 +241,7 @@ AnimData *HuSprAnimRead(void *data)
 #endif
     bank = (void *)((uintptr_t)anim->bank+(uintptr_t)data);
 #ifdef BYTESWAPPING
-    bank = HuMemDirectMalloc(HEAP_DATA, anim->bankNum * sizeof(AnimBankData));
+    bank = HuMemDirectMalloc(HEAP_DATA, anim->bankNum * sizeof(ANIMBANK));
     for(i=0; i<anim->bankNum; i++) {
         byteswap_animbankdata(&((AnimBankData32b*)((uintptr_t)anim->bank+(uintptr_t)data))[i], &bank[i]);
     }
@@ -249,7 +249,7 @@ AnimData *HuSprAnimRead(void *data)
     anim->bank = bank;
     pat = (void *)((uintptr_t)anim->pat+(uintptr_t)data);
 #ifdef BYTESWAPPING
-    pat = HuMemDirectMalloc(HEAP_DATA, anim->patNum * sizeof(AnimPatData));
+    pat = HuMemDirectMalloc(HEAP_DATA, anim->patNum * sizeof(ANIMPAT));
     for(i=0; i<anim->patNum; i++) {
         byteswap_animpatdata(&((AnimPatData32b*)((uintptr_t)anim->pat+(uintptr_t)data))[i], &pat[i]);
     }
@@ -257,7 +257,7 @@ AnimData *HuSprAnimRead(void *data)
     anim->pat = pat;
     bmp = (void *)((uintptr_t)anim->bmp+(uintptr_t)data);
 #ifdef BYTESWAPPING
-    bmp = HuMemDirectMalloc(HEAP_DATA, anim->bmpNum * sizeof(AnimBmpData));
+    bmp = HuMemDirectMalloc(HEAP_DATA, anim->bmpNum * sizeof(ANIMBMP));
     for(i=0; i<anim->bmpNum; i++) {
         byteswap_animbmpdata(&((AnimBmpData32b*)((uintptr_t)anim->bmp+(uintptr_t)data))[i], &bmp[i]);
 #ifdef OPTIMIZED_TEXTURE_LOADING
@@ -273,7 +273,7 @@ AnimData *HuSprAnimRead(void *data)
 #endif
     anim->bmp = bmp;
     for(i=0; i<anim->bankNum; i++, bank++) {
-        bank->frame = (AnimFrameData *)((uintptr_t)bank->frame+(uintptr_t)data);
+        bank->frame = (ANIMFRAME *)((uintptr_t)bank->frame+(uintptr_t)data);
 #ifdef BYTESWAPPING
         for (j = 0; j < bank->timeNum; j++) {
             byteswap_animframedata(&bank->frame[j]);
@@ -281,7 +281,7 @@ AnimData *HuSprAnimRead(void *data)
 #endif
     }
     for(i=0; i<anim->patNum; i++, pat++) {
-        pat->layer = (AnimLayerData *)((uintptr_t)pat->layer+(uintptr_t)data);
+        pat->layer = (ANIMLAYER *)((uintptr_t)pat->layer+(uintptr_t)data);
 #ifdef BYTESWAPPING
         for (j = 0; j < pat->layerNum; j++) {
             byteswap_animlayerdata(&pat->layer[j]);
@@ -296,14 +296,14 @@ AnimData *HuSprAnimRead(void *data)
     return anim;
 }
 
-void HuSprAnimLock(AnimData *anim)
+void HuSprAnimLock(ANIMDATA *anim)
 {
     anim->useNum++;
 }
 
-s16 HuSprCreate(AnimData *anim, s16 prio, s16 bank)
+s16 HuSprCreate(ANIMDATA *anim, s16 prio, s16 bank)
 {
-    HuSprite *sprite;
+    HUSPRITE *sprite;
     s16 i;
     for(sprite = &HuSprData[1], i=1; i<HUSPR_MAX; i++, sprite++) {
         if(!sprite->data) {
@@ -315,30 +315,30 @@ s16 HuSprCreate(AnimData *anim, s16 prio, s16 bank)
     }
     sprite->data = anim;
     sprite->speed = 1.0f;
-    sprite->frame = 0;
+    sprite->animNo = 0;
     sprite->bank = bank;
     sprite->time = 0.0f;
     sprite->attr = 0;
-    sprite->draw_no = 0;
+    sprite->drawNo = 0;
     sprite->r = sprite->g = sprite->b = sprite->a = 255;
-    sprite->x = sprite->y = sprite->z_rot = 0.0f;
+    sprite->pos.x = sprite->pos.y = sprite->zRot = 0.0f;
     sprite->prio = prio;
-    sprite->scale_x = sprite->scale_y = 1.0f;
-    sprite->wrap_s = sprite->wrap_t = GX_CLAMP;
-    sprite->tex_scale_x = sprite->tex_scale_y = 1;
+    sprite->scale.x = sprite->scale.y = 1.0f;
+    sprite->wrapS = sprite->wrapT = GX_CLAMP;
+    sprite->uvScaleX = sprite->uvScaleY = 1;
     sprite->bg = NULL;
-    sprite->scissor_x = sprite->scissor_y = 0;
-    sprite->scissor_w = HU_FB_WIDTH;
-    sprite->scissor_h = HU_FB_HEIGHT;
+    sprite->scissorX = sprite->scissorY = 0;
+    sprite->scissorW = HU_FB_WIDTH;
+    sprite->scissorH = HU_FB_HEIGHT;
     if(anim) {
         HuSprAnimLock(anim);
     }
     return i;
 }
 
-s16 HuSprFuncCreate(HuSprFunc func, s16 prio)
+s16 HuSprFuncCreate(HUSPRFUNC func, s16 prio)
 {
-    HuSprite *sprite;
+    HUSPRITE *sprite;
     s16 index = HuSprCreate(NULL, prio, 0);
     if(index == HUSPR_NONE) {
         return HUSPR_NONE;
@@ -351,7 +351,7 @@ s16 HuSprFuncCreate(HuSprFunc func, s16 prio)
 
 s16 HuSprGrpCreate(s16 capacity)
 {
-    HuSprGrp *group;
+    HUSPRGRP *group;
     s16 i, j;
     for(group = HuSprGrpData, i=0; i<HUSPR_GRP_MAX; i++, group++) {
         if(group->capacity == 0) {
@@ -366,31 +366,31 @@ s16 HuSprGrpCreate(s16 capacity)
         group->members[j] = HUSPR_NONE;
     }
     group->capacity = capacity;
-    group->x = group->y = group->z_rot = group->center_x = group->center_y = 0.0f;
-    group->scale_x = group->scale_y = 1.0f;
+    group->pos.x = group->pos.y = group->zRot = group->center.x = group->center.y = 0.0f;
+    group->scale.x = group->scale.y = 1.0f;
     return i;
 }
 
 s16 HuSprGrpCopy(s16 group)
 {
-    HuSprGrp *new_group_ptr;
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *new_group_ptr;
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 new_group = HuSprGrpCreate(group_ptr->capacity);
     s16 i;
     if(new_group == HUSPR_GRP_NONE) {
         return HUSPR_GRP_NONE;
     }
     new_group_ptr = &HuSprGrpData[new_group];
-    new_group_ptr->x = group_ptr->x;
-    new_group_ptr->y = group_ptr->y;
-    new_group_ptr->z_rot = group_ptr->z_rot;
-    new_group_ptr->scale_x = group_ptr->scale_x;
-    new_group_ptr->scale_y = group_ptr->scale_y;
-    new_group_ptr->center_x = group_ptr->center_x;
-    new_group_ptr->center_y = group_ptr->center_y;
+    new_group_ptr->pos.x = group_ptr->pos.x;
+    new_group_ptr->pos.y = group_ptr->pos.y;
+    new_group_ptr->zRot = group_ptr->zRot;
+    new_group_ptr->scale.x = group_ptr->scale.x;
+    new_group_ptr->scale.y = group_ptr->scale.y;
+    new_group_ptr->center.x = group_ptr->center.x;
+    new_group_ptr->center.y = group_ptr->center.y;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != HUSPR_NONE) {
-            HuSprite *old_sprite = &HuSprData[group_ptr->members[i]];
+            HUSPRITE *old_sprite = &HuSprData[group_ptr->members[i]];
             s16 new_sprite = HuSprCreate(old_sprite->data, old_sprite->prio, old_sprite->bank);
             HuSprData[new_sprite] = *old_sprite;
             HuSprGrpMemberSet(new_group, i, new_sprite);
@@ -401,8 +401,8 @@ s16 HuSprGrpCopy(s16 group)
 
 void HuSprGrpMemberSet(s16 group, s16 member, s16 sprite)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
-    HuSprite *sprite_ptr = &HuSprData[sprite];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
+    HUSPRITE *sprite_ptr = &HuSprData[sprite];
     if(group_ptr->capacity == 0 || group_ptr->capacity <= member || group_ptr->members[member] != HUSPR_NONE) {
         return;
     }
@@ -411,7 +411,7 @@ void HuSprGrpMemberSet(s16 group, s16 member, s16 sprite)
 
 void HuSprGrpMemberKill(s16 group, s16 member)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     if(group_ptr->capacity == 0 || group_ptr->capacity <= member || group_ptr->members[member] == HUSPR_NONE) {
         return;
     }
@@ -421,7 +421,7 @@ void HuSprGrpMemberKill(s16 group, s16 member)
 
 void HuSprGrpKill(s16 group)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 i;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != HUSPR_NONE) {
@@ -434,7 +434,7 @@ void HuSprGrpKill(s16 group)
 
 void HuSprKill(s16 sprite)
 {
-    HuSprite *sprite_ptr = &HuSprData[sprite];
+    HUSPRITE *sprite_ptr = &HuSprData[sprite];
     if(!sprite_ptr->data) {
         return;
     }
@@ -448,7 +448,7 @@ void HuSprKill(s16 sprite)
     sprite_ptr->data = NULL;
 }
 
-void HuSprAnimKill(AnimData *anim)
+void HuSprAnimKill(ANIMDATA *anim)
 {
     if(--anim->useNum <= 0) {
         if(anim->bmpNum & ANIM_BMP_ALLOC) {
@@ -485,179 +485,179 @@ void HuSprAnimKill(AnimData *anim)
 
 void HuSprAttrSet(s16 group, s16 member, s32 attr)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
-    HuSprite *sprite_ptr;
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
+    HUSPRITE *sprite_ptr;
     if(group_ptr->capacity == 0 || group_ptr->capacity <= member || group_ptr->members[member] == HUSPR_NONE) {
         return;
     }
     sprite_ptr = &HuSprData[group_ptr->members[member]];
     sprite_ptr->attr |= attr;
-    sprite_ptr->dirty_flag |= SPRITE_DIRTY_ATTR;
+    sprite_ptr->dirty |= SPRITE_DIRTY_ATTR;
 }
 
 void HuSprAttrReset(s16 group, s16 member, s32 attr)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
-    HuSprite *sprite_ptr;
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
+    HUSPRITE *sprite_ptr;
     if(group_ptr->capacity == 0 || group_ptr->capacity <= member || group_ptr->members[member] == HUSPR_NONE) {
         return;
     }
     sprite_ptr = &HuSprData[group_ptr->members[member]];
     sprite_ptr->attr &= ~attr;
-    sprite_ptr->dirty_flag |= SPRITE_DIRTY_ATTR;
+    sprite_ptr->dirty |= SPRITE_DIRTY_ATTR;
 }
 
 void HuSprPosSet(s16 group, s16 member, float x, float y)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
-    sprite_ptr->x = x;
-    sprite_ptr->y = y;
-    sprite_ptr->dirty_flag |= SPRITE_DIRTY_XFORM;
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    sprite_ptr->pos.x = x;
+    sprite_ptr->pos.y = y;
+    sprite_ptr->dirty |= SPRITE_DIRTY_XFORM;
 }
 
 void HuSprZRotSet(s16 group, s16 member, float z_rot)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
-    sprite_ptr->z_rot = z_rot;
-    sprite_ptr->dirty_flag |= SPRITE_DIRTY_XFORM;
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    sprite_ptr->zRot = z_rot;
+    sprite_ptr->dirty |= SPRITE_DIRTY_XFORM;
 }
 
 void HuSprScaleSet(s16 group, s16 member, float x, float y)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
-    sprite_ptr->scale_x = x;
-    sprite_ptr->scale_y = y;
-    sprite_ptr->dirty_flag |= SPRITE_DIRTY_XFORM;
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    sprite_ptr->scale.x = x;
+    sprite_ptr->scale.y = y;
+    sprite_ptr->dirty |= SPRITE_DIRTY_XFORM;
 }
 
 void HuSprTPLvlSet(s16 group, s16 member, float tp_lvl)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
     sprite_ptr->a = tp_lvl*255;
-    sprite_ptr->dirty_flag |= SPRITE_DIRTY_COLOR;
+    sprite_ptr->dirty |= SPRITE_DIRTY_COLOR;
 }
 
 void HuSprColorSet(s16 group, s16 member, u8 r, u8 g, u8 b)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
     sprite_ptr->r = r;
     sprite_ptr->g = g;
     sprite_ptr->b = b;
-    sprite_ptr->dirty_flag |= SPRITE_DIRTY_COLOR;
+    sprite_ptr->dirty |= SPRITE_DIRTY_COLOR;
 }
 
 void HuSprSpeedSet(s16 group, s16 member, float speed)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     HuSprData[group_ptr->members[member]].speed = speed;
 }
 
 void HuSprBankSet(s16 group, s16 member, s16 bank)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
-    AnimData *anim = sprite_ptr->data;
-    AnimBankData *bank_ptr = &anim->bank[sprite_ptr->bank];
-    AnimFrameData *frame_ptr = &bank_ptr->frame[sprite_ptr->frame];
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    ANIMDATA *anim = sprite_ptr->data;
+    ANIMBANK *bank_ptr = &anim->bank[sprite_ptr->bank];
+    ANIMFRAME *frame_ptr = &bank_ptr->frame[sprite_ptr->animNo];
     sprite_ptr->bank = bank;
     if(sprite_ptr->attr & HUSPR_ATTR_REVERSE) {
-        sprite_ptr->frame = bank_ptr->timeNum-1;
-        frame_ptr = &bank_ptr->frame[sprite_ptr->frame];
+        sprite_ptr->animNo = bank_ptr->timeNum-1;
+        frame_ptr = &bank_ptr->frame[sprite_ptr->animNo];
         sprite_ptr->time = frame_ptr->time;
     } else {
         sprite_ptr->time = 0;
-        sprite_ptr->frame = 0;
+        sprite_ptr->animNo = 0;
     }
 }
 
 void HuSprGrpPosSet(s16 group, float x, float y)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 i;
-    group_ptr->x = x;
-    group_ptr->y = y;
+    group_ptr->pos.x = x;
+    group_ptr->pos.y = y;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != -1) {
-            HuSprData[group_ptr->members[i]].dirty_flag |= SPRITE_DIRTY_XFORM;
+            HuSprData[group_ptr->members[i]].dirty |= SPRITE_DIRTY_XFORM;
         }
     }
 }
 
 void HuSprGrpCenterSet(s16 group, float x, float y)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 i;
-    group_ptr->center_x = x;
-    group_ptr->center_y = y;
+    group_ptr->center.x = x;
+    group_ptr->center.y = y;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != HUSPR_NONE) {
-            HuSprData[group_ptr->members[i]].dirty_flag |= SPRITE_DIRTY_XFORM;
+            HuSprData[group_ptr->members[i]].dirty |= SPRITE_DIRTY_XFORM;
         }
     }
 }
 
 void HuSprGrpZRotSet(s16 group, float z_rot)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 i;
-    group_ptr->z_rot = z_rot;
+    group_ptr->zRot = z_rot;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != HUSPR_NONE) {
-            HuSprData[group_ptr->members[i]].dirty_flag |= SPRITE_DIRTY_XFORM;
+            HuSprData[group_ptr->members[i]].dirty |= SPRITE_DIRTY_XFORM;
         }
     }
 }
 
 void HuSprGrpScaleSet(s16 group, float x, float y)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 i;
-    group_ptr->scale_x = x;
-    group_ptr->scale_y = y;
+    group_ptr->scale.x = x;
+    group_ptr->scale.y = y;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != HUSPR_NONE) {
-            HuSprData[group_ptr->members[i]].dirty_flag |= SPRITE_DIRTY_XFORM;
+            HuSprData[group_ptr->members[i]].dirty |= SPRITE_DIRTY_XFORM;
         }
     }
 }
 
 void HuSprGrpTPLvlSet(s16 group, float tp_lvl)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 i;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != HUSPR_NONE) {
             HuSprData[group_ptr->members[i]].a = tp_lvl*255;
-            HuSprData[group_ptr->members[i]].dirty_flag |= SPRITE_DIRTY_COLOR;
+            HuSprData[group_ptr->members[i]].dirty |= SPRITE_DIRTY_COLOR;
         }
     }
 }
 
 void HuSprGrpDrawNoSet(s16 group, s32 draw_no)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 i;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != HUSPR_NONE) {
-            HuSprData[group_ptr->members[i]].draw_no = draw_no;
+            HuSprData[group_ptr->members[i]].drawNo = draw_no;
         }
     }
 }
 
 void HuSprDrawNoSet(s16 group, s16 member, s32 draw_no)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
-    sprite_ptr->draw_no = draw_no;
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    sprite_ptr->drawNo = draw_no;
 }
 
 void HuSprPriSet(s16 group, s16 member, s16 prio)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
     sprite_ptr->prio = prio;
 }
 
 void HuSprGrpScissorSet(s16 group, s16 x, s16 y, s16 w, s16 h)
 {
-    HuSprGrp *group_ptr = &HuSprGrpData[group];
+    HUSPRGRP *group_ptr = &HuSprGrpData[group];
     s16 i;
     for(i=0; i<group_ptr->capacity; i++) {
         if(group_ptr->members[i] != HUSPR_NONE) {
@@ -668,48 +668,48 @@ void HuSprGrpScissorSet(s16 group, s16 x, s16 y, s16 w, s16 h)
 
 void HuSprScissorSet(s16 group, s16 member, s16 x, s16 y, s16 w, s16 h)
 {
-    HuSprite *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
-    sprite_ptr->scissor_x = x;
-    sprite_ptr->scissor_y = y;
-    sprite_ptr->scissor_w = w;
-    sprite_ptr->scissor_h = h;
+    HUSPRITE *sprite_ptr = &HuSprData[HuSprGrpData[group].members[member]];
+    sprite_ptr->scissorX = x;
+    sprite_ptr->scissorY = y;
+    sprite_ptr->scissorW = w;
+    sprite_ptr->scissorH = h;
 }
 
 static s16 bitSizeTbl[11] = { 32, 24, 16, 8, 4, 16, 8, 8, 4, 8, 4 };
 
-AnimData *HuSprAnimMake(s16 sizeX, s16 sizeY, s16 dataFmt)
+ANIMDATA *HuSprAnimMake(s16 sizeX, s16 sizeY, s16 dataFmt)
 {
-    AnimLayerData *layer;
-    AnimBmpData *bmp;
-    AnimData *anim;
-    AnimPatData *pat;
-    AnimFrameData *frame;
+    ANIMLAYER *layer;
+    ANIMBMP *bmp;
+    ANIMDATA *anim;
+    ANIMPAT *pat;
+    ANIMFRAME *frame;
     void *temp;
-    AnimBankData *bank;
-    AnimData *new_anim;
+    ANIMBANK *bank;
+    ANIMDATA *new_anim;
 
 #ifdef BYTESWAPPING
     // as these are allocated in HuSprAnimRead, we need to do so here too so we don't get issues when freeing
-    anim = HuMemDirectMalloc(HEAP_DATA, sizeof(AnimData));
-    anim->bank = bank = HuMemDirectMalloc(HEAP_DATA, sizeof(AnimBankData));
-    bank->frame = frame = HuMemDirectMalloc(HEAP_DATA, sizeof(AnimFrameData));
-    anim->pat = pat = HuMemDirectMalloc(HEAP_DATA, sizeof(AnimPatData));
-    pat->layer = layer = HuMemDirectMalloc(HEAP_DATA, sizeof(AnimLayerData));
-    anim->bmp = bmp = HuMemDirectMalloc(HEAP_DATA, sizeof(AnimBmpData));
+    anim = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMDATA));
+    anim->bank = bank = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMBANK));
+    bank->frame = frame = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMFRAME));
+    anim->pat = pat = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMPAT));
+    pat->layer = layer = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMLAYER));
+    anim->bmp = bmp = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMBMP));
     anim->valid = ANIM_DATA_ALLOCATION_VALID;
 #else
-    anim = new_anim = HuMemDirectMalloc(HEAP_DATA, sizeof(AnimData)+sizeof(AnimBankData)+sizeof(AnimFrameData)
-                                            +sizeof(AnimPatData)+sizeof(AnimLayerData)+sizeof(AnimBmpData));
+    anim = new_anim = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMDATA)+sizeof(ANIMBANK)+sizeof(ANIMFRAME)
+                                            +sizeof(ANIMPAT)+sizeof(ANIMLAYER)+sizeof(ANIMBMP));
 
     bank = temp = &new_anim[1];
     anim->bank = bank;
-    frame = temp = ((char *)temp+sizeof(AnimBankData));
+    frame = temp = ((char *)temp+sizeof(ANIMBANK));
     bank->frame = frame;
-    pat = temp = ((char *)temp+sizeof(AnimFrameData));
+    pat = temp = ((char *)temp+sizeof(ANIMFRAME));
     anim->pat = pat;
-    layer = temp = ((char *)temp+sizeof(AnimPatData));
+    layer = temp = ((char *)temp+sizeof(ANIMPAT));
     pat->layer = layer;
-    bmp = temp = ((char *)temp+sizeof(AnimLayerData));
+    bmp = temp = ((char *)temp+sizeof(ANIMLAYER));
     anim->bmp = bmp;
 #endif
     anim->useNum = 0;
@@ -761,30 +761,30 @@ AnimData *HuSprAnimMake(s16 sizeX, s16 sizeY, s16 dataFmt)
     return anim;
 }
 
-void HuSprBGSet(s16 group, s16 member,  AnimData *bg, s16 bg_bank)
+void HuSprBGSet(s16 group, s16 member,  ANIMDATA *bg, s16 bg_bank)
 {
     s16 sprite = HuSprGrpData[group].members[member];
     HuSprSprBGSet(sprite, bg, bg_bank);
 }
 
-void HuSprSprBGSet(s16 sprite, AnimData *bg, s16 bg_bank)
+void HuSprSprBGSet(s16 sprite, ANIMDATA *bg, s16 bg_bank)
 {
-    HuSprite *sprite_ptr = &HuSprData[sprite];
+    HUSPRITE *sprite_ptr = &HuSprData[sprite];
     sprite_ptr->bg = bg;
-    sprite_ptr->bg_bank = bg_bank;
-    sprite_ptr->wrap_t = sprite_ptr->wrap_s = GX_REPEAT;
+    sprite_ptr->bgBank = bg_bank;
+    sprite_ptr->wrapT = sprite_ptr->wrapS = GX_REPEAT;
     sprite_ptr->attr &= ~HUSPR_ATTR_LINEAR;
 }
 
-void AnimDebug(AnimData *anim)
+void AnimDebug(ANIMDATA *anim)
 {
-    AnimPatData *pat;
-    AnimLayerData *layer;
+    ANIMPAT *pat;
+    ANIMLAYER *layer;
     s16 i;
     s16 j;
-    AnimFrameData *frame;
-    AnimBankData *bank;
-    AnimBmpData *bmp;
+    ANIMFRAME *frame;
+    ANIMBANK *bank;
+    ANIMBMP *bmp;
     
     OSReport("patNum %d,bankNum %d,bmpNum %d\n", anim->patNum, anim->bankNum, anim->bmpNum & ANIM_BMP_NUM_MASK);
     pat = anim->pat;

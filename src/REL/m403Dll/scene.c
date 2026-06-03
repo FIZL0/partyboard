@@ -1,9 +1,7 @@
 #include "REL/m403Dll.h"
 #include "game/audio.h"
 #include "game/frand.h"
-#include "game/hsfdraw.h"
-#include "game/hsfman.h"
-#include "game/hsfmotion.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/object.h"
 
@@ -199,15 +197,15 @@ static void fn_1_6814(omObjData *arg0)
     Hu3DMotionSpeedSet(arg0->model[2], 0.0f);
     Hu3DModelShadowSet(arg0->model[1]);
     Hu3DModelPosSet(arg0->model[1], 0.0f, 0.0f, -500.0f);
-    Hu3DData[arg0->model[3]].unk_94 = 0.0f;
-    Hu3DData[arg0->model[3]].unk_98 = 2.0f;
+    Hu3DData[arg0->model[3]].motShapeWork.time = 0.0f;
+    Hu3DData[arg0->model[3]].motShapeWork.speed = 2.0f;
     arg0->work[3] = 30;
     arg0->func = fn_1_6980;
 }
 
 static void fn_1_6980(omObjData *arg0)
 {
-    ModelData *var_r30;
+    HU3DMODEL *var_r30;
     UnkBss9CData *var_r29;
 
     if (lbl_1_bss_7C != 0) {
@@ -391,7 +389,7 @@ static void fn_1_6FE8(omObjData *arg0)
 static void fn_1_73E8(omObjData *arg0)
 {
     UnkBss9CData *temp_r30;
-    ModelData *var_r27;
+    HU3DMODEL *var_r27;
     s32 i;
 
     temp_r30 = arg0->data;
@@ -508,15 +506,15 @@ static void fn_1_7A98(s16 arg0)
     HSFDATA *temp_r31;
     HSFOBJECT *var_r28;
     HSFOBJECT *var_r30;
-    HsfConstData *temp_r27;
+    HSFCONSTDATA *temp_r27;
 
-    temp_r31 = Hu3DData[arg0].hsfData;
+    temp_r31 = Hu3DData[arg0].hsf;
     var_r28 = temp_r31->object;
     for (i = 0; i < temp_r31->objectNum; i++, var_r28++) {
         var_r30 = var_r28;
         if (var_r30->constData) {
             temp_r27 = var_r30->constData;
-            temp_r27->flags &= ~8;
+            temp_r27->attr &= ~8;
         }
     }
 }
