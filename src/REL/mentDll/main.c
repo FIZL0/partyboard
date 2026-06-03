@@ -19,6 +19,7 @@
 #ifndef __MWERKS__
 extern s32 rand8(void);
 #include "game/audio.h"
+#include "port/settings.h"
 #endif
 
 typedef struct MentDllUnkBssE4Struct {
@@ -206,6 +207,11 @@ void fn_1_658C(Process *arg0)
         CharDataClose(-1);
     }
     lbl_1_bss_A8[4] = GWGameStat.open_w06;
+#ifdef TARGET_PC
+    if (partyboard_settings_unlock_bowsers_gnarly_party()) {
+        lbl_1_bss_A8[4] = 1;
+    }
+#endif
     lbl_1_bss_A8[5] = GWGameStat.veryHardUnlock;
     lbl_1_bss_A8[6] = GWGameStat.customPackEnable;
     switch (lbl_1_bss_A8[0]) {

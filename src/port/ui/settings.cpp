@@ -635,7 +635,9 @@ SettingsWindow::SettingsWindow(bool prelaunch)
         // leftPane.add_section("Resources");
         // addCheat("Infinite Hearts", getSettings().game.infiniteHearts, "Keeps your health full.");
 
-        // leftPane.add_section("Abilities");
+        leftPane.add_section("Boards");
+        addCheat("Unlock Bowser's Gnarly Party", getSettings().game.unlockBowsersGnarlyParty,
+            "Treat Bowser's Gnarly Party as unlocked when the game checks board availability.");
     });
 
     add_tab("Interface", [this](Rml::Element *content) {
