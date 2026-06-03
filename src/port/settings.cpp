@@ -45,6 +45,7 @@ UserSettings g_userSettings = {
 
         // Cheats
         .infiniteHearts {"game.infiniteHearts", false},
+        .unlockAllMinigames {"game.unlockAllMinigames", false},
         .unlockBowsersGnarlyParty {"game.unlockBowsersGnarlyParty", false},
 
         // Technical
@@ -105,6 +106,7 @@ void registerSettings() {
     Register(g_userSettings.game.speedrunMode);
     Register(g_userSettings.game.recordingMode);
     Register(g_userSettings.game.infiniteHearts);
+    Register(g_userSettings.game.unlockAllMinigames);
     Register(g_userSettings.game.unlockBowsersGnarlyParty);
     Register(g_userSettings.game.allowBackgroundInput);
 
@@ -134,9 +136,12 @@ bool partyboard_settings_enableTurboKeybind(void)
     return partyboard::getSettings().game.enableTurboKeybind;
 }
 
+bool partyboard_settings_unlock_all_minigames(void)
+{
+    return partyboard::getSettings().game.unlockAllMinigames.getValue();
+}
+
 bool partyboard_settings_unlock_bowsers_gnarly_party(void)
 {
     return partyboard::getSettings().game.unlockBowsersGnarlyParty.getValue();
-}
-
 }

@@ -96,6 +96,7 @@ struct UserSettings {
 
         // Cheats
         ConfigVar<bool> infiniteHearts;
+        ConfigVar<bool> unlockAllMinigames;
         ConfigVar<bool> unlockBowsersGnarlyParty;
 
         // Technical
@@ -135,6 +136,7 @@ extern "C" {
 
 CARDFileType partyboard_settings_card_file_type(void);
 bool partyboard_settings_enableTurboKeybind(void);
+bool partyboard_settings_unlock_all_minigames(void);
 bool partyboard_settings_unlock_bowsers_gnarly_party(void);
 
 #ifdef __cplusplus
