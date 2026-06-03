@@ -145,5 +145,4 @@ bool partyboard_settings_unlock_bowsers_gnarly_party(void)
 {
     return partyboard::getSettings().game.unlockBowsersGnarlyParty.getValue();
 }
-
 }
