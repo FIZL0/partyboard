@@ -14,6 +14,7 @@
 
 #ifndef __MWERKS__
 #include "game/gamework.h"
+#include "port/settings.h"
 #endif
 
 #define RECORD_TYPE_BOARD 0
@@ -257,7 +258,11 @@ static void ExecRecord(omObjData *object)
                             if (--work->board < 0) {
                                 work->board = 6;
                             }
-                            if (GWGameStat.open_w06 == 0 && work->board == 5) {
+                            if (GWGameStat.open_w06 == 0 && work->board == 5
+#ifdef TARGET_PC
+                                && !partyboard_settings_unlock_bowsers_gnarly_party()
+#endif
+                            ) {
                                 work->board--;
                             }
                             HuAudFXPlay(0x840);
@@ -270,7 +275,11 @@ static void ExecRecord(omObjData *object)
                             if (++work->board >= 7) {
                                 work->board = 0;
                             }
-                            if (GWGameStat.open_w06 == 0 && work->board == 5) {
+                            if (GWGameStat.open_w06 == 0 && work->board == 5
+#ifdef TARGET_PC
+                                && !partyboard_settings_unlock_bowsers_gnarly_party()
+#endif
+                            ) {
                                 work->board++;
                             }
                             HuAudFXPlay(0x840);
