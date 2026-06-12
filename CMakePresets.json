@@ -322,6 +322,14 @@
         "BUILD_SHARED_LIBS": {
           "type": "BOOL",
           "value": false
+        },
+        "CMAKE_DISABLE_FIND_PACKAGE_PkgConfig": {
+          "type": "BOOL",
+          "value": true
+        },
+        "CMAKE_DISABLE_FIND_PACKAGE_zstd": {
+          "type": "BOOL",
+          "value": true
         }
       }
     },
