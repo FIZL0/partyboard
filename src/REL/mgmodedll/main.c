@@ -8,7 +8,12 @@ extern s32 rand8(void);
 
 typedef struct {
     /* 0x00 */ omObjData *unk00;
+#ifdef TARGET_PC
+    // arm64 passes variadic arguments on the stack but the handlers read them from registers
+    /* 0x04 */ void (*unk04)(omObjData *, void *);
+#else
     /* 0x04 */ void (*unk04)(omObjData *, ...);
+#endif
     /* 0x08 */ s32 unk08[4];
     /* 0x18 */ char unk18[4];
     /* 0x1C */ s32 unk1C[4];

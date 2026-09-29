@@ -1417,7 +1417,11 @@ void fn_1_D48C(void) {
     while (TRUE) {
         fn_1_938();
         if (lbl_1_bss_1558.unk04 != NULL) {
+#ifdef TARGET_PC
+            lbl_1_bss_1558.unk04(temp_r3, NULL);
+#else
             lbl_1_bss_1558.unk04(temp_r3);
+#endif
         }
     }
 }
@@ -1770,7 +1774,11 @@ void fn_1_FE80(void) {
     while (TRUE) {
         fn_1_938();
         if (lbl_1_bss_1530.unk04 != NULL) {
+#ifdef TARGET_PC
+            lbl_1_bss_1530.unk04(temp_r31, NULL);
+#else
             lbl_1_bss_1530.unk04(temp_r31);
+#endif
         }
         fn_1_D7D8(temp_r31);
     }
@@ -2474,7 +2482,11 @@ void fn_1_13908(void) {
     while (TRUE) {
         fn_1_938();
         if (lbl_1_bss_1490[temp_r31].unk04 != NULL) {
+#ifdef TARGET_PC
+            lbl_1_bss_1490[temp_r31].unk04(lbl_1_bss_1490[temp_r31].unk00, NULL);
+#else
             lbl_1_bss_1490[temp_r31].unk04(lbl_1_bss_1490[temp_r31].unk00);
+#endif
         }
     }
 }
@@ -2674,7 +2686,11 @@ void fn_1_140A0(void) {
     while (TRUE) {
         fn_1_938();
         if (lbl_1_bss_1468.unk04 != NULL) {
+#ifdef TARGET_PC
+            lbl_1_bss_1468.unk04(temp_r3, NULL);
+#else
             lbl_1_bss_1468.unk04(temp_r3);
+#endif
         }
     }
 }

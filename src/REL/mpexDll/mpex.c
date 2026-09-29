@@ -23,7 +23,12 @@
 
 #include "REL/mpexDll.h"
 
+#ifdef TARGET_PC
+// arm64 passes variadic arguments on the stack but the handlers read them from registers
+typedef void (*MpexDllUnkFunc2)(omObjData *, void *);
+#else
 typedef void (*MpexDllUnkFunc2)(omObjData *, ...);
+#endif
 
 typedef struct MpexDllUnkStruct3 {
     /* 0x00 */ s32 unk_00;

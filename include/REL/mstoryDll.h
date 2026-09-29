@@ -35,7 +35,12 @@ typedef struct {
 
 typedef struct {
     /* 0x00 */ omObjData* unk00;
+#ifdef TARGET_PC
+    // arm64 passes variadic arguments on the stack but the handlers read them from registers
+    /* 0x04 */ void (*unk04)(omObjData*, void*);
+#else
     /* 0x04 */ void (*unk04)(omObjData*, ...);
+#endif
     /* 0x08 */ s32 unk08;
     /* 0x0C */ s32 unk0C;
     /* 0x10 */ char unk10[0x18];

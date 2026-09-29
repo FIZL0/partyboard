@@ -45,7 +45,12 @@ typedef struct MentDllUnkBss16C4Struct {
     /* 0x2C */ float unk_2C;
 } MentDllUnkBss16C4Struct; /* size = 0x30 */
 
+#ifdef TARGET_PC
+// arm64 passes variadic arguments on the stack but the handlers read them from registers
+typedef void (*MentDllUnkFunc)(omObjData *, void *);
+#else
 typedef void (*MentDllUnkFunc)(omObjData *, ...);
+#endif
 
 typedef struct MentDllUnkBss3114Struct {
     /* 0x00 */ omObjData *unk_00;
@@ -1256,11 +1261,11 @@ s32 fn_1_99CC(void)
 
         for (i = 0; i < 6; i++) {
             lbl_1_bss_33AC[i].unk_08 = 0;
-            lbl_1_bss_33AC[i].unk_04 = (void (*)(omObjData *, ...))fn_1_127FC;
+            lbl_1_bss_33AC[i].unk_04 = (MentDllUnkFunc)fn_1_127FC;
         }
 
         lbl_1_bss_33AC[sp8[var_r30]].unk_08 = 1;
-        lbl_1_bss_35BC->unk_04 = (void (*)(omObjData *, ...))fn_1_18F74;
+        lbl_1_bss_35BC->unk_04 = (MentDllUnkFunc)fn_1_18F74;
         while (1) {
             fn_1_4D8();
             for (i = 0; i < 6; i++) {

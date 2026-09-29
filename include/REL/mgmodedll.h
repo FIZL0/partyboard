@@ -32,7 +32,12 @@ typedef struct datalist_sprite {
 
 typedef struct struct_bss8_24 {
     omObjData *unk0;
+#ifdef TARGET_PC
+    // arm64 passes variadic arguments on the stack but the handlers read them from registers
+    void (*unk4)(omObjData *, void *);
+#else
     void (*unk4)(omObjData *, ...);
+#endif
     u8 unk8[0x50];
     s32 unk58;
     s32 unk5C;

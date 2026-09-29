@@ -12,7 +12,12 @@
 
 #include "REL/ztardll.h"
 
+#ifdef TARGET_PC
+// arm64 passes variadic arguments on the stack but the handlers read them from registers
+typedef void (*ZtarUnkFunc)(omObjData *, void *);
+#else
 typedef void (*ZtarUnkFunc)(omObjData *, ...);
+#endif
 
 typedef struct ZtarDllUnkStruct2 {
     /* 0x00 */ omObjData *unk_00;
