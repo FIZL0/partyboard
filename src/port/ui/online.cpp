@@ -363,6 +363,7 @@ OnlineWindow::OnlineWindow()
                             save();
                         },
                     .maxLength = 1024,
+                    .code = true,
                 },
                 nullptr, [this] { return mProfile.lastCode; }),
             "The code the host sent you: a short code, a long code or a link.");
@@ -529,6 +530,7 @@ OnlineWindow::OnlineWindow()
                             save();
                         },
                     .maxLength = 256,
+                    .code = true,
                 },
                 [this] { return mProfile.relay != "own"; }, [this] { return mProfile.relayUrl; }),
             "The https:// address of your own relay server.");

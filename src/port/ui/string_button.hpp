@@ -14,6 +14,8 @@ public:
         Rml::String key;
         Rml::String type = "text";
         int maxLength = -1;
+        // Soft keyboard without autocorrect or auto-capitalization (codes, URLs).
+        bool code = false;
     };
 
     BaseStringButton(Rml::Element *parent, Props props);
@@ -41,6 +43,7 @@ private:
     std::vector<std::unique_ptr<ScopedEventListener>> mInputListeners;
     Rml::String mType;
     int mMaxLength;
+    bool mCode;
     int mPendingInputFocusFrames = 0;
     bool mPendingStopEditing = false;
     bool mPendingCommit = true;
@@ -54,6 +57,7 @@ public:
         std::function<Rml::String()> getValue;
         std::function<void(Rml::String)> setValue;
         int maxLength = -1;
+        bool code = false;
     };
 
     StringButton(Rml::Element *parent, Props props);

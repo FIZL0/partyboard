@@ -1,0 +1,36 @@
+diff --git a/include/aurora/rmlui.hpp b/include/aurora/rmlui.hpp
+index 7d901b2..fbe24a4 100644
+--- a/include/aurora/rmlui.hpp
++++ b/include/aurora/rmlui.hpp
+@@ -17,6 +17,8 @@ namespace aurora::rmlui {
+ enum class InputType {
+   Text,
+   Number,
++  // Text without autocorrect or auto-capitalization: codes, URLs, identifiers.
++  Code,
+ };
+ 
+ inline constexpr const char* TouchStartEvent = "touchstart";
+diff --git a/lib/rmlui/SystemInterface_Aurora.cpp b/lib/rmlui/SystemInterface_Aurora.cpp
+index 3ed6322..e4af06b 100644
+--- a/lib/rmlui/SystemInterface_Aurora.cpp
++++ b/lib/rmlui/SystemInterface_Aurora.cpp
+@@ -18,6 +18,7 @@ SDL_TextInputType sdl_input_type(InputType type) noexcept {
+   case InputType::Number:
+     return SDL_TEXTINPUT_TYPE_NUMBER;
+   case InputType::Text:
++  case InputType::Code:
+   default:
+     return SDL_TEXTINPUT_TYPE_TEXT;
+   }
+@@ -34,6 +35,10 @@ bool start_text_input(SDL_Window* window, InputType type) {
+   }
+ 
+   SDL_SetNumberProperty(props, SDL_PROP_TEXTINPUT_TYPE_NUMBER, sdl_input_type(type));
++  if (type == InputType::Code) {
++    SDL_SetNumberProperty(props, SDL_PROP_TEXTINPUT_CAPITALIZATION_NUMBER, SDL_CAPITALIZE_NONE);
++    SDL_SetBooleanProperty(props, SDL_PROP_TEXTINPUT_AUTOCORRECT_BOOLEAN, false);
++  }
+   const bool result = SDL_StartTextInputWithProperties(window, props);
+   SDL_DestroyProperties(props);
+   return result;
