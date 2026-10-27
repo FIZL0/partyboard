@@ -85,6 +85,9 @@ void main(void)
     u32 met1;
     s16 i;
     s32 retrace;
+#ifdef TARGET_PC
+    bool framed;
+#endif
 #if VERSION_PAL
     s16 temp = 0;
 #endif
@@ -153,9 +156,15 @@ void main(void)
             break;
         }
         if (netplay_active() && !netplay_tick_begin()) {
-            /* Lockstep WAIT: no game tick and no new frame (the window keeps the last one), but events,
-             * UI and the 60 Hz pace go on. */
-            ui_update();
+            /* Lockstep WAIT: no game tick, but events, UI and the 60 Hz pace go on. The frame shows the
+             * last tick's image (aurora clears the EFB every frame) with RmlUi redrawn on top. */
+            if (aurora_begin_frame()) {
+                netplay_still_draw();
+                ui_update();
+                aurora_end_frame();
+            } else {
+                ui_update();
+            }
             frame_limiter();
             continue;
         }
@@ -168,7 +177,7 @@ void main(void)
 
         HuPerfBegin(2);
 #ifdef TARGET_PC
-        aurora_begin_frame();
+        framed = aurora_begin_frame();
 #endif
         HuSysBeforeRender();
         GXSetGPMetric(GX_PERF0_CLIP_VTX, GX_PERF1_VERTICES);
@@ -206,6 +215,9 @@ void main(void)
 #ifdef TARGET_PC
         if (netplay_active()) {
             netplay_frame_end();
+            if (netplay_lockstep() && framed) {
+                netplay_still_keep();
+            }
         }
         ui_update();
         aurora_end_frame();

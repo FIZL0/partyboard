@@ -96,6 +96,7 @@ void netplay_end(void)
 {
     active = FALSE;
     netplay_match_end();
+    netplay_still_drop();
 }
 
 OSTime netplay_time(void)

@@ -17,6 +17,7 @@ OMOVL omcurovl; s32 rnd_seed; u32 boardRandSeed; BOOL PartyBoard_IsRunning = TRU
 u32 frandSeedGet(void) { return fseed; } void frandSeedSet(u32 s) { fseed = s; }
 /* netplay_match.c is not linked here (tools/netplay/match_test.c tests it). */
 void netplay_match_tick(void) {} void netplay_match_end(void) {} u64 netplay_heap_hash(void) { return 0; }
+void netplay_still_drop(void) {}
 BOOL netplay_match_start(const NetplayMatch *m) { (void)m; return TRUE; }
 BOOL netplay_match_continue(const NetplayMatch *m, const void *b, u32 n) { (void)m; (void)b; (void)n; return TRUE; }
 int pbnet_save_blob(const char *p, uint8_t *b, int cap) { (void)p; (void)b; (void)cap; return 0; }

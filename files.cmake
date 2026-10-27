@@ -93,6 +93,7 @@ set(PORT_FILES
         src/port/netplay_match.c
         src/port/netplay_dir.cpp
         src/port/netplay_save.c
+        src/port/netplay_still.c
         src/port/OS.c
         src/port/portmain.cpp
         src/port/settings.cpp
