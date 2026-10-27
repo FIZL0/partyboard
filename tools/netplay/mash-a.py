@@ -4,16 +4,16 @@
 The frames are tuned against GMPE01 Rev 1 from a FRESH user dir (no MemoryCardA.USA.raw: an existing
 card takes another menu path; research/journal/2026-10-27-n15-determinism-run). Overlays reached, by
 frame: boot 1, modesel 74 at 995, mentDll 70 at 1911 (party setup), w01 89 at 4182 (board), instDll 3
-at 10579 (minigame instructions). It does not get into the minigame yet: the START window is before
-instDll's intro ends. A change to a menu, or a different seed, moves these frames: rerun with
+at 10579 (minigame instructions), m420 28 at 10907 (minigame), resultDll 84 at 15554, w01 89 again at
+15892 (the next instDll would start at 17801). A change to a menu, or a different seed, moves these frames: rerun with
 --hash-log and read hashdiff.py's overlays line.
 """
 
 SEED = 0x50424E54
 MENUS_END = 1900  # modesel is done by then; port 0 adds START to every 4th tap until here
 INST_START = 10500  # instDll starts at 10579 (fresh user dir); it waits for START alone, after its intro
-INST_END = 10800  # too early: the intro is still running (see the journal); START pauses a minigame
-END = 13200
+INST_END = 10900  # m420 starts at 10907; a START tap after that pauses it (and it stays paused)
+END = 17400  # past the minigame and its results, back on w01 (15892); before the next instDll (17801)
 
 
 def main():
