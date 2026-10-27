@@ -52,6 +52,15 @@ BOOL netplay_tick_begin(void);
 /* True while a pbnet lockstep session drives the game. */
 BOOL netplay_lockstep(void);
 /*
+ * Still frame for a lockstep WAIT (src/port/netplay_still.c): netplay_still_keep copies the EFB, call it
+ * at the end of every lockstep tick (after the game drew, before aurora_end_frame); netplay_still_draw
+ * draws the last copy over the whole EFB in a WAIT frame (between aurora_begin_frame and aurora_end_frame,
+ * before ui_update), so RmlUi has the game's last image under it. netplay_still_drop frees the copy.
+ */
+void netplay_still_keep(void);
+void netplay_still_draw(void);
+void netplay_still_drop(void);
+/*
  * The game's PADRead while netplay_active(): the scripted pads (--script), the pads of the last frame
  * pbnet_step made ready (lockstep), else this machine's controllers. Returns no rumble bits.
  */
