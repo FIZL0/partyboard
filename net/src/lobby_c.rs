@@ -37,6 +37,7 @@ use tokio::runtime::{Handle, Runtime};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::codes;
+use crate::desync;
 use crate::lobby::{Event, Guest, Host, Ident, Msg, Pick, Player, Room, To, CPU, HOST, SEATS};
 use crate::lockstep::{self, delay_for, Config, NO_PEER};
 use crate::lockstep_c;
@@ -192,6 +193,8 @@ struct Shared {
     /// Guest: its connection to the host dropped mid-match (it redials), or the host left.
     host_lost: bool,
     host_left: bool,
+    /// Host (N11): desync reloads from the last checkpoint so far.
+    resync: desync::Resync,
 }
 
 impl Shared {
@@ -228,6 +231,7 @@ impl Shared {
             next_conn: 0,
             host_lost: false,
             host_left: false,
+            resync: desync::Resync::default(),
         }
     }
 
@@ -418,6 +422,23 @@ impl Shared {
         }
         eprintln!("pbnet: reload {epoch} from {}", if room.checkpoint.is_some() { "the last checkpoint" } else { "the match start" });
         self.begin_reload(room, epoch);
+    }
+
+    /// Host (N11): the running session's hashes differ from a peer's: every peer reloads the last checkpoint, unless
+    /// a reload is under way or the reloads from that checkpoint ran out ([`desync::Resync`]). Whether it reloads.
+    fn desync(&mut self) -> bool {
+        if self.phase != Phase::Started || self.reload_pending || self.inbox.is_none() {
+            return false;
+        }
+        let Some(Role::Host(h)) = &self.role else { return false };
+        let room = recover::reload_room(h.room(), recover::last_checkpoint(&h.room().id));
+        if !self.resync.allow(room.checkpoint.as_ref()) {
+            eprintln!("pbnet: desync again from the same checkpoint: no more reloads from it, the match runs on");
+            return false;
+        }
+        eprintln!("pbnet: desync at epoch {}: everyone reloads", self.book.epoch);
+        self.host_reload();
+        true
     }
 
     /// Host: `peer` (a connection's name) is back with `token`.
@@ -784,6 +805,12 @@ impl Lobby {
     /// This machine's match is over: back in the open lobby ([`Shared::back`]). False unless started.
     pub fn back(&self) -> bool {
         lock(&self.shared).back()
+    }
+
+    /// N11, host: a desync in the running session; every peer reloads the last checkpoint. Whether it reloads (a
+    /// guest never does: the host sees every mismatch too).
+    pub fn desync(&self) -> bool {
+        lock(&self.shared).desync()
     }
 
     /// Leaves: the host closes the lobby for everyone, a guest frees its seats. The tasks wind down on their own.
@@ -2015,6 +2042,50 @@ mod tests {
             let _ = st;
             assert_eq!(a2.status().message, recover::HOST_LEFT);
             a2.leave();
+        });
+    }
+
+    /// N11: a desync has every peer reload on a new epoch, decided by the host alone (a guest's `desync` does
+    /// nothing), never twice for one session, and at most `RELOADS_PER_CHECKPOINT` times from one checkpoint.
+    #[test]
+    fn a_desync_reloads_everyone_until_the_reloads_run_out() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(3).await.unwrap();
+            let h = Handle::current();
+            let (hs, hrx) = catch();
+            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"), hs);
+            let s = until(&host, "host open", |s| s.state == Phase::Open && !s.code.is_empty()).await;
+            let (as_, arx) = catch();
+            let a = Lobby::join(&h, bind(&net), setup("a", "GMPE01-00"), &s.code, as_);
+            until(&a, "a seated", |s| s.state == Phase::Open).await;
+            assert!(!host.desync(), "not started");
+            assert!(a.ready(true));
+            until(&host, "a ready", |s| s.room.as_ref().unwrap().all_ready()).await;
+            host.start(9).unwrap();
+            until(&a, "a started", |s| s.state == Phase::Started).await;
+            let got = |rx: &std::sync::mpsc::Receiver<(Config, Wire)>| rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            got(&hrx);
+            got(&arx);
+            assert!(!a.desync(), "a guest waits for the host");
+            assert_eq!(a.epoch(), 0);
+            for epoch in 1..=desync::RELOADS_PER_CHECKPOINT {
+                assert!(host.desync(), "reload {epoch}");
+                assert_eq!(host.epoch(), epoch);
+                assert!(!host.desync(), "one reload at a time");
+                until(&a, "a reloads", |_| a.epoch() == epoch && a.status().reloading).await;
+                let room = a.snapshot().room.unwrap();
+                assert_eq!(room.checkpoint, None, "no checkpoint yet: the match start");
+                assert_eq!(room.peers(), host.snapshot().room.unwrap().peers());
+                assert!(host.go(epoch) && a.go(epoch));
+                got(&hrx);
+                got(&arx);
+            }
+            assert!(!host.desync(), "the same start desyncs every time: the match runs on");
+            assert_eq!(host.epoch(), desync::RELOADS_PER_CHECKPOINT);
+            assert!(!host.status().reloading);
+            host.leave();
+            a.leave();
         });
     }
 

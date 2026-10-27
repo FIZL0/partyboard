@@ -1,7 +1,7 @@
 //! C ABI of the lockstep (`include/port/pbnet.h`). One session per process, behind a mutex; the transport
 //! that starts it ([`start`]) is Rust's (the match start, N2/N6), C only steps it.
 
-use crate::lockstep::{delay_for, Config, Pad, Session, Step, Transport};
+use crate::lockstep::{delay_for, Config, InputLog, Pad, Session, Step, Transport};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -16,6 +16,8 @@ pub const PBNET_OFF: i32 = -1;
 struct Live {
     session: Session<Box<dyn Transport + Send>>,
     start: Instant,
+    /// N11: its input log was taken for a desync (one per session).
+    logged: bool,
 }
 
 static LIVE: Mutex<Option<Live>> = Mutex::new(None);
@@ -34,7 +36,7 @@ fn live() -> std::sync::MutexGuard<'static, Option<Live>> {
 /// Starts the lockstep session on `wire` (replacing one that runs).
 pub fn start(cfg: Config, wire: Box<dyn Transport + Send>) {
     EPOCH.fetch_add(1, Ordering::SeqCst);
-    *live() = Some(Live { session: Session::new(cfg, wire), start: Instant::now() });
+    *live() = Some(Live { session: Session::new(cfg, wire), start: Instant::now(), logged: false });
     HELD.store(false, Ordering::SeqCst);
 }
 
@@ -47,6 +49,14 @@ pub fn hold() {
 /// N10: peer `p`'s silence (ms) in the running session (None: no session, or `p` is this machine or no peer).
 pub fn quiet_ms(p: u8) -> Option<u64> {
     live().as_ref().and_then(|l| l.session.quiet_ms(p, l.start.elapsed().as_millis() as u64))
+}
+
+/// N11: the running session's input log, the first time it is asked for (None after that, or with no session).
+pub fn input_log_once() -> Option<InputLog> {
+    let mut g = live();
+    let l = g.as_mut().filter(|l| !l.logged)?;
+    l.logged = true;
+    Some(l.session.input_log())
 }
 
 /// Ends the lockstep session, if one runs. Safe to call any time, from any thread.

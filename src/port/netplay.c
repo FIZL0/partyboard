@@ -586,6 +586,10 @@ BOOL netplay_tick_begin(void)
     while (pbnet_poll_desync(&desync_frame, &peer, &ours, &theirs)) {
         OSReport("netplay: desync at frame %u with peer %d: ours %016llX, theirs %016llX\n", desync_frame, peer,
             (unsigned long long)ours, (unsigned long long)theirs);
+        /* N11: the input log goes to desync-*.json; the host has every peer reload the last checkpoint. */
+        if (pbnet_desync_recover(desync_frame, peer, ours, theirs)) {
+            OSReport("netplay: reloading the last checkpoint\n");
+        }
     }
     /*
      * Local controller i plays this machine's i-th seat (pbnet ignores pads beyond its seats). A seat is

@@ -56,6 +56,14 @@ uint32_t pbnet_waiting_on(void);
 void pbnet_set_hash(uint32_t frame, uint64_t hash);
 /* Oldest hash mismatch: 1 and its fields (NULL pointers skipped), or 0 if none. */
 int pbnet_poll_desync(uint32_t *frame, int *peer, uint64_t *ours, uint64_t *theirs);
+/*
+ * A mismatch from pbnet_poll_desync (net/src/desync.rs, N11). The first one of a lockstep session writes its input log
+ * (pads of the frames run, its hashes) to <user dir>/desync-<match>-<time>-e<epoch>-f<frame>-p<index>.json (the
+ * current directory without pbnet_recover_set_dir); both sides of a mismatch see it, so both write theirs. On the
+ * host it also has every peer reload the last checkpoint (pbnet_recover_epoch moves, as any N10 reload), at most 3
+ * times from one checkpoint. 1 if a reload was asked; later mismatches of the same session do nothing.
+ */
+int pbnet_desync_recover(uint32_t frame, int peer, uint64_t ours, uint64_t theirs);
 
 /* Input delay (frames, 2..15) for a round trip of rtt_ms: one-way 60 Hz frames + 1. */
 uint32_t pbnet_delay_for(uint32_t rtt_ms);

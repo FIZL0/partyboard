@@ -49,6 +49,10 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
   held via `lockstep_c::hold` until `pbnet_recover_go`); `netplay_lobby_poll` starts each epoch's room (continue from
   its checkpoint); `update_online_match` (`src/port/ui/online.cpp`) shows the hold. Findings:
   `research/journal/2026-10-27-n10-drops`.
+- Desyncs (N11): `netplay_tick_begin` hands each `pbnet_poll_desync` mismatch to `pbnet_desync_recover`
+  (`net/src/desync.rs`): first one per session writes `<user dir>/desync-*.json` (`Session::input_log`), the host
+  reloads the last checkpoint via `host_reload` (max 3 per checkpoint). Findings:
+  `research/journal/2026-10-27-n11-desync-recovery`.
 - UI: RmlUi documents in `src/port/ui/`, config in `src/port/config.cpp`, user dir from SDL pref path.
 
 ## Rules
