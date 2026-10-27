@@ -99,10 +99,47 @@ else ()
     set(PBNET_CARGO_LIB ${PBNET_OUT_DIR}/libpbnet.a)
 endif ()
 
+# Android: hand the NDK toolchain to cargo, or cc-rs (ring, blake3 build scripts) looks for an
+# `aarch64-linux-android-clang` that the NDK doesn't ship, and rustc links with the host `cc`.
+# CMAKE_C_COMPILER is the NDK's plain `clang` (the target is in CMAKE_C_COMPILER_TARGET), which neither
+# cc-rs nor rustc's linker call would pass a target to, so use the NDK's per-API wrapper next to it
+# (`<triple><api>-clang`, armv7 spelled `armv7a`). Env vars already set at configure time win.
+set(PBNET_CARGO_ENV CARGO_TERM_COLOR=never)
+if (ANDROID AND PBNET_CARGO_TARGET)
+    string(REPLACE "-" "_" pbnet_triple_lower ${PBNET_CARGO_TARGET})
+    string(TOUPPER ${pbnet_triple_lower} pbnet_triple_upper)
+    string(REGEX REPLACE "^armv7-" "armv7a-" pbnet_clang_triple ${PBNET_CARGO_TARGET})
+    get_filename_component(pbnet_ndk_bin ${CMAKE_C_COMPILER} DIRECTORY)
+    # The NDK's toolchain file sets ANDROID_PLATFORM_LEVEL (its legacy default leaves CMAKE_SYSTEM_VERSION at 1);
+    # CMake's own Android support only sets CMAKE_SYSTEM_VERSION.
+    if (ANDROID_PLATFORM_LEVEL)
+        set(pbnet_api ${ANDROID_PLATFORM_LEVEL})
+    else ()
+        set(pbnet_api ${CMAKE_SYSTEM_VERSION})
+    endif ()
+    if (CMAKE_HOST_WIN32)
+        set(pbnet_ndk_cc ${pbnet_ndk_bin}/${pbnet_clang_triple}${pbnet_api}-clang.cmd)
+    else ()
+        set(pbnet_ndk_cc ${pbnet_ndk_bin}/${pbnet_clang_triple}${pbnet_api}-clang)
+    endif ()
+    if (NOT EXISTS ${pbnet_ndk_cc})
+        message(WARNING "pbnet: NDK compiler wrapper ${pbnet_ndk_cc} not found; set CC_${pbnet_triple_lower}, "
+                "AR_${pbnet_triple_lower} and CARGO_TARGET_${pbnet_triple_upper}_LINKER yourself")
+    else ()
+        foreach (pbnet_pair "CC_${pbnet_triple_lower}=${pbnet_ndk_cc}" "AR_${pbnet_triple_lower}=${CMAKE_AR}"
+                "CARGO_TARGET_${pbnet_triple_upper}_LINKER=${pbnet_ndk_cc}")
+            string(REGEX MATCH "^[^=]+" pbnet_var "${pbnet_pair}")
+            if (NOT DEFINED ENV{${pbnet_var}})
+                list(APPEND PBNET_CARGO_ENV "${pbnet_pair}")
+            endif ()
+        endforeach ()
+    endif ()
+endif ()
+
 # Always ask cargo (it does its own change tracking); the byproduct is only rewritten when the crate
 # changed, so Ninja's restat keeps `dol` from relinking needlessly.
 add_custom_target(pbnet_cargo
-        COMMAND ${CMAKE_COMMAND} -E env CARGO_TERM_COLOR=never -- ${CARGO_EXECUTABLE} ${PBNET_CARGO_ARGS}
+        COMMAND ${CMAKE_COMMAND} -E env ${PBNET_CARGO_ENV} -- ${CARGO_EXECUTABLE} ${PBNET_CARGO_ARGS}
         BYPRODUCTS ${PBNET_CARGO_LIB}
         WORKING_DIRECTORY ${PBNET_DIR}
         COMMENT "Building pbnet (cargo)"
