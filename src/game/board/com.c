@@ -285,6 +285,10 @@ s32 BoardComUseItemSlotGet(s32 player) {
     if (!GWPlayer[player].com) {
         return -1;
     }
+#ifdef TARGET_PC
+    /* N69: with no item chosen, GC's item was ExecItemPick's r31 (a data address, never an item): no item */
+    item = -1;
+#endif
     if (itemUse != -1) {
         item = itemUse;
     }

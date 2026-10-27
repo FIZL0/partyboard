@@ -2628,6 +2628,9 @@ static void ExecItemBag(void)
     HuWinMesSpeedSet(temp_r28, 0);
     var_r26 = frandmod(40) + 30;
     var_r30 = 0;
+#ifdef TARGET_PC
+    var_r25 = 0; /* N69: a COM's buttons before its first press were whatever the register held */
+#endif
     sp24.x = sp24.y = sp24.z = 0.0f;
     while (var_r30 < temp_r27) {
         if (GWPlayerCfg[currItemRestore].iscom == 1) {

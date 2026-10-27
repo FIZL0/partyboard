@@ -2143,6 +2143,19 @@ void BoardRollDispSet(s32 arg0)
     }
 }
 
+#ifdef TARGET_PC
+// N69: what BoardRollDispSet(arg) leaves in r3 on GC, for callers that read it as a value (w03 fn_1_12C8).
+// Without a roll display it is the argument; with one, UpdateRollSprite's last call (HuSprAttrSet or HuSprPosSet
+// on member 1) has the display's sprite group in r3 and keeps it.
+s32 BoardRollDispSetResult(s32 arg0)
+{
+    if (rollObj == NULL) {
+        return arg0;
+    }
+    return OM_GET_WORK_PTR(rollObj, bitcopy3)->unk_04;
+}
+#endif
+
 static void UpdateRollSprite(omObjData *arg0)
 {
     Vec sp1C;

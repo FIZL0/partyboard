@@ -1613,6 +1613,11 @@ void fn_1_78B4(StructBss200 *arg0)
     s32 var_r30;
     s32 sp10C;
 
+#ifdef TARGET_PC
+    /* N69: the run-off angle below (unkC4, "var_f27 - 90") reads it unset: GC's f27 was whatever fn_1_9AF0's loop
+     * last left there (a squared distance, or the creator's register at process start) */
+    var_f27 = 0.0f;
+#endif
     arg0->unkA0 = arg0->unkA1 = 0;
     arg0->unkA3 = arg0->unkA2 = 0;
     arg0->unkA4 = arg0->unkA6 = 0;

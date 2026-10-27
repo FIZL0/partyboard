@@ -876,7 +876,11 @@ void fn_1_33B0(void)
 
 void fn_1_40E4(void)
 {
+#ifdef TARGET_PC
+    s16 sp14[6]; /* N69: the six characters left; GC's [4] and [5] were the stack slack after it */
+#else
     s16 sp14[4];
+#endif
     s16 spC[4];
     s16 sp8[2];
     s16 var_r31;

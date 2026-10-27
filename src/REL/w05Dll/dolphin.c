@@ -441,6 +441,9 @@ void fn_1_5794(s32 arg0, s32 arg1, Vec *arg2)
     s32 var_r29;
     s32 var_r30;
 
+#ifdef TARGET_PC
+    var_r26 = var_r24 = NULL;
+#endif
     BoardModelPosGet(lbl_1_bss_64, &sp58);
     temp_r23 = HuPrcChildCreate(fn_1_5648, 0x2001, 0x800, 0, boardMainProc);
     BoardCameraMoveSet(0);
@@ -535,8 +538,18 @@ void fn_1_5794(s32 arg0, s32 arg1, Vec *arg2)
         }
     }
     HuAudFXStop(var_r28);
+#ifdef TARGET_PC
+    /* N69: only set if the ride reached its third stage before arriving; else these were stale pointers */
+    if (var_r26 != NULL) {
+        var_r26->work[1] = 1;
+    }
+    if (var_r24 != NULL) {
+        var_r24->work[1] = 1;
+    }
+#else
     var_r26->work[1] = 1;
     var_r24->work[1] = 1;
+#endif
     BoardCameraMoveSet(1);
     BoardCameraTargetPlayerSet(lbl_1_bss_68);
     BoardPlayerIdleSet(lbl_1_bss_68);

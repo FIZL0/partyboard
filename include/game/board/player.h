@@ -153,6 +153,9 @@ s16 BoardBowserSuitPlayerModelGet(void);
 void BoardBowserSuitMotionSetWait(void);
 void BoardBowserSuitPlayerModelKill(void);
 void BoardRollDispSet(s32);
+#ifdef TARGET_PC
+s32 BoardRollDispSetResult(s32);
+#endif
 s32 BoardPlayerMotBlendCheck(s32);
 void BoardBowserSuitMotionSetWalk(void);
 s16 BoardBowserSuitModelGet(void);

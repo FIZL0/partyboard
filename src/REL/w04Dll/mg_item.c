@@ -249,6 +249,12 @@ static void fn_1_A7E8(void) {
     BoardModelPosSetV(var_r28, &sp54[var_r30]);
     var_r22 = 30;
     var_r19 = 0;
+#ifdef TARGET_PC
+    /* N69: a COM's stick and buttons for its first 30 frames, before it decides: no input (were the registers'
+     * leftovers, which could move the cursor or pick an item) */
+    var_r23 = 0;
+    var_r17 = 0;
+#endif
     temp_r18 = GWPlayer[lbl_1_bss_2AC].port;
     while (TRUE) {
         var_r21--;
