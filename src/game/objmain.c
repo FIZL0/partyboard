@@ -86,6 +86,11 @@ static void omWatchOverlayProc(void)
 #endif
             if (omnextovl >= 0 && fadeStat == 0) {
                 HuPrcSleep(0);
+#ifdef TARGET_PC
+                if (netplay_active() && netplay_ovl_hold()) {
+                    continue;
+                }
+#endif
                 OSReport("++++++++++++++++++++ Start New OVL %d (EVT:%d STAT:0x%08x) ++++++++++++++++++\n", omnextovl, omnextovlevtno, omnextovlstat);
                 HuMemHeapDump(HuMemHeapPtrGet(HEAP_SYSTEM), -1);
                 HuMemHeapDump(HuMemHeapPtrGet(HEAP_DATA), -1);
@@ -102,6 +107,14 @@ static void omWatchOverlayProc(void)
                 OSReport("objman>Call objectsetup\n");
                 HuAudSndCharGrpSet(omnextovl);
                 HuAudDllSndGrpSet(omnextovl);
+#ifdef TARGET_PC
+                /* N67: a match start called the board while the AUX change slept: start that from the top, without
+                 * the sprite group espInit made for the overlay that never ran (no omOvlKill comes in between). */
+                if (netplay_active() && netplay_ovl_hold()) {
+                    HuSprGrpKill(espGrpIDGet());
+                    continue;
+                }
+#endif
                 omcurovl = omnextovl;
                 omovlevtno = omnextovlevtno;
                 omovlstat = omnextovlstat;

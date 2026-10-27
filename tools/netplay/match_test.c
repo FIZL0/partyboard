@@ -25,7 +25,8 @@ void OSReport(const char *fmt, ...) { va_list a; va_start(a, fmt); vprintf(fmt, 
 
 static int begun, scripted; static u32 begun_seed;
 void netplay_begin(u32 seed) { begun++; begun_seed = seed; }
-u32 netplay_frame(void) { return 0; }
+static u32 test_frame;
+u32 netplay_frame(void) { return test_frame; }
 BOOL netplay_debug_scripted(void) { return scripted; }
 BOOL netplay_debug_mg_explain_off(void) { return FALSE; }
 static int reseeded;
@@ -330,7 +331,14 @@ int main(void)
     /* Frame 0: the process calls the board with the menus' history and ends. bootDll's title already runs the window
      * process (N64): it is ended before the windows are set up again, so only one runs. */
     win_proc = 1;
+    assert(!netplay_ovl_hold());
     proc();
+    /* N67: the board starts in the next frame, also on a peer whose overlay switch was under way (its omwatchproc asks
+     * after each sleep). */
+    assert(netplay_ovl_hold());
+    test_frame++;
+    assert(!netplay_ovl_hold());
+    test_frame--;
     assert(win_kills == 1 && !win_proc);
     assert(called == DLL_w01dll + 2 && omovlhisidx == 3);
     assert(his[0].ovl == DLL_bootdll && his[1].ovl == DLL_modeseldll && his[1].event == 1 && his[2].ovl == DLL_mstory3dll);
@@ -356,6 +364,7 @@ int main(void)
     netplay_ovl_start(DLL_w01dll + 2);
     /* ... and the board's start sets the match state and seeds again, as a peer that came from a menu has them. */
     assert(party_calls == 2 && reseeded == 1);
+    assert(!netplay_ovl_hold()); /* N67: started: nothing held */
     /* N57: and drops what the old board left, as a peer that came from a menu has none of it. */
     assert(effect_resets == 1 && dir_close_alls == 1 && ar_frees == 1);
     ar_board = 0;

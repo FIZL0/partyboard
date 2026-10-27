@@ -80,6 +80,8 @@ static struct {
     BOOL results; /* over at the results' start: the canned GWGameStat stays until a menu starts */
     BOOL minigame; /* N52: a continue from a minigame's start: instDll, not the board, comes first */
     u8 groups[4];  /* N52: and mg_setup's sides (GWPlayerCfg[].group) */
+    BOOL switched; /* N67: MatchStartProc called the board (or instDll), in frame `switch_frame` */
+    u32 switch_frame;
     NetplayMatch m;
     u8 blob[NETPLAY_BLOB_MAX];
     u32 blob_size;
@@ -144,6 +146,7 @@ BOOL netplay_match_start(const NetplayMatch *m)
     match.scrub = FALSE;
     match.resume = FALSE;
     match.minigame = FALSE;
+    match.switched = FALSE;
     match.blob_size = 0;
     netplay_checkpoint_set(NULL, 0);
     /* A --script run keeps its session (and frame numbers), but the menus it went through used the seeds: they are
@@ -422,7 +425,23 @@ static void MatchStartProc(void)
     } else {
         omOvlCallEx(DLL_w01dll + match.m.board, 1, 0, 0);
     }
+    match.switched = TRUE;
+    match.switch_frame = netplay_frame();
     HuPrcEnd();
+}
+
+/*
+ * N67: the overlay this frame's MatchStartProc called starts in the next frame on every peer, whatever the peer was
+ * doing. A running overlay's omwatchproc waits on its children: the kill wakes it in this frame and its HuPrcSleep(0)
+ * starts the board in the next. But a peer whose own overlay switch was under way when the match started had its
+ * omwatchproc past that sleep (it started the board in this frame, a frame before the others: --match 0@994 and 0@1911
+ * of mash-a), or asleep in the old switch's AUX change (it loaded the board in this frame under the old overlay's
+ * setup, and the scrub waited for the board's next start after a minigame: 0@995). omwatchproc asks here after each
+ * of those sleeps, and goes back to the top of its loop (a frame later) while this is TRUE.
+ */
+BOOL netplay_ovl_hold(void)
+{
+    return match.scrub && match.switched && netplay_frame() == match.switch_frame;
 }
 
 void netplay_match_tick(void)
