@@ -36,8 +36,19 @@ typedef struct M425DllUnkStruct4 {
     float unk_30;
     s32 unk_34;
     s32 unk_38;
+#ifdef TARGET_PC
+    // The 6-slot loops use unk_3C[5], which is unk_50. Out of bounds of a [5] array, GCC dropped their exit test.
+    union {
+        s32 unk_3C[6];
+        struct {
+            s32 unk_3C_pad[5];
+            s32 unk_50;
+        };
+    };
+#else
     s32 unk_3C[5];
     s32 unk_50;
+#endif
     float unk_54[6];
     s32 unk_6C[6];
     s32 unk_84[6];
