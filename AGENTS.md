@@ -6,9 +6,10 @@ We are adding online play. Design and hook points: `plan/NET.md`. Netcode refere
 
 - Build: `cmake --preset linux-default-relwithdebinfo && cmake --build --preset linux-default-relwithdebinfo`.
 - Gate: `tools/check.sh` (cargo test in `net/` if it exists, then the CMake build). Must pass before `done`.
-- The game needs a US disc image (GMPE01). If `orig/GMPE01_00/` has none, anything that has to run the
-  game is checked by its code and tests only: say so in the commit and block the run part with
-  `done --blocked "needs disc image"` rather than guessing.
+- The game needs a US disc image (GMPE01). `PB_DISC` (set in every slot) is its absolute path; the game reads
+  it at boot instead of the saved setting. Run real in-game checks with it (`--script`, `--hash-log`,
+  `--match`). Slots run games in parallel: give each run its own user dir (`XDG_DATA_HOME`/`HOME` under
+  the worktree) so config.json and saves don't collide.
 - Never commit disc files, extracted assets or anything under `orig/*/`.
 - Offline play must be unchanged: netplay hooks in `src/game` and `src/REL` are `if (netplay_active())`
   guards, kept small.

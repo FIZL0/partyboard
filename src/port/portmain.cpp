@@ -476,6 +476,10 @@ extern "C" int port_main(int argc, char* argv[]) {
     bool forcePreLaunchUI = false;
     bool saveConfigBeforePrelaunch = false;
 
+    // PB_DISC overrides the saved disc path (test and agent runs).
+    if (const char* disc = getenv("PB_DISC"); disc && *disc) {
+        partyboard::getSettings().backend.isoPath.setValue(disc);
+    }
     const std::string p = partyboard::getSettings().backend.isoPath;
     partyboard::iso::DiscInfo discInfo{};
     if (!p.empty() &&
