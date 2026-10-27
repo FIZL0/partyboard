@@ -31,6 +31,9 @@
 #include "game/board/roll.h"
 #include "game/board/window.h"
 #include "game/chrman.h"
+#ifdef TARGET_PC
+#include "port/netplay.h"
+#endif
 
 extern void BoardLast5Exec(void);
 
@@ -1429,6 +1432,11 @@ float BoardArcCos(float value)
 void BoardRandInit(void)
 {
     boardRandSeed = OSGetTime();
+#ifdef TARGET_PC
+    if (netplay_active()) {
+        boardRandSeed = netplay_seed(NETPLAY_SALT_BOARD);
+    }
+#endif
 }
 
 u32 BoardRand(void)

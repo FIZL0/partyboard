@@ -22,6 +22,7 @@
 #include "port/settings.h"
 #include "port/imgui.h"
 #include "port/main.h"
+#include "port/netplay.h"
 #include "port/dolassets.h"
 #include "port/ui.h"
 #include "aurora/dvd.h"
@@ -196,6 +197,9 @@ void main(void)
         GlobalCounter++;
 
 #ifdef TARGET_PC
+        if (netplay_active()) {
+            netplay_frame_end();
+        }
         ui_update();
         aurora_end_frame();
         if (!disableFrameLimiter) {

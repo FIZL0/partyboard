@@ -1,4 +1,7 @@
 #include "dolphin.h"
+#ifdef TARGET_PC
+#include "port/netplay.h"
+#endif
 
 static u32 frand_seed;
 
@@ -12,6 +15,11 @@ static inline u32 frandom(u32 param)
         param = rand8();
         param = param ^ (s64)OSGetTime();
         param ^= 0xD826BC89;
+#ifdef TARGET_PC
+        if (netplay_active()) {
+            param = netplay_seed(NETPLAY_SALT_FRAND);
+        }
+#endif
     }
 
     rand2 = param / (u32)0x1F31D;
@@ -45,3 +53,13 @@ u32 frandmod(u32 arg0) {
     ret = (frand_seed & 0x7FFFFFFF)%arg0;
     return ret;
 }
+
+#ifdef TARGET_PC
+u32 frandSeedGet(void) {
+    return frand_seed;
+}
+
+void frandSeedSet(u32 seed) {
+    frand_seed = seed;
+}
+#endif

@@ -24,6 +24,7 @@
 #include <port/settings.h>
 #include <port/port_version.h>
 #include <port/pbnet.h>
+#include <port/netplay.h>
 
 #include <aurora/dvd.h>
 #include <aurora/lib/logging.hpp>
@@ -418,6 +419,9 @@ extern "C" int port_main(int argc, char* argv[]) {
 #endif
 
     PartyBoardMainLog.info("pbnet {}", pbnet_version());
+    if (!netplay_debug_init(argc, argv)) {
+        PartyBoardMainLog.fatal("bad --script/--hash-log argument");
+    }
 
     char windowTitle[100];
     snprintf(windowTitle, sizeof(windowTitle), "PartyBoard %s", PARTY_BOARD_WC_DESCRIBE);
@@ -485,7 +489,8 @@ extern "C" int port_main(int argc, char* argv[]) {
         partyboard::config::Save();
     }
 
-    if (!partyboard::getSettings().backend.skipPreLaunchUI) {
+    // Scripted debug runs (--script) need no clicks: skip the prelaunch UI when a DVD image is set.
+    if (!partyboard::getSettings().backend.skipPreLaunchUI && !(netplay_debug_scripted() && !forcePreLaunchUI)) {
         partyboard::ui::push_document(std::make_unique<partyboard::ui::Prelaunch>(), true);
 
         // pre game launch ui main loop

@@ -257,6 +257,7 @@ foreach (dir ${REL_TARGETS})
         endif ()
     endif ()
 endforeach ()
+include(cmake/netplay.cmake)
 
 if (ANDROID)
     # SDLActivity loads SDL_main via dlsym on Android. Since aurora::main is a static
