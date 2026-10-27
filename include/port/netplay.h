@@ -79,8 +79,8 @@ u64 netplay_hash(void);
  * game starts a local session at boot and plays the scripted pads; with --hash-log every frame's
  * netplay_hash() is written as "<frame> <hash> <section>=<value>...". `--match <board>@<frame>` (with
  * --script) starts a match on that board after that frame (netplay_match_parse_debug); with `--continue <online
- * save .json>` that match continues the save instead (N9). Returns FALSE (and logs why) if a file or argument
- * can't be used.
+ * save .json>` that match continues the save instead (N9); `--leave-at <frame>` leaves it at that frame as if its
+ * lobby had gone (N34, netplay_match_leave). Returns FALSE (and logs why) if a file or argument can't be used.
  */
 BOOL netplay_debug_init(int argc, char *argv[]);
 /* True if --script was given (the prelaunch UI is skipped so runs need no clicks). */
@@ -133,6 +133,15 @@ void netplay_ovl_start(s32 ovl);
 BOOL netplay_match_over(void);
 /* netplay_end: gives the player's own GWGameStat back. */
 void netplay_match_end(void);
+/*
+ * N34: leaves the match before its end (call after netplay_end, or netplay_match_end for a --script run): from the
+ * next netplay_match_leave_poll on, whatever overlay runs goes back to modeseldll (the board through its own exit,
+ * BoardKill; any other overlay switched at once). netplay_match_leave_poll: once per frame, outside the game tick
+ * (netplay_lobby_poll). netplay_match_leaving: TRUE until modeseldll runs.
+ */
+void netplay_match_leave(void);
+void netplay_match_leave_poll(void);
+BOOL netplay_match_leaving(void);
 /* TRUE once after an online match ended and its lobby went back to open (or closed meanwhile): show the lobby. */
 BOOL netplay_lobby_returned(void);
 /* FNV-1a of every heap's used blocks (heap, offset, size, num): equal when peers' heaps are laid out alike. */
@@ -205,7 +214,9 @@ const char *netplay_match_from_lobby(const char *json, NetplayMatch *m, u8 *loca
 /*
  * Call once per loop on the game thread, outside the game tick (ui_update does): once the lobby reaches
  * PBNET_LOBBY_STARTED, starts its match (netplay_match_start), once per started lobby. A started lobby whose
- * room is not a playable match is left (pbnet_lobby_leave), so the other peers do not wait on this one.
+ * room is not a playable match is left (pbnet_lobby_leave), so the other peers do not wait on this one. When the
+ * lobby leaves PBNET_LOBBY_STARTED while its match runs (N34), the lockstep stops, the session ends and the game goes
+ * back to modeseldll (netplay_match_leave).
  */
 void netplay_lobby_poll(void);
 

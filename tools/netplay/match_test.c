@@ -3,8 +3,12 @@
  * SLLoadBoard and a fake pbnet_save_write. Run with tools/netplay/match_test.sh. */
 #include "dolphin.h"
 #include "game/gamework_data.h"
+#include "game/armem.h"
+#include "game/data.h"
+#include "game/flag.h"
 #include "game/memory.h"
 #include "game/object.h"
+#include "game/objsub.h"
 #include "game/process.h"
 #include "game/saveload.h"
 #include "game/wipe.h"
@@ -81,6 +85,40 @@ Process *HuPrcCreate(void (*f)(void), u16 prio, u32 stack, s32 extra)
     proc_prio = prio;
     return &p;
 }
+
+/* N34: the leave (netplay_match_leave): the overlay switch, the board's exit request, its flags, the pauses lifted and
+ * the minigame data closed. */
+OMOVL omcurovl = DLL_NONE, omnextovl = DLL_NONE; s16 omSysExitReq;
+static u8 flags[3][64];
+s32 _CheckFlag(u32 f) { return flags[f >> 16][f & 0x3F]; }
+void _SetFlag(u32 f) { flags[f >> 16][f & 0x3F] = 1; }
+void _ClearFlag(u32 f) { flags[f >> 16][f & 0x3F] = 0; }
+static s32 unpaused, fx_stops, ar_frees, ar_board;
+void HuPrcAllPause(s32 f) { unpaused += f == 0; }
+void HuPrcAllUPause(s32 f) { unpaused += (f == 0) * 10; }
+void Hu3DPauseSet(BOOL f) { unpaused += (f == 0) * 100; }
+void HuSprPauseSet(BOOL f) { unpaused += (f == 0) * 1000; }
+void HuAudFXPauseAll(BOOL f) { unpaused += (f == 0) * 10000; }
+void HuAudSeqPauseAll(BOOL f) { unpaused += (f == 0) * 100000; }
+void HuAudFXAllStop(void) { fx_stops++; }
+AMEM_PTR HuARDirCheck(u32 dir) { return dir == DATADIR_BOARD ? (AMEM_PTR)ar_board : 0; }
+void HuARDirFree(u32 dir) { ar_frees += dir == DATADIR_BOARD; }
+static struct { OMOVL ovl; s32 event; } gone_to = { DLL_NONE, 0 };
+void omOvlGotoEx(OMOVL o, s16 a, s32 e, s32 st) { (void)a; (void)st; gone_to.ovl = o; gone_to.event = e; }
+MgInfo mgInfoTbl[] = { { .ovl = DLL_m401dll, .data_dir = DATADIR_M401 }, { .ovl = DLL_m402dll, .data_dir = DATADIR_M402 },
+    { .ovl = (u16)DLL_NONE } };
+static u32 open_dirs[4], closed_dirs[4]; static s32 nclosed;
+s32 HuDataReadChk(s32 dir)
+{
+    s32 i;
+    for (i = 0; i < 4; i++) {
+        if (open_dirs[i] == (u32)dir) {
+            return i;
+        }
+    }
+    return -1;
+}
+void HuDataDirClose(s32 dir) { closed_dirs[nclosed++ % 4] = (u32)dir; }
 
 /* N9: the card buffer and SLSaveBoard/SLLoadBoard as saveload.c has them, without the byte swap. */
 SaveBufAll saveBuf; s32 saveExecF = 1; s32 rnd_seed = 0x1234; u32 boardRandSeed = 0x5678;
@@ -468,6 +506,91 @@ int main(void)
         netplay_ovl_start(DLL_modeseldll);
         assert(finished.calls == 2 && deleted.calls == 0);
         netplay_match_end();
+    }
+
+    /* N34: a match left before its end goes back to modeseldll. The board leaves through its own exit once it runs
+     * (omSysExitReq, flag (1,27): past the results); the player's own GWGameStat comes back at netplay_end and again
+     * once modeseldll runs (the board's teardown may write the match's settings into it), with the minigame data
+     * closed. */
+    {
+        NetplayMatch m = base();
+        s32 i;
+
+        GWGameStat.language = 5;
+        assert(netplay_match_start(&m));
+        netplay_match_tick();
+        assert(GWGameStat.language == 1);
+        proc();
+        omcurovl = DLL_w01dll + m.board;
+        netplay_ovl_start(omcurovl);
+        netplay_match_end();
+        assert(GWGameStat.language == 5 && !netplay_match_leaving());
+        netplay_match_leave_poll(); /* nothing to leave */
+        netplay_match_leave();
+        assert(netplay_match_leaving());
+        proc = NULL;
+        netplay_match_leave_poll(); /* the board does not run yet (1,16) */
+        assert(!omSysExitReq && proc == NULL);
+        _SetFlag(FLAG_ID_MAKE(1, 16));
+        _SetFlag(FLAG_ID_MAKE(1, 17)); /* ending itself (a minigame next): left alone */
+        netplay_match_leave_poll();
+        assert(!omSysExitReq);
+        _ClearFlag(FLAG_ID_MAKE(1, 17));
+        netplay_match_leave_poll();
+        assert(omSysExitReq && _CheckFlag(FLAG_ID_MAKE(1, 27)) && proc == NULL);
+        omSysExitReq = 0;
+        netplay_match_leave_poll(); /* asked once */
+        assert(!omSysExitReq && proc == NULL);
+        /* BoardKill, then KillBoardFunc's omOvlReturnEx: an overlay switch is waited for. */
+        GWGameStat.language = 9;
+        omcurovl = DLL_NONE;
+        omnextovl = DLL_modeseldll;
+        netplay_match_leave_poll();
+        assert(netplay_match_leaving() && proc == NULL);
+        omnextovl = DLL_NONE;
+        omcurovl = DLL_modeseldll;
+        GWSystem.mg_next = 1;
+        open_dirs[0] = DATADIR_INST;
+        open_dirs[1] = DATADIR_M402;
+        netplay_match_leave_poll();
+        assert(!netplay_match_leaving() && GWGameStat.language == 5);
+        assert(nclosed == 2 && closed_dirs[0] == DATADIR_INST && closed_dirs[1] == DATADIR_M402);
+
+        /* From a minigame (or instDll, the results): the leave process switches to modeseldll as the party's end
+         * does, with the pauses lifted and the board's ARAM data freed. */
+        memset(open_dirs, 0, sizeof(open_dirs));
+        nclosed = 0;
+        omcurovl = DLL_m401dll;
+        _SetFlag(FLAG_ID_MAKE(1, 0));
+        ar_board = 0x1000;
+        netplay_match_leave();
+        netplay_match_leave_poll();
+        assert(proc != NULL && proc_prio == 0xFFFF);
+        ended = 0;
+        proc();
+        assert(unpaused == 111111 && fx_stops == 1 && ar_frees == 1 && !_CheckFlag(FLAG_ID_MAKE(1, 0)) && ended == 1);
+        assert(gone_to.ovl == DLL_modeseldll && gone_to.event == 1);
+        assert(omovlhisidx == 1 && his[0].ovl == DLL_bootdll && his[1].ovl == DLL_modeseldll && his[1].event == 1);
+        proc = NULL;
+        netplay_match_leave_poll(); /* one process per overlay */
+        assert(proc == NULL);
+        omcurovl = DLL_modeseldll;
+        netplay_match_leave_poll();
+        assert(!netplay_match_leaving() && nclosed == 0);
+
+        /* A board that never gets to run (or to its exit) is switched too, after LEAVE_BOARD_FRAMES. */
+        _ClearFlag(FLAG_ID_MAKE(1, 16));
+        omcurovl = DLL_w01dll;
+        netplay_match_leave();
+        for (i = 0; i < 599 && proc == NULL; i++) {
+            netplay_match_leave_poll();
+        }
+        assert(proc == NULL);
+        netplay_match_leave_poll();
+        assert(proc != NULL);
+        omcurovl = DLL_modeseldll;
+        netplay_match_leave_poll();
+        assert(!netplay_match_leaving());
     }
 
     printf("match_test: all checks passed\n");

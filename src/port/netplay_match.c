@@ -26,15 +26,21 @@
 #endif
 
 #include "dolphin.h"
+#include "game/armem.h"
 #include "game/audio.h"
 #include "game/board/main.h"
 #include "game/chrman.h"
+#include "game/data.h"
+#include "game/flag.h"
 #include "game/gamework_data.h"
+#include "game/hu3d.h"
 #include "game/memory.h"
 #include "game/minigame_seq.h"
 #include "game/object.h"
+#include "game/objsub.h"
 #include "game/pad.h"
 #include "game/process.h"
+#include "game/sprite.h"
 #include "game/wipe.h"
 #include "port/netplay.h"
 
@@ -511,6 +517,135 @@ void netplay_match_end(void)
     game_stat_own();
     memset(&match, 0, sizeof(match));
     netplay_checkpoint_set(NULL, 0);
+}
+
+/*
+ * Leaving a match before its end (N34): the started lobby is gone (this peer left, the host saved and quit, the
+ * connection closed). The session has ended (netplay_end); whatever overlay runs goes back to modeseldll, as the
+ * party's own end does. The board leaves the way a reset does (omSysExitReq: BoardKill, DestroyBoard, then with flag
+ * (1,27) KillBoardFunc returns past mstory3dll's results to modeseldll); any other overlay (a minigame, instDll, the
+ * results) is switched to modeseldll as MatchStartProc switches a menu to the board.
+ */
+#define LEAVE_BOARD_FRAMES 600 /* the board's own exit that long without reaching modeseldll: switch it */
+
+static struct {
+    BOOL on;
+    BOOL exit_req;   /* omSysExitReq set for this overlay */
+    BOOL switching;  /* MatchLeaveProc created for this overlay */
+    s32 ovl;         /* the overlay the steps above were for */
+    u32 frames;      /* polls since the overlay started (or the leave did) */
+    GameStat stat;   /* the player's own, back from netplay_end */
+} leave;
+
+/* The overlay's processes end, the pauses are lifted, the board's ARAM data goes, and modeseldll is next. */
+static void MatchLeaveProc(void)
+{
+    s32 killed;
+
+    /* A minigame paused with START has paused every process, the 3D, sprites and sounds (omSystemKeyCheck); its
+     * objects (omAllPause, the caller's objman only) go with the objman in omOvlKill. */
+    HuPrcAllPause(FALSE);
+    HuPrcAllUPause(FALSE);
+    Hu3DPauseSet(FALSE);
+    HuSprPauseSet(FALSE);
+    HuAudFXPauseAll(FALSE);
+    HuAudSeqPauseAll(FALSE);
+    killed = HuPrcKillIf(overlay_process, (void *)code_module((void (*)(void))netplay_match_tick));
+    OSReport("netplay: match left: overlay %d, killed %d of its processes\n", (int)omcurovl, (int)killed);
+    wipe_reset();
+    HuAudFXAllStop();
+    HuAudSeqAllFadeOut(500);
+    HuAudSStreamAllFadeOut(500);
+    /* What KillBoardFunc does when the party ends: the board between minigames keeps its data in ARAM. */
+    if (HuARDirCheck(DATADIR_BOARD)) {
+        HuARDirFree(DATADIR_BOARD);
+    }
+    _ClearFlag(FLAG_ID_MAKE(1, 0));
+    omovlhisidx = 1;
+    omOvlHisChg(1, DLL_bootdll, 1, 0);
+    omOvlHisChg(0, DLL_modeseldll, 1, 0);
+    omOvlGotoEx(DLL_modeseldll, 1, 1, 0);
+    HuPrcEnd();
+}
+
+/* The minigame data the board (BoardMGSetup) or instDll read for the next minigame (HuDataDirReadAsync, not freed
+ * with the overlay's memory) is closed by resultDll after the minigame. A read still in flight is left alone (closing
+ * it panics). */
+static void leave_data_close(void)
+{
+    const MgInfo *info = mgInfoTbl;
+    s32 i;
+
+    if (HuDataReadChk(DATADIR_INST) >= 0) {
+        HuDataDirClose(DATADIR_INST);
+    }
+    for (i = 0; info->ovl != (u16)DLL_NONE && i < GWSystem.mg_next; i++) {
+        info++;
+    }
+    if (info->ovl != (u16)DLL_NONE && HuDataReadChk(info->data_dir) >= 0) {
+        HuDataDirClose(info->data_dir);
+    }
+}
+
+void netplay_match_leave(void)
+{
+    memset(&leave, 0, sizeof(leave));
+    leave.on = TRUE;
+    leave.ovl = omcurovl;
+    leave.stat = GWGameStat;
+    OSReport("netplay: leaving the match from overlay %d\n", (int)omcurovl);
+}
+
+void netplay_match_leave_poll(void)
+{
+    BOOL board;
+
+    if (!leave.on) {
+        return;
+    }
+    if (omnextovl != DLL_NONE || omcurovl == DLL_NONE) {
+        /* An overlay switch is under way. */
+        return;
+    }
+    if (omcurovl == DLL_modeseldll) {
+        /* The board's teardown (PauseExit) may have written the match's settings into GWGameStat. */
+        GWGameStat = leave.stat;
+        leave_data_close();
+        leave.on = FALSE;
+        OSReport("netplay: match left: back in modeseldll\n");
+        return;
+    }
+    if (omcurovl != leave.ovl) {
+        leave.ovl = omcurovl;
+        leave.exit_req = FALSE;
+        leave.switching = FALSE;
+        leave.frames = 0;
+    }
+    leave.frames++;
+    if (leave.switching) {
+        return;
+    }
+    board = omcurovl >= DLL_w01dll && omcurovl <= DLL_w06dll;
+    if (board && leave.frames < LEAVE_BOARD_FRAMES) {
+        /* Until the board runs (1,16) and while it is ending itself (1,17: for a minigame next), it is left alone. */
+        if (!leave.exit_req && _CheckFlag(FLAG_ID_MAKE(1, 16)) && !_CheckFlag(FLAG_ID_MAKE(1, 17))) {
+            _SetFlag(FLAG_ID_MAKE(1, 27));
+            omSysExitReq = TRUE;
+            leave.exit_req = TRUE;
+            OSReport("netplay: match left: the board exits\n");
+        }
+        return;
+    }
+    if (HuPrcCreate(MatchLeaveProc, 0xFFFF, 0x2000, 0) == NULL) {
+        OSReport("netplay: match left: cannot create the leave process\n");
+        return;
+    }
+    leave.switching = TRUE;
+}
+
+BOOL netplay_match_leaving(void)
+{
+    return leave.on;
 }
 
 /* A Room (net/src/lobby.rs) of the match for an online save when no lobby runs: --match debug runs. */

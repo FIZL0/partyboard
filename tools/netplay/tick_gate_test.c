@@ -21,6 +21,11 @@ void netplay_match_tick(void) {} u64 netplay_heap_hash(void) { return 0; }
 void netplay_match_end(void) { match_ends++; over = 0; }
 BOOL netplay_match_over(void) { return over; }
 void netplay_still_drop(void) { still_drops++; }
+/* N34: the match running, its leave and the leave's per-loop poll. */
+static int running, leaves, leave_polls;
+BOOL netplay_match_running(void) { return running; }
+void netplay_match_leave(void) { leaves++; running = 0; }
+void netplay_match_leave_poll(void) { leave_polls++; }
 static NetplayMatch started; static int start_calls;
 BOOL netplay_match_start(const NetplayMatch *m) { started = *m; start_calls++; return TRUE; }
 const char *netplay_match_invalid(const NetplayMatch *m) { return m->teams && m->seats[0].team == m->seats[1].team && m->seats[0].team == m->seats[2].team ? "teams" : NULL; }
@@ -82,6 +87,8 @@ int pbnet_lobby_checkpoint(uint8_t *buf, int cap) { if (buf != NULL) memset(buf,
 static int finish_calls, back_calls;
 void pbnet_lockstep_finish(void) { finish_calls++; on = 0; }
 int pbnet_lobby_back(void) { back_calls++; if (lobby_state != PBNET_LOBBY_STARTED) return 0; lobby_state = PBNET_LOBBY_OPEN; return 1; }
+static int stop_calls;
+void pbnet_lockstep_stop(void) { stop_calls++; on = 0; }
 
 /* N25: the match is over (netplay_match_over) at the end of a frame: the lockstep finishes, the session ends and the
  * lobby goes back to open, once, at the end of that frame; the UI hears it once. */
@@ -219,6 +226,42 @@ static void lobby_checks(void)
     epoch_now = 0;
 }
 
+/* N34: a started lobby that is no longer started while its match runs (this peer left, the host saved and quit, the
+ * lobby closed): the lockstep stops, the session ends and the match is left (back to modeseldll), once. A lobby whose
+ * match is not running (over, refused) is not. */
+static void match_left_checks(void)
+{
+    static const int gone[] = { PBNET_LOBBY_NONE, PBNET_LOBBY_CLOSED, PBNET_LOBBY_OPEN };
+    int i, polls;
+
+    lobby_text = fixture;
+    for (i = 0; i < 3; i++) {
+        lobby_state = PBNET_LOBBY_STARTED;
+        netplay_lobby_poll();
+        netplay_begin(9);
+        on = 1;
+        running = 1;
+        stop_calls = leaves = match_ends = still_drops = 0;
+        netplay_lobby_poll();
+        assert(stop_calls == 0 && leaves == 0 && netplay_active());
+        lobby_state = gone[i];
+        polls = leave_polls;
+        netplay_lobby_poll();
+        assert(leave_polls == polls + 1);
+        assert(stop_calls == 1 && leaves == 1 && match_ends == 1 && still_drops == 1);
+        assert(!netplay_active() && !netplay_lockstep());
+        netplay_lobby_poll();
+        assert(stop_calls == 1 && leaves == 1);
+    }
+    /* The match ended (N25: running is 0 by then) or was never started: nothing to leave. */
+    lobby_state = PBNET_LOBBY_STARTED;
+    netplay_lobby_poll();
+    lobby_state = PBNET_LOBBY_OPEN;
+    netplay_lobby_poll();
+    assert(stop_calls == 1 && leaves == 1);
+    lobby_state = PBNET_LOBBY_NONE;
+}
+
 int main(void)
 {
     PADStatus got[4];
@@ -273,6 +316,7 @@ int main(void)
     assert(got[0].button == PAD_BUTTON_Y);
     lobby_checks();
     match_end_checks();
+    match_left_checks();
     puts("harness: all checks passed");
     return 0;
 }
