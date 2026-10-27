@@ -5,6 +5,7 @@
 
 #include "dolphin.h"
 #include "game/gamework_data.h"
+#include "game/object.h"
 #include "game/pad.h"
 #include "port/main.h"
 #include "port/netplay.h"
@@ -134,6 +135,45 @@ u64 netplay_hash(void)
     fnv_bytes(&f, HuPadDStkRep, sizeof(HuPadDStkRep));
     fnv_bytes(&f, HuPadErr, sizeof(HuPadErr));
     return f.h;
+}
+
+static u64 fnv_once(const void *data, size_t len)
+{
+    Fnv64 f = { 0xCBF29CE484222325ULL };
+    fnv_bytes(&f, data, len);
+    return f.h;
+}
+
+/*
+ * One hash-log line: frame, netplay_hash(), then what the hash covers, split up so a diff of two logs
+ * shows which state diverged first (tools/netplay/hashdiff.py). ovl is omcurovl, which shows whether a
+ * script reached a board or a minigame. Seeds are raw values; the rest are per-section FNV-1a hashes.
+ */
+static void hash_log_line(FILE *out, u32 at)
+{
+    Fnv64 pad = { 0xCBF29CE484222325ULL };
+    fnv_bytes(&pad, HuPadBtn, sizeof(HuPadBtn));
+    fnv_bytes(&pad, HuPadBtnDown, sizeof(HuPadBtnDown));
+    fnv_bytes(&pad, HuPadBtnRep, sizeof(HuPadBtnRep));
+    fnv_bytes(&pad, HuPadStkX, sizeof(HuPadStkX));
+    fnv_bytes(&pad, HuPadStkY, sizeof(HuPadStkY));
+    fnv_bytes(&pad, HuPadSubStkX, sizeof(HuPadSubStkX));
+    fnv_bytes(&pad, HuPadSubStkY, sizeof(HuPadSubStkY));
+    fnv_bytes(&pad, HuPadTrigL, sizeof(HuPadTrigL));
+    fnv_bytes(&pad, HuPadTrigR, sizeof(HuPadTrigR));
+    fnv_bytes(&pad, HuPadDStk, sizeof(HuPadDStk));
+    fnv_bytes(&pad, HuPadDStkRep, sizeof(HuPadDStkRep));
+    fnv_bytes(&pad, HuPadErr, sizeof(HuPadErr));
+    fprintf(out, "%u %016llX ovl=%d sys=%016llX plr0=%016llX plr1=%016llX plr2=%016llX plr3=%016llX cfg=%016llX "
+                 "frand=%08X rand8=%08X brand=%08X pad=%016llX\n",
+        at, (unsigned long long)netplay_hash(), (int)omcurovl,
+        (unsigned long long)fnv_once(&GWSystem, sizeof(GWSystem)),
+        (unsigned long long)fnv_once(&GWPlayer[0], sizeof(GWPlayer[0])),
+        (unsigned long long)fnv_once(&GWPlayer[1], sizeof(GWPlayer[1])),
+        (unsigned long long)fnv_once(&GWPlayer[2], sizeof(GWPlayer[2])),
+        (unsigned long long)fnv_once(&GWPlayer[3], sizeof(GWPlayer[3])),
+        (unsigned long long)fnv_once(GWPlayerCfg, sizeof(GWPlayerCfg)), (unsigned)frandSeedGet(), (unsigned)rnd_seed,
+        (unsigned)boardRandSeed, (unsigned long long)pad.h);
 }
 
 /*
@@ -393,7 +433,7 @@ BOOL netplay_debug_scripted(void)
 void netplay_frame_end(void)
 {
     if (hash_log != NULL) {
-        fprintf(hash_log, "%u %016llX\n", frame, (unsigned long long)netplay_hash());
+        hash_log_line(hash_log, frame);
     }
     frame++;
     if (script.loaded && script.end != 0 && frame >= script.end) {

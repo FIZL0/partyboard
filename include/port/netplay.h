@@ -51,7 +51,7 @@ u64 netplay_hash(void);
 /*
  * Debug: parse `--script <file>` and `--hash-log <file>` from the command line. With --script the
  * game starts a local session at boot and plays the scripted pads; with --hash-log every frame's
- * netplay_hash() is written as "<frame> <hash>". Returns FALSE (and logs why) if a file can't be used.
+ * netplay_hash() is written as "<frame> <hash> <section>=<value>...". Returns FALSE (and logs why) if a file can't be used.
  */
 BOOL netplay_debug_init(int argc, char *argv[]);
 /* True if --script was given (the prelaunch UI is skipped so runs need no clicks). */

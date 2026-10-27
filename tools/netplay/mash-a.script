@@ -1,7 +1,7 @@
 # Example --script for a determinism check (see src/port/netplay.c for the format):
 #   partyboard --script tools/netplay/mash-a.script --hash-log run1.log
 #   partyboard --script tools/netplay/mash-a.script --hash-log run2.log
-#   diff run1.log run2.log   # empty = deterministic
+#   tools/netplay/hashdiff.py run1.log run2.log   # first differing frame + section, overlays reached
 # Port 0 taps A (and START every 4th tap) for 5 frames every 60 frames, which walks through the boot
 # screens and into the menus. Not tuned against a real disc yet: where it ends up is unchecked.
 seed 0x50424E54
