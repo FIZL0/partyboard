@@ -321,3 +321,21 @@ u32 HuPadRumbleGet(void)
 {
     return RumbleBit;
 }
+
+#ifdef TARGET_PC
+void HuPadNetplayReset(void)
+{
+    s16 i;
+    for (i = 0; i < 4; i++) {
+        HuPadBtn[i] = HuPadBtnDown[i] = HuPadBtnRep[i] = 0;
+        HuPadStkX[i] = HuPadStkY[i] = HuPadSubStkX[i] = HuPadSubStkY[i] = 0;
+        HuPadTrigL[i] = HuPadTrigR[i] = HuPadDStk[i] = HuPadDStkRep[i] = 0;
+        HuPadErr[i] = PAD_ERR_NONE;
+        _PadBtn[i] = _PadBtnDown[i] = _PadRepCnt[i] = 0;
+        _PadStkX[i] = _PadStkY[i] = _PadSubStkX[i] = _PadSubStkY[i] = 0;
+        _PadTrigL[i] = _PadTrigR[i] = _PadDStk[i] = _PadDStkRep[i] = 0;
+        _PadDStkRepCnt[i] = _PadDStkRepOld[i] = 0;
+        _PadErr[i] = PAD_ERR_NONE;
+    }
+}
+#endif

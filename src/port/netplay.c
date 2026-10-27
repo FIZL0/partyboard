@@ -95,6 +95,7 @@ void netplay_begin(u32 seed)
 void netplay_end(void)
 {
     active = FALSE;
+    netplay_match_end();
 }
 
 OSTime netplay_time(void)
@@ -164,6 +165,8 @@ static u64 fnv_once(const void *data, size_t len)
  * One hash-log line: frame, netplay_hash(), then what the hash covers, split up so a diff of two logs
  * shows which state diverged first (tools/netplay/hashdiff.py). ovl is omcurovl, which shows whether a
  * script reached a board or a minigame. Seeds are raw values; the rest are per-section FNV-1a hashes.
+ * heap is netplay_heap_hash() (the heaps' layout): not part of the state hash, it shows whether two runs
+ * that reach the same state also allocate alike.
  */
 static void hash_log_line(FILE *out, u32 at)
 {
@@ -181,7 +184,7 @@ static void hash_log_line(FILE *out, u32 at)
     fnv_bytes(&pad, HuPadDStkRep, sizeof(HuPadDStkRep));
     fnv_bytes(&pad, HuPadErr, sizeof(HuPadErr));
     fprintf(out, "%u %016llX ovl=%d sys=%016llX plr0=%016llX plr1=%016llX plr2=%016llX plr3=%016llX cfg=%016llX "
-                 "frand=%08X rand8=%08X brand=%08X pad=%016llX\n",
+                 "frand=%08X rand8=%08X brand=%08X pad=%016llX heap=%016llX\n",
         at, (unsigned long long)netplay_hash(), (int)omcurovl,
         (unsigned long long)fnv_once(&GWSystem, sizeof(GWSystem)),
         (unsigned long long)fnv_once(&GWPlayer[0], sizeof(GWPlayer[0])),
@@ -189,7 +192,7 @@ static void hash_log_line(FILE *out, u32 at)
         (unsigned long long)fnv_once(&GWPlayer[2], sizeof(GWPlayer[2])),
         (unsigned long long)fnv_once(&GWPlayer[3], sizeof(GWPlayer[3])),
         (unsigned long long)fnv_once(GWPlayerCfg, sizeof(GWPlayerCfg)), (unsigned)frandSeedGet(), (unsigned)rnd_seed,
-        (unsigned)boardRandSeed, (unsigned long long)pad.h);
+        (unsigned)boardRandSeed, (unsigned long long)pad.h, (unsigned long long)netplay_heap_hash());
 }
 
 /*
@@ -222,6 +225,10 @@ static struct {
 } script;
 
 static FILE *hash_log;
+
+/* --match <board>@<frame>: start a debug match after that frame of a --script run. */
+static NetplayMatch debug_match;
+static u32 debug_match_at;
 
 static const struct {
     const char *name;
@@ -419,9 +426,18 @@ BOOL netplay_debug_init(int argc, char *argv[])
             script_path = argv[++i];
         } else if (strcmp(argv[i], "--hash-log") == 0 && i + 1 < argc) {
             hash_path = argv[++i];
+        } else if (strcmp(argv[i], "--match") == 0 && i + 1 < argc) {
+            if (!netplay_match_parse_debug(argv[++i], &debug_match, &debug_match_at)) {
+                OSReport("netplay: --match wants <board 0..5>@<frame>, e.g. 0@900\n");
+                return FALSE;
+            }
         }
     }
     if (script_path != NULL && !script_load(script_path)) {
+        return FALSE;
+    }
+    if (debug_match_at != 0 && script_path == NULL) {
+        OSReport("netplay: --match needs --script\n");
         return FALSE;
     }
     if (hash_path != NULL) {
@@ -452,6 +468,9 @@ void netplay_frame_end(void)
         hash_log_line(hash_log, frame);
     }
     frame++;
+    if (debug_match_at != 0 && frame == debug_match_at) {
+        netplay_match_start(&debug_match);
+    }
     if (script.loaded && script.end != 0 && frame >= script.end) {
         OSReport("netplay: script ended at frame %u, hash %016llX\n", frame, (unsigned long long)netplay_hash());
         if (hash_log != NULL) {
@@ -497,6 +516,8 @@ BOOL netplay_tick_begin(void)
     u64 ours, theirs;
     int i;
 
+    /* A started match sets its state first: frame 0's hash and pads see it on every peer. */
+    netplay_match_tick();
     if (script.loaded || !pbnet_lockstep_active()) {
         return TRUE;
     }

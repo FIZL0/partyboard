@@ -34,6 +34,9 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
 - Party setup: `BoardPartyConfigSet`, `BoardSaveInit` (`src/game/board/main.c:281,374`).
 - Checkpoint: `SLSaveBoard`/`SLLoadBoard` `src/game/saveload.c:393,581`; written after each minigame in
   `src/REL/resultDll/main.c:1018`.
+- Match start: `netplay_match_start` (`src/port/netplay_match.c`): canned state at the loop top before frame 0,
+  a top-priority process calls the board in frame 0, free heap memory zeroed when the board overlay starts
+  (`omWatchOverlayProc` hook). Findings: `research/journal/2026-10-27-n8-match-start`.
 - UI: RmlUi documents in `src/port/ui/`, config in `src/port/config.cpp`, user dir from SDL pref path.
 
 ## Rules

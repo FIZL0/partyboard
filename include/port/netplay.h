@@ -66,11 +66,58 @@ u64 netplay_hash(void);
 /*
  * Debug: parse `--script <file>` and `--hash-log <file>` from the command line. With --script the
  * game starts a local session at boot and plays the scripted pads; with --hash-log every frame's
- * netplay_hash() is written as "<frame> <hash> <section>=<value>...". Returns FALSE (and logs why) if a file can't be used.
+ * netplay_hash() is written as "<frame> <hash> <section>=<value>...". `--match <board>@<frame>` (with
+ * --script) starts a match on that board after that frame (netplay_match_parse_debug). Returns FALSE (and
+ * logs why) if a file or argument can't be used.
  */
 BOOL netplay_debug_init(int argc, char *argv[]);
 /* True if --script was given (the prelaunch UI is skipped so runs need no clicks). */
 BOOL netplay_debug_scripted(void);
+
+/*
+ * Match start (src/port/netplay_match.c). The lobby's Room as the game needs it; N20/N7 fill it from the
+ * Room of the lobby's Start message, the same on every peer.
+ */
+#define NETPLAY_BOARDS 6
+typedef struct {
+    u8 character;  /* 0..7 (GWPlayerCfg.character), unique */
+    u8 cpu;        /* the computer plays this seat */
+    u8 difficulty; /* CPU difficulty 0..3 (GWPlayerCfg.diff) */
+    u8 team;       /* 0 or 1 (GWPlayerCfg.group) when teams is set */
+    u8 handicap;   /* stars the seat starts with, 0..9 */
+} NetplaySeat;
+
+typedef struct {
+    u64 seed;               /* Room.seed */
+    u8 board;               /* 0..5: w01..w06 (GWSystem.board) */
+    u8 turns;               /* 10..50, steps of 5 */
+    u8 bonus;               /* bonus stars */
+    u8 teams;               /* 2 vs 2 by seats[].team */
+    NetplaySeat seats[4];   /* 1P..4P; seat i plays with lockstep pad i */
+} NetplayMatch;
+
+/* NULL if the match can be played, else why not (static string). */
+const char *netplay_match_invalid(const NetplayMatch *m);
+/*
+ * Starts the match: call on the game thread outside the game tick (e.g. from the UI's update), on every peer
+ * with the same `m`, once the lockstep session runs (or with none, for a local --match run). Starts the
+ * netplay session (netplay_begin) at once; the next netplay_tick_begin puts every peer in the same state
+ * (see netplay_match.c) before frame 0's hash and pads, and that frame enters the board. FALSE (and logs
+ * why) if `m` is invalid or a match is already starting.
+ */
+BOOL netplay_match_start(const NetplayMatch *m);
+/* True from netplay_match_start until netplay_end. */
+BOOL netplay_match_running(void);
+/* netplay_tick_begin: applies a started match's state, once, before anything else of frame 0. */
+void netplay_match_tick(void);
+/* objmain.c omWatchOverlayProc, while netplay_active(): `ovl` is about to start. */
+void netplay_ovl_start(s32 ovl);
+/* netplay_end: gives the player's own GWGameStat back. */
+void netplay_match_end(void);
+/* FNV-1a of every heap's used blocks (heap, offset, size, num): equal when peers' heaps are laid out alike. */
+u64 netplay_heap_hash(void);
+/* "--match <board>@<frame>": parse a debug match (seat 1P human, 2P-4P CPU) for a --script run. */
+BOOL netplay_match_parse_debug(const char *spec, NetplayMatch *m, u32 *at_frame);
 
 /* Seed accessors for the hash and session start (frand_seed is static in src/game/frand.c). */
 u32 frandSeedGet(void);
