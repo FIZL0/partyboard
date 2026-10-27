@@ -422,6 +422,7 @@ void netplay_ovl_start(s32 ovl)
         match.over = TRUE;
         game_stat_own();
         OSReport("netplay: match over: overlay %d starts at frame %u\n", ovl, netplay_frame());
+        netplay_checkpoint_finish();
         return;
     }
     if (!match.scrub || ovl != DLL_w01dll + match.m.board) {

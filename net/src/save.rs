@@ -356,6 +356,44 @@ pub unsafe extern "C" fn pbnet_save_delete(path: *const c_char) -> i32 {
     fs::remove_file(p).is_ok() as i32
 }
 
+/// Removes the save of match `id` under `<user_dir>/online` (N31: a finished match is no continue). Ok(true) if
+/// there was one.
+pub fn finish(user_dir: &Path, id: &str) -> io::Result<bool> {
+    match fs::remove_file(user_dir.join(DIR).join(file_name(id))) {
+        Ok(()) => Ok(true),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(e),
+    }
+}
+
+/// The match is over (N31): deletes its save, so Continue never lists it. The match is the lobby's started room,
+/// else `room_json`'s (a Room as JSON, for a match with no lobby). 1 if a save was deleted, 0 if there was none or
+/// no match (logged when it could not be deleted).
+///
+/// # Safety
+///
+/// `user_dir` and `room_json` are null or valid NUL-terminated strings, used during the call only. Thread-safe.
+#[no_mangle]
+pub unsafe extern "C" fn pbnet_save_finish(user_dir: *const c_char, room_json: *const c_char) -> i32 {
+    // SAFETY: the caller's contract on the strings.
+    let (dir, fallback) = unsafe { (arg(user_dir), arg(room_json)) };
+    let Some(dir) = dir else { return 0 };
+    let id = crate::lobby_c::started_room().map(|r| r.id).or_else(|| {
+        fallback.and_then(|j| serde_json::from_str::<Room>(j).map_err(|e| eprintln!("pbnet: save: room: {e}")).ok()).map(|r| r.id)
+    });
+    let Some(id) = id else {
+        eprintln!("pbnet: save: finish: no started room");
+        return 0;
+    };
+    match finish(Path::new(dir), &id) {
+        Ok(gone) => gone as i32,
+        Err(e) => {
+            eprintln!("pbnet: save: finish {id}: {e}");
+            0
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -508,6 +546,27 @@ mod tests {
         assert_eq!(unsafe { pbnet_save_delete(outside.as_ptr()) }, 0);
         assert_eq!(unsafe { pbnet_save_delete(pc.as_ptr()) }, 1);
         assert!(list(&d).is_empty());
+        fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn finished_match_leaves_no_save() {
+        let d = tmp("fin");
+        let dir = std::ffi::CString::new(d.to_str().unwrap()).unwrap();
+        let room = started_room();
+        let json = std::ffi::CString::new(serde_json::to_string(&room).unwrap()).unwrap();
+        let mut other = room.clone();
+        other.id = "m-2".into();
+        Save::new(&room, &blob(), 1, Seeds::default()).unwrap().write(&d).unwrap();
+        Save::new(&other, &blob(), 1, Seeds::default()).unwrap().write(&d).unwrap();
+        assert_eq!(list(&d).len(), 2);
+        // no lobby runs in this test: the match is the JSON's; only its save goes
+        assert_eq!(unsafe { pbnet_save_finish(dir.as_ptr(), json.as_ptr()) }, 1);
+        assert_eq!(list(&d).iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), ["m-2"]);
+        assert_eq!(unsafe { pbnet_save_finish(dir.as_ptr(), json.as_ptr()) }, 0, "already gone");
+        assert_eq!(unsafe { pbnet_save_finish(dir.as_ptr(), std::ptr::null()) }, 0, "no match");
+        assert_eq!(unsafe { pbnet_save_finish(std::ptr::null(), json.as_ptr()) }, 0);
+        assert!(!finish(&d, "never").unwrap());
         fs::remove_dir_all(&d).unwrap();
     }
 }

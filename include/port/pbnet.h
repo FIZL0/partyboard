@@ -154,6 +154,11 @@ int pbnet_save_list(const char *user_dir, char *buf, int cap);
 int pbnet_save_blob(const char *path, uint8_t *buf, int cap);
 /* Deletes a save (a path from pbnet_save_list; nothing outside an online/ dir). 1 if deleted. */
 int pbnet_save_delete(const char *path);
+/*
+ * The match is over (N31): deletes its save, so Continue never lists a finished match. The match is the lobby's
+ * started room, else room_json's (as pbnet_save_write). 1 if a save was deleted, 0 if none (or no match).
+ */
+int pbnet_save_finish(const char *user_dir, const char *room_json);
 
 /*
  * LAN games (net/src/lobby_c.rs Browse). An open host lobby lists itself by mDNS on the local network: its room id,

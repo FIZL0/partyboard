@@ -103,6 +103,23 @@ int pbnet_save_write(const char *dir, const char *room, const uint8_t *blob, int
     return saved.ok;
 }
 
+/* N31: the match end deletes its save, by the match's room, else by the path its last checkpoint wrote. */
+static struct { s32 calls, ok; char dir[64], room[2048]; } finished;
+static struct { s32 calls, ok; char path[256]; } deleted;
+int pbnet_save_finish(const char *dir, const char *room)
+{
+    finished.calls++;
+    snprintf(finished.dir, sizeof(finished.dir), "%s", dir);
+    snprintf(finished.room, sizeof(finished.room), "%s", room != NULL ? room : "");
+    return finished.ok;
+}
+int pbnet_save_delete(const char *path)
+{
+    deleted.calls++;
+    snprintf(deleted.path, sizeof(deleted.path), "%s", path);
+    return deleted.ok;
+}
+
 static u8 heap_mem[2][0x4000];
 static void *heaps[HEAP_MAX];
 void *HuMemHeapPtrGet(HeapID h) { return heaps[h]; }
@@ -252,12 +269,16 @@ int main(void)
     netplay_ovl_start(DLL_w01dll + 2);
     netplay_ovl_start(DLL_mstory3dll);
     assert(!netplay_match_over() && GWGameStat.language == 1);
+    finished.ok = 1;
     netplay_ovl_start(DLL_modeseldll);
     assert(netplay_match_over() && netplay_match_running());
+    /* N31: its online save goes, by the match's room; no checkpoint was written, so no path to fall back on. */
+    assert(finished.calls == 1 && strcmp(finished.dir, "/tmp/user") == 0 && strstr(finished.room, "\"started\":true"));
+    assert(deleted.calls == 0);
     assert(GWGameStat.language == 3 && GWGameStat.mg_custom[0] == 5 && GWGameStat.total_stars == 77);
     GWGameStat.total_stars = 78; /* the menu changes it: not taken back again */
     netplay_ovl_start(DLL_modeseldll);
-    assert(netplay_match_over());
+    assert(netplay_match_over() && finished.calls == 1); /* once */
 
     /* End: the player's own GWGameStat stays; the match and its "over" are gone. */
     netplay_match_end();
@@ -345,6 +366,16 @@ int main(void)
         netplay_checkpoint();
         assert(saved.calls == 2 && netplay_checkpoint_last(back, sizeof(back)) == size);
         memcpy(blob, saved.blob, size);
+        /* N31: the party ends. No started room by the match's id (finish 0): the file the last good checkpoint wrote
+         * goes. */
+        netplay_ovl_start(DLL_w01dll + 3);
+        finished.calls = 0;
+        finished.ok = 0;
+        deleted.ok = 1;
+        netplay_ovl_start(DLL_modeseldll);
+        assert(netplay_match_over() && finished.calls == 1);
+        assert(strstr(finished.room, "\"id\":\"local-1111111122222222\""));
+        assert(deleted.calls == 1 && strcmp(deleted.path, "/tmp/user/online/x.json") == 0);
         netplay_match_end();
         assert(netplay_checkpoint_last(back, sizeof(back)) == 0);
 
@@ -395,6 +426,20 @@ int main(void)
         assert(wipe_rgb[0] == 0xFF && proc != NULL);
         proc();
         assert(called == DLL_w01dll + 3);
+        /* N31: the continued match ends before this peer wrote a checkpoint: its save goes by the match's id, and
+         * the last match's path is not deleted again. */
+        netplay_ovl_start(DLL_w01dll + 3);
+        finished.calls = deleted.calls = 0;
+        finished.ok = 1;
+        netplay_ovl_start(DLL_modeseldll);
+        assert(finished.calls == 1 && deleted.calls == 0);
+        finished.ok = 0;
+        netplay_match_end();
+        netplay_match_start(&c);
+        netplay_match_tick();
+        netplay_ovl_start(DLL_w01dll + c.board);
+        netplay_ovl_start(DLL_modeseldll);
+        assert(finished.calls == 2 && deleted.calls == 0);
         netplay_match_end();
     }
 

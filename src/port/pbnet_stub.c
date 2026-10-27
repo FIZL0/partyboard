@@ -204,6 +204,13 @@ int pbnet_save_delete(const char *path)
     return 0;
 }
 
+int pbnet_save_finish(const char *user_dir, const char *room_json)
+{
+    (void)user_dir;
+    (void)room_json;
+    return 0;
+}
+
 /* LAN: no endpoint, so never any games. */
 int pbnet_lan_browse(const char *setup, char *buf, int cap)
 {

@@ -168,6 +168,11 @@ void netplay_checkpoint(void);
 u32 netplay_checkpoint_last(u8 *out, u32 cap);
 /* netplay_match.c: forget the last checkpoint (size 0: a match starts or ends) or take `blob` as it (a continue). */
 void netplay_checkpoint_set(const u8 *blob, u32 size);
+/*
+ * netplay_ovl_start, when the match is over (N31): deletes the match's online save on this peer (pbnet_save_finish,
+ * else the file this peer's last checkpoint wrote), so Continue never offers a finished match.
+ */
+void netplay_checkpoint_finish(void);
 /* The user dir (config, saves), UTF-8; never NULL ("" before it is known). src/port/netplay_dir.cpp. */
 const char *netplay_user_dir(void);
 /* The Room JSON for a save when no lobby runs (a --match debug run): from the match, id "local-<seed>". */

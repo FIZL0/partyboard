@@ -34,6 +34,7 @@ void SLLoadBoard(void);
 
 static u8 last_blob[NETPLAY_BLOB_MAX];
 static u32 last_size;
+static char last_path[1024]; /* the save file this match's last checkpoint wrote ("": none) */
 
 u32 netplay_board_blob_size(void)
 {
@@ -114,16 +115,39 @@ void netplay_checkpoint(void)
             path, sizeof(path))) {
         OSReport("netplay: checkpoint at frame %u, turn %d/%d: %s\n", netplay_frame(), GWSystem.turn, GWSystem.max_turn,
             path);
+        snprintf(last_path, sizeof(last_path), "%s", path);
     } else {
         /* The match goes on: the save is a convenience, the blob is still kept for a reload. */
         OSReport("netplay: checkpoint at frame %u: the online save could not be written\n", netplay_frame());
     }
 }
 
+void netplay_checkpoint_finish(void)
+{
+    static char room[2048];
+
+    if (!netplay_match_running()) {
+        return;
+    }
+    if (netplay_match_room_json(room, sizeof(room)) >= (int)sizeof(room)) {
+        room[0] = '\0';
+    }
+    /* By the match id: also a continue whose peer wrote no checkpoint since. The last path covers a lobby that closed
+     * during the match (no started room, and the --match room's id is not the lobby's). */
+    if (pbnet_save_finish(netplay_user_dir(), room[0] != '\0' ? room : NULL)
+        || (last_path[0] != '\0' && pbnet_save_delete(last_path))) {
+        OSReport("netplay: match over: its online save is deleted\n");
+    }
+    last_path[0] = '\0';
+}
+
 void netplay_checkpoint_set(const u8 *blob, u32 size)
 {
     if (blob == NULL || size == 0 || size > sizeof(last_blob)) {
         last_size = 0;
+        if (blob == NULL) {
+            last_path[0] = '\0';
+        }
         return;
     }
     memcpy(last_blob, blob, size);
