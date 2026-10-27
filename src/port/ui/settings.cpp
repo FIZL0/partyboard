@@ -575,6 +575,12 @@ SettingsWindow::SettingsWindow(bool prelaunch)
                         pb_button_icons_family_name(pb_button_icons_family(port)), button_glyph_strip_rml(port)));
                 }
             });
+        config_bool_select(leftPane, rightPane, getSettings().game.touchControls,
+            {
+                .key = "Touch Controls",
+                .helpText = "Show an on-screen controller (stick, A/B/X/Y, L/R/Z, Start) for port 1 when the screen is "
+                            "touched. A controller or keyboard press hides it again.",
+            });
 
         leftPane.add_section("Tools");
         addOption("Turbo Key", getSettings().game.enableTurboKeybind, "Hold Tab to unlock the FPS, speeding up the game.",

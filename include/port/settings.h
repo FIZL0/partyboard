@@ -94,6 +94,7 @@ struct UserSettings {
         // Input
         ConfigVar<bool> allowBackgroundInput;
         ConfigVar<int> buttonIcons; // N49: PB_ICONS_* (port/button_icons.h)
+        ConfigVar<bool> touchControls; // N70: on-screen pad (port/touch_pad.h)
 
         // Cheats
         ConfigVar<bool> infiniteHearts;

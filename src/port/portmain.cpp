@@ -7,6 +7,7 @@
 #include "partyboard_version.h"
 #include "ui/menu_bar.hpp"
 #include "ui/overlay.hpp"
+#include "ui/touch_pad.hpp"
 #include "ui/prelaunch.hpp"
 #include "ui/preset.hpp"
 
@@ -481,6 +482,7 @@ extern "C" int port_main(int argc, char* argv[]) {
     }
 
     partyboard::ui::initialize();
+    partyboard::ui::push_document(std::make_unique<partyboard::ui::TouchPad>(), true, true);
     partyboard::ui::push_document(std::make_unique<partyboard::ui::Overlay>(), true, true);
     partyboard::ui::push_document(std::make_unique<partyboard::ui::MenuBar>(), false);
 
