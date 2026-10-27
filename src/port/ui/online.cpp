@@ -1,6 +1,7 @@
 #include "online.hpp"
 
 #include "bool_button.hpp"
+#include "input.hpp"
 #include "modal.hpp"
 #include "number_button.hpp"
 #include "pane.hpp"
@@ -248,6 +249,14 @@ namespace {
     private:
         std::shared_ptr<bool> mAlive;
     };
+
+    // N51: closes a hold modal without Document::pop's show_top_document(). The match runs under it, so the document
+    // under it is the hidden menu bar; showing it opened the menu mid-match and its PADBlockInput held the pads.
+    void close_hold_modal(Modal &modal)
+    {
+        modal.hide(true);
+        input::sync_input_block();
+    }
 
     // The user dir as pbnet takes it (UTF-8).
     std::string user_dir_utf8()
@@ -795,7 +804,7 @@ void update_online_match()
         return;
     }
     if (shown != nullptr) {
-        shown->pop();
+        close_hold_modal(*shown);
         shown = nullptr;
     }
     shownKey = key;
@@ -805,7 +814,7 @@ void update_online_match()
 
     const auto keep = [key](Modal &modal) {
         dismissedKey = key;
-        modal.pop();
+        close_hold_modal(modal);
     };
     std::vector<ModalAction> actions;
     Rml::String body = escape(message);
@@ -823,7 +832,7 @@ void update_online_match()
                 "every player keeps the save, and any of them can host Continue.";
         actions.push_back({ .label = "Keep Waiting", .onPressed = keep });
         actions.push_back({ .label = fmt::format("CPU Plays for {}", waitName), .onPressed = [waitIndex](Modal &modal) {
-                               modal.pop();
+                               close_hold_modal(modal);
                                pbnet_recover_cpu(waitIndex);
                            } });
         actions.push_back({ .label = "Save and Quit", .onPressed = [](Modal &modal) {

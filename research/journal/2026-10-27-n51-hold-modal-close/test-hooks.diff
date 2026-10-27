@@ -1,0 +1,89 @@
+diff --git i/src/port/ui/compat.cpp w/src/port/ui/compat.cpp
+index 8d7f6167..4f5eaf91 100644
+--- i/src/port/ui/compat.cpp
++++ w/src/port/ui/compat.cpp
+@@ -4,7 +4,13 @@
+ #include "port/ui.h"
+ 
+ #include <chrono>
++#include <cstdio>
++#include <cstdlib>
++#include <fstream>
++#include <string>
++#include "port/pbnet.h"
+ 
++#include "modal.hpp"
+ #include "online.hpp"
+ #include "ui.hpp"
+ 
+@@ -34,6 +40,36 @@ void ui_handle_sdl_event(const SDL_Event *event)
+ 
+ void ui_update(void)
+ {
++    { // N51 TEST HOOK
++        static int n = 0, joined = 0;
++        static int lastVis = -1;
++        const char *cf = getenv("N33_CODE");
++        if (cf && ++n > 300) {
++            if (!joined) {
++                std::ifstream in(cf); std::string code; std::getline(in, code);
++                if (!code.empty()) {
++                    std::string setup = std::string("{\"build\":\"") + getenv("N33_BUILD") + "\",\"disc\":\"GMPE01-01\",\"players\":[{\"name\":\"Guesty\",\"key\":\"guestykey\"}],\"relay\":\"off\"}";
++                    joined = pbnet_lobby_join(setup.c_str(), code.c_str());
++                    fprintf(stderr, "N51 join %d\n", joined);
++                }
++            } else if (pbnet_lobby_state() == PBNET_LOBBY_OPEN && n % 60 == 0) {
++                fprintf(stderr, "N51 ready %d\n", pbnet_lobby_ready(1));
++            }
++        }
++        const int vis = partyboard::ui::any_document_visible() ? 1 : 0;
++        if (vis != lastVis) {
++            fprintf(stderr, "N51 ui frame %d any_document_visible %d top %s\n", n, vis,
++                partyboard::ui::top_document() ? typeid(*partyboard::ui::top_document()).name() : "-");
++            lastVis = vis;
++        }
++        static int holdFrames = 0;
++        auto *modal = dynamic_cast<partyboard::ui::Modal *>(partyboard::ui::top_document());
++        holdFrames = modal != nullptr && modal->visible() ? holdFrames + 1 : 0;
++        if (getenv("N51_KEEP") && holdFrames == 60) {
++            fprintf(stderr, "N51 pressing Keep Waiting (dismiss)\n");
++            modal->dismiss();
++        }
++    }
+     // A started online lobby's match begins here, between game ticks (src/port/netplay.c).
+     netplay_lobby_poll();
+     // N10: a dropped peer holds the match: "Waiting for <name>", "Host left"
+diff --git i/src/port/ui/input.cpp w/src/port/ui/input.cpp
+index 4d85af23..1045f4ab 100644
+--- i/src/port/ui/input.cpp
++++ w/src/port/ui/input.cpp
+@@ -1,3 +1,4 @@
++#include <cstdio>
+ // Credits: TwilitRealm
+ 
+ #include "input.hpp"
+@@ -683,6 +684,7 @@ void sync_input_block() noexcept
+     }
+ 
+     PADBlockInput(shouldBlock);
++    std::fprintf(stderr, "N51 PADBlockInput(%d)\n", shouldBlock ? 1 : 0); // N51 TEST HOOK
+     sPadInputBlocked = shouldBlock;
+ }
+ 
+diff --git i/src/port/ui/modal.hpp w/src/port/ui/modal.hpp
+index 9988b96c..27bf42f5 100644
+--- i/src/port/ui/modal.hpp
++++ w/src/port/ui/modal.hpp
+@@ -31,9 +31,11 @@ public:
+ protected:
+     bool handle_nav_command(Rml::Event &event, NavCommand cmd) override;
+ 
+-private:
++public: // N51 TEST HOOK
+     void dismiss();
+ 
++private:
++
+     Props mProps;
+     std::vector<std::unique_ptr<Button>> mButtons;
+ };
