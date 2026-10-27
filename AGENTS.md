@@ -10,6 +10,8 @@ We are adding online play. Design and hook points: `plan/NET.md`. Netcode refere
   it at boot instead of the saved setting. Run real in-game checks with it (`--script`, `--hash-log`,
   `--match`). Slots run games in parallel: give each run its own user dir (`XDG_DATA_HOME`/`HOME` under
   the worktree) so config.json and saves don't collide.
+- Game windows: slots set `SDL_APP_ID=partyboard-test`, and the desktop opens that class floating at 1280x960 on a
+  hidden workspace, so run the game directly (no gamescope/Xwayland tricks, never on the user's screen).
 - Never commit disc files, extracted assets or anything under `orig/*/`.
 - Offline play must be unchanged: netplay hooks in `src/game` and `src/REL` are `if (netplay_active())`
   guards, kept small.
