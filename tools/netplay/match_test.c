@@ -138,6 +138,8 @@ SaveBufAll saveBuf; s32 saveExecF = 1; s32 rnd_seed = 0x1234; u32 boardRandSeed 
 u32 frandSeedGet(void) { return 0x9ABC; }
 u32 netplay_session_seed(void) { return 0xDEF0; }
 const char *netplay_user_dir(void) { return "/tmp/user"; }
+/* N65: Minigame mode (mgmodedll) leaves it at 1; instDll then shows another host. */
+u8 mgBoardHostEnableF = 1;
 static s32 play_clears;
 void BoardMGSetupPlayClear(void) { play_clears++; }
 /* N52: the dice of an old board are forgotten at the board's (or instDll's) start; instDll's start takes a point. */
@@ -304,7 +306,7 @@ int main(void)
     /* Tick: the state, then the start process at the top priority. */
     netplay_match_tick();
     assert(pad_resets == 1 && vwait == 1 && GlobalCounter == 0);
-    assert(party_calls == 1);
+    assert(party_calls == 1 && mgBoardHostEnableF == 0);
     {
         s32 want[8] = { 0, 1, 0, 25, 0, 3, 6, 9 };
         assert(memcmp(party_args, want, sizeof(want)) == 0);
@@ -531,6 +533,7 @@ int main(void)
         c.seats[2].cpu = 0;
         proc = NULL;
         saveExecF = 1;
+        mgBoardHostEnableF = 1;
         play_clears = 0;
         wipe_rgb[0] = 0;
         assert(netplay_match_continue(&c, blob, size));
@@ -539,7 +542,7 @@ int main(void)
         assert(netplay_checkpoint_last(back, sizeof(back)) == size && memcmp(back, blob, size) == 0);
         party_calls = 0;
         netplay_match_tick();
-        assert(party_calls == 0 && play_clears == 1 && saveExecF == 0);
+        assert(party_calls == 0 && play_clears == 1 && saveExecF == 0 && mgBoardHostEnableF == 0);
         assert(GWSystem.turn == 7 && GWSystem.max_turn == 25 && GWSystem.board == 3 && GWSystem.flag[1][0] == 0x01);
         assert(GWSystem.save_mode == 1);
         for (i = 0; i < 4; i++) {
