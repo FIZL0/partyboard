@@ -11,13 +11,18 @@
 #include <aurora/gfx.h>
 #include <dolphin/pad.h>
 #include <SDL3/SDL_gamepad.h>
+#include <SDL3/SDL_keyboard.h>
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <mutex>
+#include <string>
 #include <vector>
 
 namespace {
@@ -195,6 +200,156 @@ std::vector<Seg> letter(char c)
             break;
         case '-':
             v = { { 0.0f, 0.5f, 1.0f, 0.5f } };
+            break;
+        // N61: the rest of A-Z, 0-9 and the punctuation keys, for keycaps
+        case 'C':
+            arc(v, 0.55f, 0.5f, 0.47f, 0.5f, 0.2f * kPi, 1.8f * kPi);
+            break;
+        case 'D':
+            v = { { 0.05f, 0.0f, 0.05f, 1.0f }, { 0.05f, 0.0f, 0.45f, 0.0f }, { 0.05f, 1.0f, 0.45f, 1.0f } };
+            arc(v, 0.45f, 0.5f, 0.5f, 0.5f, -kPi / 2, kPi / 2);
+            break;
+        case 'E':
+            v = { { 0.08f, 0.0f, 0.08f, 1.0f }, { 0.08f, 0.0f, 0.92f, 0.0f }, { 0.08f, 0.5f, 0.78f, 0.5f },
+                { 0.08f, 1.0f, 0.92f, 1.0f } };
+            break;
+        case 'F':
+            v = { { 0.08f, 0.0f, 0.08f, 1.0f }, { 0.08f, 0.0f, 0.92f, 0.0f }, { 0.08f, 0.5f, 0.78f, 0.5f } };
+            break;
+        case 'G':
+            v = { { 0.55f, 0.55f, 0.98f, 0.55f } };
+            arc(v, 0.53f, 0.5f, 0.45f, 0.5f, 0.0f, 1.75f * kPi);
+            break;
+        case 'H':
+            v = { { 0.05f, 0.0f, 0.05f, 1.0f }, { 0.95f, 0.0f, 0.95f, 1.0f }, { 0.05f, 0.5f, 0.95f, 0.5f } };
+            break;
+        case 'I':
+            v = { { 0.5f, 0.0f, 0.5f, 1.0f }, { 0.2f, 0.0f, 0.8f, 0.0f }, { 0.2f, 1.0f, 0.8f, 1.0f } };
+            break;
+        case 'J':
+            v = { { 0.4f, 0.0f, 0.95f, 0.0f }, { 0.75f, 0.0f, 0.75f, 0.7f } };
+            arc(v, 0.42f, 0.7f, 0.33f, 0.3f, 0.0f, kPi);
+            break;
+        case 'K':
+            v = { { 0.08f, 0.0f, 0.08f, 1.0f }, { 0.92f, 0.0f, 0.08f, 0.6f }, { 0.35f, 0.42f, 0.92f, 1.0f } };
+            break;
+        case 'M':
+            v = { { 0.05f, 1.0f, 0.05f, 0.0f }, { 0.05f, 0.0f, 0.5f, 0.6f }, { 0.5f, 0.6f, 0.95f, 0.0f }, { 0.95f, 0.0f, 0.95f, 1.0f } };
+            break;
+        case 'N':
+            v = { { 0.05f, 1.0f, 0.05f, 0.0f }, { 0.05f, 0.0f, 0.95f, 1.0f }, { 0.95f, 1.0f, 0.95f, 0.0f } };
+            break;
+        case 'O':
+            arc(v, 0.5f, 0.5f, 0.47f, 0.5f, 0.0f, kPi);
+            arc(v, 0.5f, 0.5f, 0.47f, 0.5f, kPi, 2 * kPi);
+            break;
+        case 'P':
+            v = { { 0.05f, 0.0f, 0.05f, 1.0f }, { 0.05f, 0.0f, 0.55f, 0.0f }, { 0.05f, 0.52f, 0.55f, 0.52f } };
+            arc(v, 0.55f, 0.26f, 0.38f, 0.26f, -kPi / 2, kPi / 2);
+            break;
+        case 'Q':
+            v = { { 0.6f, 0.7f, 0.98f, 1.0f } };
+            arc(v, 0.5f, 0.5f, 0.47f, 0.5f, 0.0f, kPi);
+            arc(v, 0.5f, 0.5f, 0.47f, 0.5f, kPi, 2 * kPi);
+            break;
+        case 'U':
+            v = { { 0.05f, 0.0f, 0.05f, 0.6f }, { 0.95f, 0.0f, 0.95f, 0.6f } };
+            arc(v, 0.5f, 0.6f, 0.45f, 0.4f, 0.0f, kPi);
+            break;
+        case 'V':
+            v = { { 0.0f, 0.0f, 0.5f, 1.0f }, { 0.5f, 1.0f, 1.0f, 0.0f } };
+            break;
+        case 'W':
+            v = { { 0.0f, 0.0f, 0.25f, 1.0f }, { 0.25f, 1.0f, 0.5f, 0.35f }, { 0.5f, 0.35f, 0.75f, 1.0f }, { 0.75f, 1.0f, 1.0f, 0.0f } };
+            break;
+        case '0':
+            v = { { 0.75f, 0.15f, 0.25f, 0.85f } };
+            arc(v, 0.5f, 0.5f, 0.45f, 0.5f, 0.0f, kPi);
+            arc(v, 0.5f, 0.5f, 0.45f, 0.5f, kPi, 2 * kPi);
+            break;
+        case '3':
+            arc(v, 0.5f, 0.25f, 0.4f, 0.25f, -0.85f * kPi, kPi / 2);
+            arc(v, 0.5f, 0.75f, 0.45f, 0.25f, -kPi / 2, 0.85f * kPi);
+            break;
+        case '4':
+            v = { { 0.7f, 1.0f, 0.7f, 0.0f }, { 0.7f, 0.0f, 0.05f, 0.7f }, { 0.05f, 0.7f, 0.95f, 0.7f } };
+            break;
+        case '5':
+            v = { { 0.9f, 0.0f, 0.15f, 0.0f }, { 0.15f, 0.0f, 0.17f, 0.45f } };
+            arc(v, 0.5f, 0.68f, 0.43f, 0.32f, -0.75f * kPi, 0.8f * kPi);
+            break;
+        case '6':
+            v = { { 0.08f, 0.4f, 0.08f, 0.68f } };
+            arc(v, 0.5f, 0.68f, 0.42f, 0.32f, 0.0f, kPi);
+            arc(v, 0.5f, 0.68f, 0.42f, 0.32f, kPi, 2 * kPi);
+            arc(v, 0.5f, 0.4f, 0.42f, 0.4f, kPi, 1.7f * kPi);
+            break;
+        case '7':
+            v = { { 0.05f, 0.0f, 0.95f, 0.0f }, { 0.95f, 0.0f, 0.35f, 1.0f } };
+            break;
+        case '8':
+            arc(v, 0.5f, 0.25f, 0.38f, 0.25f, 0.0f, 2 * kPi);
+            arc(v, 0.5f, 0.73f, 0.45f, 0.27f, 0.0f, kPi);
+            arc(v, 0.5f, 0.73f, 0.45f, 0.27f, kPi, 2 * kPi);
+            break;
+        case '9':
+            v = { { 0.92f, 0.32f, 0.92f, 0.6f } };
+            arc(v, 0.5f, 0.32f, 0.42f, 0.32f, 0.0f, kPi);
+            arc(v, 0.5f, 0.32f, 0.42f, 0.32f, kPi, 2 * kPi);
+            arc(v, 0.5f, 0.6f, 0.42f, 0.4f, 0.0f, 0.7f * kPi);
+            break;
+        case '?':
+            v = { { 0.5f, 0.54f, 0.5f, 0.72f }, { 0.5f, 0.95f, 0.5f, 0.96f } };
+            arc(v, 0.5f, 0.27f, 0.4f, 0.27f, -kPi, kPi / 2);
+            break;
+        case '.':
+            v = { { 0.5f, 0.95f, 0.5f, 0.96f } };
+            break;
+        case ',':
+            v = { { 0.55f, 0.85f, 0.4f, 1.05f } };
+            break;
+        case ';':
+            v = { { 0.55f, 0.35f, 0.55f, 0.36f }, { 0.55f, 0.85f, 0.4f, 1.05f } };
+            break;
+        case ':':
+            v = { { 0.5f, 0.35f, 0.5f, 0.36f }, { 0.5f, 0.95f, 0.5f, 0.96f } };
+            break;
+        case '\'':
+            v = { { 0.5f, 0.0f, 0.5f, 0.3f } };
+            break;
+        case '`':
+            v = { { 0.35f, 0.0f, 0.6f, 0.25f } };
+            break;
+        case '/':
+            v = { { 0.85f, 0.0f, 0.15f, 1.0f } };
+            break;
+        case '\\':
+            v = { { 0.15f, 0.0f, 0.85f, 1.0f } };
+            break;
+        case '[':
+            v = { { 0.7f, 0.0f, 0.35f, 0.0f }, { 0.35f, 0.0f, 0.35f, 1.0f }, { 0.35f, 1.0f, 0.7f, 1.0f } };
+            break;
+        case ']':
+            v = { { 0.3f, 0.0f, 0.65f, 0.0f }, { 0.65f, 0.0f, 0.65f, 1.0f }, { 0.65f, 1.0f, 0.3f, 1.0f } };
+            break;
+        case '=':
+            v = { { 0.05f, 0.35f, 0.95f, 0.35f }, { 0.05f, 0.65f, 0.95f, 0.65f } };
+            break;
+        case '*':
+            v = { { 0.5f, 0.15f, 0.5f, 0.85f }, { 0.2f, 0.32f, 0.8f, 0.68f }, { 0.8f, 0.32f, 0.2f, 0.68f } };
+            break;
+        // arrow keys: '\1' up, '\2' down, '\3' left, '\4' right
+        case '\1':
+            v = { { 0.5f, 0.0f, 0.5f, 1.0f }, { 0.5f, 0.0f, 0.1f, 0.4f }, { 0.5f, 0.0f, 0.9f, 0.4f } };
+            break;
+        case '\2':
+            v = { { 0.5f, 0.0f, 0.5f, 1.0f }, { 0.5f, 1.0f, 0.1f, 0.6f }, { 0.5f, 1.0f, 0.9f, 0.6f } };
+            break;
+        case '\3':
+            v = { { 0.0f, 0.5f, 1.0f, 0.5f }, { 0.0f, 0.5f, 0.4f, 0.1f }, { 0.0f, 0.5f, 0.4f, 0.9f } };
+            break;
+        case '\4':
+            v = { { 0.0f, 0.5f, 1.0f, 0.5f }, { 1.0f, 0.5f, 0.6f, 0.1f }, { 1.0f, 0.5f, 0.6f, 0.9f } };
             break;
         default:
             break;
@@ -491,12 +646,211 @@ bool touch_glyph(Canvas &cv, Ctl c)
     }
 }
 
+// N61: keycaps, like opentennis's: a light cap on a darker lip with the key's name in dark letters. Glyph ids:
+// kKeyBase + scancode + kKeyBias for one key (aurora's mouse "scancodes" are negative), kClusterBase + an index
+// into clusters() for four keys in an inverted T (stick, d-pad).
+constexpr int kKeyBase = 0x1000, kKeyBias = 16, kClusterBase = 0x2000, kClusterMax = 0x1000;
+
+int key_id(s32 scancode)
+{
+    return kKeyBase + kKeyBias + std::clamp(scancode, -kKeyBias, kKeyBase - kKeyBias - 1);
+}
+
+bool is_key_id(int id)
+{
+    return id >= kKeyBase && id < kClusterBase + kClusterMax;
+}
+
+// Up, down, left, right.
+using Cluster = std::array<s32, 4>;
+
+std::vector<Cluster> &clusters()
+{
+    static std::vector<Cluster> v;
+    return v;
+}
+
+std::mutex &clusters_mutex()
+{
+    static std::mutex m;
+    return m;
+}
+
+int cluster_id(const Cluster &keys)
+{
+    const std::lock_guard lock(clusters_mutex());
+    std::vector<Cluster> &v = clusters();
+    for (size_t i = 0; i < v.size(); ++i) {
+        if (v[i] == keys) {
+            return kClusterBase + static_cast<int>(i);
+        }
+    }
+    if (v.size() >= kClusterMax) {
+        return key_id(PAD_KEY_INVALID);
+    }
+    v.push_back(keys);
+    return kClusterBase + static_cast<int>(v.size() - 1);
+}
+
+bool font_has(char c)
+{
+    return c == '\1' || c == '\2' || c == '\3' || c == '\4' || !letter(c).empty();
+}
+
+// A key's name as the cap shows it: at most 4 characters the stroke font draws ("?" for an unbound key). The names
+// are SDL's scancode names, as the controller config lists them, shortened.
+std::string key_label(s32 scancode)
+{
+    switch (scancode) {
+        case PAD_KEY_INVALID:
+            return "?";
+        case PAD_KEY_MOUSE_LEFT:
+            return "LMB";
+        case PAD_KEY_MOUSE_MIDDLE:
+            return "MMB";
+        case PAD_KEY_MOUSE_RIGHT:
+            return "RMB";
+        case PAD_KEY_MOUSE_X1:
+            return "M4";
+        case PAD_KEY_MOUSE_X2:
+            return "M5";
+        case SDL_SCANCODE_UP:
+            return "\1";
+        case SDL_SCANCODE_DOWN:
+            return "\2";
+        case SDL_SCANCODE_LEFT:
+            return "\3";
+        case SDL_SCANCODE_RIGHT:
+            return "\4";
+        case SDL_SCANCODE_RETURN:
+        case SDL_SCANCODE_RETURN2:
+        case SDL_SCANCODE_KP_ENTER:
+            return "ENT";
+        case SDL_SCANCODE_ESCAPE:
+            return "ESC";
+        case SDL_SCANCODE_BACKSPACE:
+            return "BKSP";
+        case SDL_SCANCODE_TAB:
+            return "TAB";
+        case SDL_SCANCODE_SPACE:
+            return "SPC";
+        case SDL_SCANCODE_LSHIFT:
+        case SDL_SCANCODE_RSHIFT:
+            return "SHFT";
+        case SDL_SCANCODE_LCTRL:
+        case SDL_SCANCODE_RCTRL:
+            return "CTRL";
+        case SDL_SCANCODE_LALT:
+        case SDL_SCANCODE_RALT:
+            return "ALT";
+        case SDL_SCANCODE_LGUI:
+        case SDL_SCANCODE_RGUI:
+            return "META";
+        case SDL_SCANCODE_CAPSLOCK:
+            return "CAPS";
+        case SDL_SCANCODE_INSERT:
+            return "INS";
+        case SDL_SCANCODE_DELETE:
+            return "DEL";
+        case SDL_SCANCODE_PAGEUP:
+            return "PGUP";
+        case SDL_SCANCODE_PAGEDOWN:
+            return "PGDN";
+        default:
+            break;
+    }
+    if (scancode < 0) {
+        return "?";
+    }
+    std::string name = SDL_GetScancodeName(static_cast<SDL_Scancode>(scancode));
+    if (name.rfind("Keypad ", 0) == 0) {
+        name = "KP" + name.substr(7);
+    }
+    std::string out;
+    for (char ch : name) {
+        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        if (ch != ' ' && font_has(ch) && out.size() < 4) {
+            out += ch;
+        }
+    }
+    return out.empty() ? "?" : out;
+}
+
+// One cap in the box (x0, y0)-(x1, y1) with `label` fitted inside.
+void keycap_at(Canvas &cv, float x0, float y0, float x1, float y1, const std::string &label, float grow = 1.0f)
+{
+    static const Rgba kLip { 110 / 255.0f, 110 / 255.0f, 120 / 255.0f, 1 }, kFace { 236 / 255.0f, 236 / 255.0f, 240 / 255.0f, 1 },
+        kText { 30 / 255.0f, 30 / 255.0f, 36 / 255.0f, 1 };
+    const float bw = x1 - x0, bh = y1 - y0, r = std::min(bw, bh) * 0.18f, e = std::min(bw, bh) * 0.03f;
+    cv.fill(kInk, [&](float x, float y) { return in_rrect(x, y, x0, y0, x1, y1, r); });
+    cv.fill(kLip, [&](float x, float y) { return in_rrect(x, y, x0 + e, y0 + e, x1 - e, y1 - e, r - e); });
+    const float face_bottom = y1 - e - bh * 0.1f;
+    cv.fill(kFace, [&](float x, float y) { return in_rrect(x, y, x0 + e, y0 + e, x1 - e, face_bottom, r - e); });
+    const int n = static_cast<int>(label.size());
+    if (n == 0) {
+        return;
+    }
+    // letter height, width and stroke as parts of the cap, by length (an arrow alone gets a square box)
+    static const float kH[4] = { 0.46f, 0.38f, 0.32f, 0.26f }, kW[4] = { 0.32f, 0.26f, 0.2f, 0.155f },
+                       kStroke[4] = { 0.1f, 0.09f, 0.08f, 0.07f };
+    const int k = std::min(n, 4) - 1;
+    const bool arrow = n == 1 && label[0] >= '\1' && label[0] <= '\4';
+    const float s = std::min(bw, bh) * grow;
+    text(cv, label.c_str(), (x0 + x1) / 2, (y0 + face_bottom) / 2, kH[k] * s, (arrow ? kH[k] : kW[k]) * s, kStroke[k] * s, kText);
+}
+
+void keycap(Canvas &cv, s32 scancode)
+{
+    keycap_at(cv, 0.02f, 0.04f, 0.98f, 0.96f, key_label(scancode));
+}
+
+// A cluster's cell shows one character: an arrow, the key's own, or the first of a longer name ("KP8" shows 8).
+std::string cluster_label(s32 scancode)
+{
+    if (scancode == PAD_KEY_INVALID) {
+        return "";
+    }
+    const std::string l = key_label(scancode);
+    if (l.size() == 3 && l.rfind("KP", 0) == 0) {
+        return l.substr(2);
+    }
+    return l.substr(0, 1);
+}
+
+void key_cluster(Canvas &cv, const Cluster &keys)
+{
+    keycap_at(cv, 0.345f, 0.02f, 0.655f, 0.48f, cluster_label(keys[0]), 1.35f);
+    keycap_at(cv, 0.01f, 0.5f, 0.32f, 0.96f, cluster_label(keys[2]), 1.35f);
+    keycap_at(cv, 0.345f, 0.5f, 0.655f, 0.96f, cluster_label(keys[1]), 1.35f);
+    keycap_at(cv, 0.68f, 0.5f, 0.99f, 0.96f, cluster_label(keys[3]), 1.35f);
+}
+
+void draw_key(Canvas &cv, int id)
+{
+    if (id >= kClusterBase) {
+        Cluster keys { PAD_KEY_INVALID, PAD_KEY_INVALID, PAD_KEY_INVALID, PAD_KEY_INVALID };
+        {
+            const std::lock_guard lock(clusters_mutex());
+            if (static_cast<size_t>(id - kClusterBase) < clusters().size()) {
+                keys = clusters()[id - kClusterBase];
+            }
+        }
+        key_cluster(cv, keys);
+    } else {
+        keycap(cv, id - kKeyBase - kKeyBias);
+    }
+}
+
 void draw(Canvas &cv, PbIconFamily f, Ctl c)
 {
     if (f == PB_FAMILY_TOUCH) {
         if (touch_glyph(cv, c)) {
             return;
         }
+        f = PB_FAMILY_GENERIC;
+    }
+    if (f == PB_FAMILY_KEYBOARD) {
+        // a control by position (a gamepad's button in the controller config) has no key: Generic's art
         f = PB_FAMILY_GENERIC;
     }
     switch (c) {
@@ -581,10 +935,8 @@ struct Glyph {
     u8 *data[2];
 };
 
-Glyph *make_glyph(PbIconFamily f, Ctl c)
+Glyph *make_glyph(const Canvas &cv)
 {
-    Canvas cv;
-    draw(cv, f, c);
     Glyph *g = static_cast<Glyph *>(std::calloc(1, sizeof(Glyph)));
     for (int i = 0; i < 2; ++i) {
         g->data[i] = static_cast<u8 *>(std::calloc(1, kSize * kSize * 4));
@@ -633,7 +985,22 @@ Glyph *glyph(PbIconFamily f, Ctl c)
     static Glyph *cache[PB_FAMILY_COUNT][C_COUNT];
     Glyph *&g = cache[f][c];
     if (g == nullptr) {
-        g = make_glyph(f, c);
+        Canvas cv;
+        draw(cv, f, c);
+        g = make_glyph(cv);
+    }
+    return g;
+}
+
+// N61: a keycap glyph (is_key_id), the same for every family.
+Glyph *key_glyph(int id)
+{
+    static std::map<int, Glyph *> cache;
+    Glyph *&g = cache[id];
+    if (g == nullptr) {
+        Canvas cv;
+        draw_key(cv, id);
+        g = make_glyph(cv);
     }
     return g;
 }
@@ -785,6 +1152,63 @@ Ctl family_ctl(int port, PbIconFamily family, GcInput in)
     return family == PB_FAMILY_TOUCH ? default_ctl(in) : bound_ctl(port, in);
 }
 
+// N61: the key `port`'s keyboard bindings give GameCube button `b`, or PAD_KEY_INVALID.
+s32 bound_key(int port, PADButton b)
+{
+    u32 n = 0;
+    if (PADKeyButtonBinding *keys = PADGetKeyButtonBindings(static_cast<u32>(port), &n)) {
+        for (u32 i = 0; i < n; ++i) {
+            if (keys[i].padButton == b && keys[i].scancode != PAD_KEY_INVALID) {
+                return keys[i].scancode;
+            }
+        }
+    }
+    return PAD_KEY_INVALID;
+}
+
+s32 bound_key_axis(int port, PADAxis a)
+{
+    u32 n = 0;
+    if (PADKeyAxisBinding *keys = PADGetKeyAxisBindings(static_cast<u32>(port), &n)) {
+        for (u32 i = 0; i < n; ++i) {
+            if (keys[i].padAxis == a && keys[i].scancode != PAD_KEY_INVALID) {
+                return keys[i].scancode;
+            }
+        }
+    }
+    return PAD_KEY_INVALID;
+}
+
+// N61: the keycap glyph id of `in` on `port`'s keyboard: the stick, C stick and d-pad as four keys, L/R by their
+// button binding or else their analog one.
+int key_glyph_id(int port, GcInput in)
+{
+    switch (in) {
+        case GC_STICK:
+            return cluster_id({ bound_key_axis(port, PAD_AXIS_LEFT_Y_POS), bound_key_axis(port, PAD_AXIS_LEFT_Y_NEG),
+                bound_key_axis(port, PAD_AXIS_LEFT_X_NEG), bound_key_axis(port, PAD_AXIS_LEFT_X_POS) });
+        case GC_CSTICK:
+            return cluster_id({ bound_key_axis(port, PAD_AXIS_RIGHT_Y_POS), bound_key_axis(port, PAD_AXIS_RIGHT_Y_NEG),
+                bound_key_axis(port, PAD_AXIS_RIGHT_X_NEG), bound_key_axis(port, PAD_AXIS_RIGHT_X_POS) });
+        case GC_DPAD:
+            return cluster_id({ bound_key(port, PAD_BUTTON_UP), bound_key(port, PAD_BUTTON_DOWN), bound_key(port, PAD_BUTTON_LEFT),
+                bound_key(port, PAD_BUTTON_RIGHT) });
+        case GC_L:
+        case GC_R: {
+            const s32 k = bound_key(port, pad_button(in));
+            return key_id(k != PAD_KEY_INVALID ? k : bound_key_axis(port, in == GC_L ? PAD_AXIS_TRIGGER_L : PAD_AXIS_TRIGGER_R));
+        }
+        default:
+            return key_id(bound_key(port, pad_button(in)));
+    }
+}
+
+// The glyph id of `in` for `port` in `family`: a Ctl, or a keycap's id for the keyboard.
+int family_glyph(int port, PbIconFamily family, GcInput in)
+{
+    return family == PB_FAMILY_KEYBOARD ? key_glyph_id(port, in) : family_ctl(port, family, in);
+}
+
 PbIconFamily auto_family(int port)
 {
     if (touch_pad_shown() && port == touch_pad_port()) {
@@ -793,7 +1217,12 @@ PbIconFamily auto_family(int port)
     }
     const u32 p = static_cast<u32>(port);
     if (PADGetIndexForPort(p) < 0) {
-        // the keyboard or nothing: Auto's fallback
+        u32 n = 0;
+        if (PADGetKeyButtonBindings(p, &n) != nullptr) {
+            // N61: the keyboard plays this port
+            return PB_FAMILY_KEYBOARD;
+        }
+        // nothing: Auto's fallback
         return PB_FAMILY_XBOX;
     }
     u32 vid = 0, pid = 0;
@@ -826,7 +1255,7 @@ int forced_family()
     if (cached == -2) {
         cached = -1;
         if (const char *e = std::getenv("PB_ICON_FAMILY")) {
-            static const char *kNames[PB_FAMILY_COUNT] = { "gamecube", "playstation", "xbox", "switch", "generic", "steamdeck", "touch" };
+            static const char *kNames[PB_FAMILY_COUNT] = { "gamecube", "playstation", "xbox", "switch", "generic", "steamdeck", "touch", "keyboard" };
             for (int i = 0; i < PB_FAMILY_COUNT; ++i) {
                 if (std::strcmp(e, kNames[i]) == 0) {
                     cached = i;
@@ -898,7 +1327,7 @@ PbIconFamily pb_button_icons_family(int port)
 
 const char *pb_button_icons_family_name(PbIconFamily family)
 {
-    static const char *kNames[PB_FAMILY_COUNT] = { "GameCube", "PlayStation", "Xbox", "Switch", "Generic", "Steam Deck", "Touch" };
+    static const char *kNames[PB_FAMILY_COUNT] = { "GameCube", "PlayStation", "Xbox", "Switch", "Generic", "Steam Deck", "Touch", "Keyboard" };
     return family < PB_FAMILY_COUNT ? kNames[family] : "?";
 }
 
@@ -920,7 +1349,7 @@ int pb_button_icon_for_window(int entry, u32 pad_mask, ANIMDATA **anim, s16 *ban
     if (f == PB_FAMILY_GAMECUBE) {
         return 0;
     }
-    const Ctl c = family_ctl(port, f, in);
+    const int c = family_glyph(port, f, in);
     if (std::getenv("PB_ICON_LOG")) {
         // PB_ICON_LOG (test hook): each swap, once per overlay
         static int logged_ovl = -2;
@@ -933,9 +1362,12 @@ int pb_button_icon_for_window(int entry, u32 pad_mask, ANIMDATA **anim, s16 *ban
             logged[entry] = true;
             std::fprintf(stderr, "button_icons: ovl %d icon %d port %d -> %s glyph %d\n", static_cast<int>(omcurovl), entry, port,
                 pb_button_icons_family_name(f), c);
+            if (is_key_id(c)) {
+                std::fprintf(stderr, "button_icons: keycap %s\n", c >= kClusterBase ? "cluster" : key_label(c - kKeyBase - kKeyBias).c_str());
+            }
         }
     }
-    *anim = &glyph(f, c)->anim;
+    *anim = is_key_id(c) ? &key_glyph(c)->anim : &glyph(f, static_cast<Ctl>(c))->anim;
     // the original's animated L/R banks (7, 9) loop a press
     *bank = (entry == 7 || entry == 9) ? 1 : 0;
     return 1;
@@ -965,16 +1397,25 @@ int pb_button_icons_glyph_for_entry(int port, int entry)
     if (in == GC_NONE || f == PB_FAMILY_GAMECUBE) {
         return PB_GLYPH_NONE;
     }
-    return family_ctl(port, f, in);
+    return family_glyph(port, f, in);
+}
+
+int pb_button_icons_glyph_is_key(int glyph)
+{
+    return is_key_id(glyph) ? 1 : 0;
 }
 
 int pb_button_icons_glyph_rgba(PbIconFamily family, int glyph, u8 *out)
 {
-    if (family <= PB_FAMILY_GAMECUBE || family >= PB_FAMILY_COUNT || glyph < 0 || glyph >= C_COUNT) {
+    if (family <= PB_FAMILY_GAMECUBE || family >= PB_FAMILY_COUNT || glyph < 0 || (glyph >= C_COUNT && !is_key_id(glyph))) {
         return -1;
     }
     Canvas cv;
-    draw(cv, family, static_cast<Ctl>(glyph));
+    if (is_key_id(glyph)) {
+        draw_key(cv, glyph);
+    } else {
+        draw(cv, family, static_cast<Ctl>(glyph));
+    }
     for (int i = 0; i < kSize * kSize; ++i) {
         const Rgba &p = cv.px[i];
         out[i * 4 + 0] = static_cast<u8>(std::lround(p.r * 255));
@@ -983,6 +1424,22 @@ int pb_button_icons_glyph_rgba(PbIconFamily family, int glyph, u8 *out)
         out[i * 4 + 3] = static_cast<u8>(std::lround(p.a * 255));
     }
     return 0;
+}
+
+static int sheet_key(int column)
+{
+    static const s32 kKeys[] = { SDL_SCANCODE_A, SDL_SCANCODE_Z, SDL_SCANCODE_M, SDL_SCANCODE_W, SDL_SCANCODE_0, SDL_SCANCODE_5,
+        SDL_SCANCODE_9, SDL_SCANCODE_RETURN, SDL_SCANCODE_SPACE, SDL_SCANCODE_LSHIFT, SDL_SCANCODE_ESCAPE, SDL_SCANCODE_TAB,
+        SDL_SCANCODE_F12, SDL_SCANCODE_KP_8, SDL_SCANCODE_SLASH, SDL_SCANCODE_UP, SDL_SCANCODE_LEFT, PAD_KEY_MOUSE_LEFT,
+        PAD_KEY_INVALID };
+    constexpr int n = sizeof(kKeys) / sizeof(kKeys[0]);
+    if (column < n) {
+        return key_id(kKeys[column]);
+    }
+    if (column == n) {
+        return cluster_id({ SDL_SCANCODE_W, SDL_SCANCODE_S, SDL_SCANCODE_A, SDL_SCANCODE_D });
+    }
+    return cluster_id({ SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT });
 }
 
 int pb_button_icons_dump_sheet(const char *path)
@@ -998,7 +1455,12 @@ int pb_button_icons_dump_sheet(const char *path)
     for (int f = 1; f < PB_FAMILY_COUNT; ++f) {
         for (int c = 0; c < C_COUNT; ++c) {
             Canvas cv;
-            draw(cv, static_cast<PbIconFamily>(f), static_cast<Ctl>(c));
+            if (f == PB_FAMILY_KEYBOARD) {
+                // N61: the keyboard's row is sample keycaps
+                draw_key(cv, sheet_key(c));
+            } else {
+                draw(cv, static_cast<PbIconFamily>(f), static_cast<Ctl>(c));
+            }
             for (int y = 0; y < kSize; ++y) {
                 for (int x = 0; x < kSize; ++x) {
                     const Rgba &p = cv.px[y * kSize + x];

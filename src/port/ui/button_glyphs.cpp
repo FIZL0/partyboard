@@ -84,7 +84,7 @@ namespace {
 Rml::String button_glyph_src(int port, int glyph)
 {
     const PbIconFamily family = pb_button_icons_family(port);
-    if (glyph < 0 || glyph >= pb_button_icons_glyph_count() || family == PB_FAMILY_GAMECUBE) {
+    if (glyph < 0 || (glyph >= pb_button_icons_glyph_count() && !pb_button_icons_glyph_is_key(glyph)) || family == PB_FAMILY_GAMECUBE) {
         return {};
     }
     ensure_registered();
