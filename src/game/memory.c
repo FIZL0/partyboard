@@ -228,6 +228,35 @@ size_t HuMemMemorySizeGet(void *ptr)
 }
 
 #ifdef TARGET_PC
+void HuMemMemoryCallerSet(void *ptr, uintptr_t retaddr)
+{
+    struct memory_block *block = DATA_GET_BLOCK(ptr);
+    if (block->magic == 165) {
+        block->retaddr = retaddr;
+    }
+}
+
+s32 HuMemMemoryFreeIf(void *heap_ptr, BOOL (*pred)(uintptr_t retaddr, void *user), void *user)
+{
+    s32 freed = 0;
+    BOOL again;
+    do {
+        /* a free merges blocks: start over after each */
+        struct memory_block *block = heap_ptr;
+        again = FALSE;
+        do {
+            if (block->flag && pred(block->retaddr, user)) {
+                HuMemMemoryFree(BLOCK_GET_DATA(block), 0);
+                freed++;
+                again = TRUE;
+                break;
+            }
+            block = block->next;
+        } while (block != heap_ptr);
+    } while (again);
+    return freed;
+}
+
 void HuMemHeapWalk(void *heap_ptr, HuMemWalkFunc func, void *user)
 {
     struct memory_block *block = heap_ptr;

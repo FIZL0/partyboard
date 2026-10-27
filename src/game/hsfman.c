@@ -1938,7 +1938,12 @@ void Hu3DFogClear(void) {
 void Hu3DShadowCreate(f32 arg8, f32 arg9, f32 argA) {
     Hu3DShadowData.size = 0xC0;
     if (Hu3DShadowData.buf == 0) {
+#ifdef TARGET_PC
+        /* Hu3DAllKill frees whatever buf is: m428/m439 set their own buffers there, and this one was lost (N57) */
+        Hu3DShadowData.buf = HuMemDirectMallocNum(HEAP_DATA, SHADOW_HEAP_SIZE, MEMORY_DEFAULT_NUM);
+#else
         Hu3DShadowData.buf = HuMemDirectMalloc(HEAP_DATA, SHADOW_HEAP_SIZE);
+#endif
     }
     Hu3DShadowData.fov = arg8;
     Hu3DShadowData.nnear = arg9;

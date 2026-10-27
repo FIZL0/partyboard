@@ -724,6 +724,22 @@ static void EffectInit(void)
     }
 }
 
+#ifdef TARGET_PC
+/* Netplay (N57): EffectInit keeps its particle work for the whole run; a match start drops it with the effect models,
+ * so a peer that played before allocates it again where a fresh peer does. */
+void CharEffectNetplayReset(void)
+{
+    s16 i;
+
+    for (i = 0; i < CHAR_EFFECT_AND_PARTICLE_MAX; i++) {
+        if (effectMdl[i] == -1 && particleData[i]) {
+            HuMemDirectFree(particleData[i]);
+            particleData[i] = NULL;
+        }
+    }
+}
+#endif
+
 static s16 EffectDustCreate(s16 modelId, float posX, float posY, float posZ, float scale, EFFECTPARAM *param)
 {
     HU3DMODEL *modelP = &Hu3DData[modelId];

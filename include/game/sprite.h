@@ -104,6 +104,9 @@ void HuSprGrpMemberKill(s16 group, s16 member);
 void HuSprGrpKill(s16 group);
 void HuSprKill(s16 sprite);
 void HuSprAnimKill(ANIMDATA *anim);
+#ifdef BYTESWAPPING
+void HuSprAnimFree(ANIMDATA *anim);
+#endif
 void HuSprAttrSet(s16 group, s16 member, s32 attr);
 void HuSprAttrReset(s16 group, s16 member, s32 attr);
 void HuSprPosSet(s16 group, s16 member, float x, float y);

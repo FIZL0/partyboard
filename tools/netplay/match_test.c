@@ -131,6 +131,10 @@ void BoardMGSetupPlayClear(void) { play_clears++; }
 static s32 roll_resets, mg_points;
 void BoardRollNetplayReset(void) { roll_resets++; }
 void netplay_minigame_point(void) { mg_points++; }
+/* N57: the leftovers of an old board (particle work, directory reads) go at the same start. */
+static s32 effect_resets, dir_close_alls;
+void CharEffectNetplayReset(void) { effect_resets++; }
+s32 HuDataNetplayCloseAll(void) { dir_close_alls++; return 0; }
 #define SAVE_PLAYER(i) &saveBuf.buf[(i) * sizeof(PlayerState) + offsetof(SaveBufData, player)]
 void SLSaveBoard(void)
 {
@@ -214,7 +218,7 @@ static NetplayMatch base(void)
 int main(void)
 {
     NetplayMatch m = base(), bad;
-    u8 *used, *freed, *other;
+    u8 *used, *freed, *other, *gone, *kept;
     u64 h1, h2;
     u32 at;
     s32 i;
@@ -321,14 +325,26 @@ int main(void)
     GWSystem.flag[1][0] = 0x7C;
     GWPlayer[1].coins = 99;
     reseeded = 0;
+    ar_board = 0x1000; /* N57: the old board's data in ARAM (it had been to a minigame) */
+    /* N57: a block of code that is gone (a minigame's, unloaded), and one of loaded code. */
+    gone = HuMemMemoryAllocNum(heaps[1], 300, -256, 0x10);
+    kept = HuMemMemoryAllocNum(heaps[1], 300, -256, (uintptr_t)netplay_match_tick);
 
     /* Another overlay first: no scrub. The board: free memory zeroed, used blocks kept, layout unchanged. */
     netplay_ovl_start(DLL_w01dll + 3);
     assert(freed[50] == 0xBB);
     assert(GWPlayer[1].coins == 99 && reseeded == 0);
+    assert(effect_resets == 0 && dir_close_alls == 0 && ar_frees == 0);
     netplay_ovl_start(DLL_w01dll + 2);
     /* ... and the board's start sets the match state and seeds again, as a peer that came from a menu has them. */
     assert(party_calls == 2 && reseeded == 1);
+    /* N57: and drops what the old board left, as a peer that came from a menu has none of it. */
+    assert(effect_resets == 1 && dir_close_alls == 1 && ar_frees == 1);
+    ar_board = 0;
+    ar_frees = 0;
+    assert(netplay_heap_hash() != h1); /* the block of loaded code stays, the other went */
+    HuMemMemoryFree(kept, 0);
+    (void)gone;
     assert(GWSystem.flag[1][0] == 0 && GWPlayer[1].coins == 0 && save_board == 2 && GWSystem.board == 2);
     reseeded = 0;
     for (i = 0; i < 200; i++) {
