@@ -3,6 +3,8 @@
 //! Game-agnostic netcode linked into `dol` as a static library. The C ABI is declared by hand in
 //! `include/port/pbnet.h`; every `extern "C"` fn here must have a matching prototype there.
 
+#[cfg(target_os = "android")]
+pub mod android;
 pub mod codes;
 pub mod lockstep;
 pub mod lockstep_c;

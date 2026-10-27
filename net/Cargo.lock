@@ -2201,13 +2201,16 @@ dependencies = [
  "iroh-mainline-address-lookup",
  "iroh-mdns-address-lookup",
  "iroh-tickets",
+ "jni 0.22.4",
  "n0-future",
  "n0-mainline",
  "reqwest",
  "rustls",
+ "rustls-platform-verifier",
  "serde",
  "serde_json",
  "tokio",
+ "webpki-roots",
 ]
 
 [[package]]

@@ -11,6 +11,10 @@
 #include "ui/preset.hpp"
 
 #include <SDL3/SDL_filesystem.h>
+#ifdef __ANDROID__
+#include <SDL3/SDL_system.h>
+#include <jni.h>
+#endif
 #include <aurora/aurora.h>
 #include <aurora/event.h>
 #include <dolphin/gx/GXAurora.h>
@@ -419,6 +423,17 @@ extern "C" int port_main(int argc, char* argv[]) {
 #endif
 
     PartyBoardMainLog.info("pbnet {}", pbnet_version());
+#ifdef __ANDROID__
+    {
+        void* activity = SDL_GetAndroidActivity();
+        if (!pbnet_android_init_tls(SDL_GetAndroidJNIEnv(), activity)) {
+            PartyBoardMainLog.warn("pbnet: no platform certificate check, short codes use the bundled roots");
+        }
+        if (activity != nullptr) {
+            static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv())->DeleteLocalRef(static_cast<jobject>(activity));
+        }
+    }
+#endif
     if (!netplay_debug_init(argc, argv)) {
         PartyBoardMainLog.fatal("bad --script/--hash-log argument");
     }
