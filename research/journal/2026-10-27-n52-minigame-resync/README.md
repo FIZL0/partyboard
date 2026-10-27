@@ -61,7 +61,17 @@ applied for the runs and reverted. `ns.sh` / `pair.sh` here start the namespace 
 | m2 | 8500 (in ovl 22) | Both resume into instDll. Then ovl 22, resultDll, board: turn 2 points at 3123/4246/5470. **Epoch 1 identical 5478 frames**, no further desync. |
 | t | 4000 | First two-peer resync from a turn point (player 1, 3837): **both crashed at epoch 1 frame 88** (dice, above). |
 | t2 | 4000 | After the dice fix: resumes at player 2's turn. Players 2, 3, instDll, ovl 20, results, turn 2. **Identical 4529 frames** (the guest's log is 1 line short, killed). |
+| m3, m4, g1-g5 | 8500 | Each minigame point had groups 0000 (4-player), so each was killed and retried (`loop.sh`): with A-mashing, round 1 rarely splits the colours. |
+| g6 | 8500 (in ovl 38, 2-vs-2, groups 0011) | Both resume into instDll. ovl 38, results, board, turn 2 point at 4227. **Identical 6588 frames**. This is the groups fix in a team minigame. |
 | t3 | 2780 | Reload ~100 frames into player 0's roll. A temporary log showed the host's old die still live (`diceMdl[0] 49`, `diceObj[0]` set) when the reset cleared it. Player 0's turn replays. Turns, instDll, ovl 30, results, turn 2. **Identical 7043 frames**. |
+
+**Offline unchanged** (`--script tools/netplay/mash-a.script --turbo --hash-log`, 17400 frames: boot, party, w01,
+instDll, m420, results, w01; each run in its own user dir under the scratchpad). The pre-task sources
+(`git checkout HEAD~1 --` the five changed source files, rebuilt in the same build dir) gave run B. This branch's runs
+A2 and A3 are **byte-identical to B**, ending at 004C982C415C8583 (also N43's value). This branch's first run A had
+equal game hashes for all 17400 frames, but its heap-layout field differed from frame 11571 (inside m420). A2/A3 of
+the same binary did not, so it is run-to-run variation (N53's kind), not this change. By construction: every new call
+sits in `netplay_ovl_start` (only under `netplay_active()`) and does nothing outside a match.
 
 (`hashdiff.py` on the epoch-1 part of each `--hash-log`, cut with N38's `split.py`. Each peer logged one desync.)
 
@@ -75,4 +85,21 @@ applied for the runs and reverted. `ns.sh` / `pair.sh` here start the namespace 
 
 ## Not verified
 
-(filled in at the end)
+- **1-vs-3 minigames after the fix.** The groups fix was checked in-game with a 2-vs-2 (g6). m420 (1-vs-3, the one
+  that crashed in run m) did not come up again in 7 tries. Its groups go through the same trailer, and match_test
+  covers a 1-vs-3-like set (1,0,1,1).
+- **Battle and Bowser minigames** have no point by design: their resync goes to the turn point, as in N46. Not run.
+- **A desync during instDll itself or the results** (resultDll) was not forced. The guest flipped its seed at 8500 in
+  the minigame. During resultDll, the point is still the minigame's start, so the minigame is replayed. Expected,
+  not run.
+- **Other board statics that a reload mid-turn leaves behind.** Only the dice crashed in these runs. The same
+  pattern (a kill that frees on the next frame, or a process killed by `omOvlKill` without its own teardown) may exist
+  in other board code: shop, lottery, Boo, item use. N38's runs and these did not hit them. Filed as a follow-up
+  (N63).
+- **mgBoardHostEnableF** (instDll's host choice, a dol global no match sets): found while reading instDll, not
+  fixed. Filed as N62.
+- **Two machines, real network, more than two peers, other boards.** One host, one netns, board 0, 2 humans +
+  2 CPUs, harness pads only.
+- **A continue from an online save into a minigame**: none can happen, because minigame points are not written to
+  disk (memory only, like N46's turn points), so the Continue tab never sees one.
+- Windows/Apple/Android not built (no SDKs). No `pbnet` function was added, so `pbnet_stub.c` is unchanged.
