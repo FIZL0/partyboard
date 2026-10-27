@@ -66,6 +66,10 @@ constexpr Rgba kInk { 0.09f, 0.09f, 0.10f, 1.0f };
 constexpr Rgba kBody { 0.22f, 0.23f, 0.25f, 1.0f };
 constexpr Rgba kWhite { 0.96f, 0.96f, 0.96f, 1.0f };
 constexpr Rgba kGrey { 0.62f, 0.64f, 0.68f, 1.0f };
+// N72: a light ring inside the dark outline of the dark-bodied glyphs, so their shape still reads on dark backgrounds
+// (modesel's navy, the board's bars) the way the bright GameCube originals do. kInk stays outside it for light ones.
+constexpr Rgba kEdge { 0.84f, 0.85f, 0.88f, 1.0f };
+constexpr float kInkW = 0.022f; // outline widths in glyph units (48 px: about 1 px of ink, then 2 px of kEdge)
 
 struct Canvas {
     std::array<Rgba, kSize * kSize> px {};
@@ -398,12 +402,16 @@ void segs(Canvas &cv, const std::vector<Seg> &v, float stroke, const Rgba &c)
 void disc(Canvas &cv, float r, const Rgba &fill)
 {
     cv.fill(kInk, [&](float x, float y) { return in_circle(x, y, 0.5f, 0.5f, r); });
+    cv.fill(kEdge, [&](float x, float y) { return in_circle(x, y, 0.5f, 0.5f, r - kInkW); });
     cv.fill(fill, [&](float x, float y) { return in_circle(x, y, 0.5f, 0.5f, r - 0.06f); });
 }
 
 void pill(Canvas &cv, float x0, float y0, float x1, float y1, float r, const Rgba &fill)
 {
     cv.fill(kInk, [&](float x, float y) { return in_rrect(x, y, x0, y0, x1, y1, r); });
+    cv.fill(kEdge, [&](float x, float y) {
+        return in_rrect(x, y, x0 + kInkW, y0 + kInkW, x1 - kInkW, y1 - kInkW, std::max(0.0f, r - kInkW));
+    });
     cv.fill(fill, [&](float x, float y) { return in_rrect(x, y, x0 + 0.06f, y0 + 0.06f, x1 - 0.06f, y1 - 0.06f, std::max(0.0f, r - 0.06f)); });
 }
 
@@ -449,12 +457,15 @@ void face_letters(Canvas &cv, PbIconFamily f, Ctl c)
             break;
         }
         default: {
-            // Generic: the four face buttons as a diamond, the one to press filled
+            // Generic: the four face buttons as a diamond, the one to press filled white, the others light rings
             static const float kPos[4][2] = { { 0.5f, 0.79f }, { 0.79f, 0.5f }, { 0.21f, 0.5f }, { 0.5f, 0.21f } };
             for (int k = 0; k < 4; ++k) {
                 const float px = kPos[k][0], py = kPos[k][1];
                 cv.fill(kInk, [&](float x, float y) { return in_circle(x, y, px, py, 0.2f); });
-                cv.fill(k == i ? kWhite : kBody, [&](float x, float y) { return in_circle(x, y, px, py, 0.14f); });
+                cv.fill(k == i ? kWhite : kEdge, [&](float x, float y) { return in_circle(x, y, px, py, 0.2f - kInkW); });
+                if (k != i) {
+                    cv.fill(kBody, [&](float x, float y) { return in_circle(x, y, px, py, 0.13f); });
+                }
             }
             break;
         }
@@ -540,6 +551,7 @@ void dpad(Canvas &cv, int dir /* -1 all, else C_DPAD_* */)
         };
     };
     cv.fill(kInk, cross(0.19f, 0.02f));
+    cv.fill(kEdge, cross(0.19f - kInkW, 0.02f + kInkW));
     cv.fill(kBody, cross(0.13f, 0.08f));
     if (dir >= 0) {
         cv.fill(kWhite, [=](float x, float y) {
