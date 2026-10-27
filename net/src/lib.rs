@@ -10,6 +10,7 @@ pub mod lobby;
 pub mod lobby_c;
 pub mod lockstep;
 pub mod lockstep_c;
+pub mod save;
 pub mod transport;
 
 use std::ffi::{c_char, CStr};

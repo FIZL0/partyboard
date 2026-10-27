@@ -343,6 +343,9 @@ pub struct Setup {
     /// The host puts a short code online (default on; tests without internet turn it off).
     #[serde(default = "yes")]
     pub short: bool,
+    /// Host: continue the online save at this path (`pbnet_save_list`'s `path`): its room and checkpoint (N9).
+    #[serde(default)]
+    pub resume: Option<String>,
 }
 
 fn yes() -> bool {
@@ -468,13 +471,25 @@ async fn run_host<B: Future<Output = Result<Transport, String>>>(bind: B, sh: Sh
         Err(e) => return lock(&sh).close(&format!("Couldn't go online: {e}")),
     };
     t.ready().await;
+    let id = setup.id.clone().unwrap_or_else(|| {
+        let secs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+        format!("{}-{secs}", &t.id().to_string()[..8])
+    });
+    let host = match &setup.resume {
+        None => Ok(Host::new(id, setup.ident(), &setup.players)),
+        Some(path) => crate::save::Save::read(std::path::Path::new(path))
+            .and_then(|sv| Host::resume(&sv.room, sv.checkpoint(), setup.ident(), &setup.players)),
+    };
+    let host = match host {
+        Ok(h) => h,
+        Err(e) => {
+            lock(&sh).close(&format!("Couldn't continue the save: {e}"));
+            return t.close().await;
+        }
+    };
     {
         let mut s = lock(&sh);
-        let id = setup.id.clone().unwrap_or_else(|| {
-            let secs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
-            format!("{}-{secs}", &t.id().to_string()[..8])
-        });
-        s.role = Some(Role::Host(Host::new(id, setup.ident(), &setup.players)));
+        s.role = Some(Role::Host(host));
         s.me = HOST.into();
         s.ticket = t.ticket();
         s.phase = Phase::Open;
@@ -725,6 +740,13 @@ fn global() -> std::sync::MutexGuard<'static, Option<Lobby>> {
     LOBBY.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// The process lobby's room once its match started (what an online save records), else None.
+pub fn started_room() -> Option<Room> {
+    let g = global();
+    let s = g.as_ref()?.snapshot();
+    (s.state == Phase::Started).then_some(s.room).flatten()
+}
+
 /// A C string argument as UTF-8 (None: null or not UTF-8).
 ///
 /// # Safety
@@ -912,6 +934,25 @@ pub unsafe extern "C" fn pbnet_lobby_start(seed: u64, why: *mut c_char, cap: i32
     }
 }
 
+/// The board checkpoint of a started continue (the save's `SLSaveBoard` blob, `Room::checkpoint`): copies at most
+/// `cap` bytes into `buf` and returns the blob's length; 0 when the lobby's started room continues no save (a new
+/// match) or the blob is damaged.
+///
+/// # Safety
+///
+/// `buf` is null (only the length is returned) or points to `cap` writable bytes, used during the call only.
+/// Thread-safe.
+#[no_mangle]
+pub unsafe extern "C" fn pbnet_lobby_checkpoint(buf: *mut u8, cap: i32) -> i32 {
+    let Some(blob) = started_room().and_then(|r| r.checkpoint).and_then(|c| crate::save::unhex(&c.blob)) else { return 0 };
+    if !buf.is_null() && cap > 0 {
+        let n = blob.len().min(cap as usize);
+        // SAFETY: the caller guarantees `cap` writable bytes at `buf`; n <= cap.
+        unsafe { std::ptr::copy_nonoverlapping(blob.as_ptr(), buf, n) };
+    }
+    blob.len().min(i32::MAX as usize) as i32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -926,6 +967,7 @@ mod tests {
             relay_url: String::new(),
             id: Some("m1".into()),
             short: false,
+            resume: None,
         }
     }
 
@@ -1016,6 +1058,58 @@ mod tests {
             host.leave();
             guest.leave();
         });
+    }
+
+    /// Continue (N9) over real endpoints: a save written after a match of "h" and "g" is hosted by "g" this time;
+    /// "h" joins and gets its seat back by key; both hold the same started room with the save's checkpoint. A save
+    /// that can't be read closes the host's lobby with why.
+    #[test]
+    fn continue_a_save_on_two_endpoints() {
+        let dir = std::env::temp_dir().join(format!("pbnet-continue-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let ident = Ident { build: "0.1.0 test".into(), disc: "GMPE01-00".into() };
+        let pl = |n: &str| Player { name: n.into(), key: format!("key-{n}") };
+        let mut played = Host::new("m1".into(), ident, &[pl("h")]);
+        played.on("g-old", Msg::Hello { ident: Ident { build: "0.1.0 test".into(), disc: "GMPE01-00".into() }, players: vec![pl("g")] });
+        played.on("g-old", Msg::Ready { ver: played.room().ver, ready: true });
+        played.start(5).unwrap();
+        let blob = vec![0x11u8; 0x19C];
+        let save = crate::save::Save::new(played.room(), &blob, 600, Default::default()).unwrap();
+        let path = save.write(&dir).unwrap();
+
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(3).await.unwrap();
+            let h = Handle::current();
+            let mut gs = setup("g", "GMPE01-00");
+            gs.resume = Some(path.to_string_lossy().into_owned());
+            let host = Lobby::host(&h, bind(&net), gs, catch().0);
+            let s = until(&host, "host open", |s| s.state == Phase::Open && !s.code.is_empty()).await;
+            assert_eq!(s.seats, [1], "g's seat by its key");
+            assert!(s.room.as_ref().unwrap().resuming());
+
+            let guest = Lobby::join(&h, bind(&net), setup("h", "GMPE01-00"), &s.code, catch().0);
+            let g = until(&guest, "h seated", |s| s.state == Phase::Open).await;
+            assert_eq!(g.seats, [0]);
+            assert!(guest.ready(true));
+            until(&host, "h ready", |s| s.room.as_ref().unwrap().all_ready()).await;
+            host.start(8).unwrap();
+            let gs = until(&guest, "guest started", |s| s.state == Phase::Started).await;
+            let room = host.snapshot().room.unwrap();
+            assert_eq!(gs.room.as_ref(), Some(&room));
+            let c = room.checkpoint.as_ref().unwrap();
+            assert_eq!(crate::save::unhex(&c.blob).unwrap(), blob);
+            assert_eq!((room.id.as_str(), room.seed), ("m1", 8));
+            host.leave();
+            guest.leave();
+
+            let mut bad = setup("g", "GMPE01-00");
+            bad.resume = Some(dir.join("online").join("nope.json").to_string_lossy().into_owned());
+            let l = Lobby::host(&h, bind(&net), bad, catch().0);
+            let b = until(&l, "bad save", |s| s.state == Phase::Closed).await;
+            assert!(b.error.starts_with("Couldn't continue the save"), "{}", b.error);
+        });
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// The host leaving closes the guest's lobby with words; a bad code closes the joiner's.
@@ -1148,6 +1242,8 @@ mod tests {
         assert_eq!(unsafe { pbnet_lobby_host(c"{\"build\":\"b\",\"disc\":\"d\",\"players\":[]}".as_ptr()) }, 0);
         assert_eq!(unsafe { pbnet_lobby_join(c"{}".as_ptr(), c"ABCD".as_ptr()) }, 0);
         assert_eq!(pbnet_lobby_state(), PBNET_LOBBY_NONE);
+        assert!(started_room().is_none());
+        assert_eq!(unsafe { pbnet_lobby_checkpoint(std::ptr::null_mut(), 0) }, 0);
     }
 
     #[test]

@@ -229,6 +229,9 @@ static FILE *hash_log;
 /* --match <board>@<frame>: start a debug match after that frame of a --script run. */
 static NetplayMatch debug_match;
 static u32 debug_match_at;
+/* --continue: the online save's checkpoint the --match continues from (N9). */
+static u8 debug_continue[NETPLAY_BLOB_MAX];
+static u32 debug_continue_size;
 
 static const struct {
     const char *name;
@@ -431,7 +434,18 @@ BOOL netplay_debug_init(int argc, char *argv[])
                 OSReport("netplay: --match wants <board 0..5>@<frame>, e.g. 0@900\n");
                 return FALSE;
             }
+        } else if (strcmp(argv[i], "--continue") == 0 && i + 1 < argc) {
+            int n = pbnet_save_blob(argv[++i], debug_continue, (int)sizeof(debug_continue));
+            if (n <= 0 || n > (int)sizeof(debug_continue)) {
+                OSReport("netplay: --continue: %s is not an online save\n", argv[i]);
+                return FALSE;
+            }
+            debug_continue_size = (u32)n;
         }
+    }
+    if (debug_continue_size != 0 && debug_match_at == 0) {
+        OSReport("netplay: --continue needs --match (its frame; the board is the save's)\n");
+        return FALSE;
     }
     if (script_path != NULL && !script_load(script_path)) {
         return FALSE;
@@ -468,7 +482,9 @@ void netplay_frame_end(void)
         hash_log_line(hash_log, frame);
     }
     frame++;
-    if (debug_match_at != 0 && frame == debug_match_at) {
+    if (debug_match_at != 0 && frame == debug_match_at && debug_continue_size != 0) {
+        netplay_match_continue(&debug_match, debug_continue, debug_continue_size);
+    } else if (debug_match_at != 0 && frame == debug_match_at) {
         netplay_match_start(&debug_match);
     }
     if (script.loaded && script.end != 0 && frame >= script.end) {

@@ -21,6 +21,9 @@
 #include "ext_math.h"
 
 #include "REL/resultdll.h"
+#ifdef TARGET_PC
+#include "port/netplay.h"
+#endif
 
 #ifndef __MWERKS__
 #include "game/esprite.h"
@@ -211,6 +214,12 @@ static void ResultMain(void)
     }
     HuAudSeqAllFadeOut(1000);
     WipeColorSet(255, 255, 255);
+#ifdef TARGET_PC
+    /* Online: the board checkpoint SaveExec would write to the card, to every peer's online save. */
+    if (netplay_active()) {
+        netplay_checkpoint();
+    }
+#endif
     if (GWSaveModeGet() != 1 && SLSaveFlagGet()) {
         WipeCreate(WIPE_MODE_OUT, WIPE_TYPE_NORMAL, 30);
         while (WipeStatGet()) {
