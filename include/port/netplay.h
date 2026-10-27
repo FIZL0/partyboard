@@ -150,6 +150,12 @@ void netplay_match_tick(void);
 /* objmain.c omWatchOverlayProc, while netplay_active(): `ovl` is about to start. */
 void netplay_ovl_start(s32 ovl);
 /*
+ * N67: objmain.c omWatchOverlayProc, while netplay_active(), after each sleep before an overlay starts: TRUE in the
+ * frame the match start switched to the board, which then starts in the next frame (the same frame on every peer,
+ * whatever overlay or overlay switch each came from).
+ */
+BOOL netplay_ovl_hold(void);
+/*
  * True once the match is over: netplay_ovl_start saw the party's results (mstory3dll, N64) or a menu overlay
  * (modeseldll, mentDll, bootDll: the board's own exit) start after the board. A menu gets the player's own GWGameStat
  * back before it sets up; the results keep the canned one until the menu after them (netplay_match_results). Cleared by

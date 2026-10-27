@@ -1,0 +1,63 @@
+diff --git i/src/port/netplay.c w/src/port/netplay.c
+index 8cd7412f..32c37041 100644
+--- i/src/port/netplay.c
++++ w/src/port/netplay.c
+@@ -719,6 +719,24 @@ BOOL netplay_lockstep(void)
+     return pbnet_lockstep_active() != 0;
+ }
+ 
++/* N67 TEMP: N38's pad masher: this machine's seat taps A (START in instDll and the party results). */
++static void n38_pads(PADStatus *local, u32 at)
++{
++    static int last_ovl = -1;
++    static u32 since;
++    if (getenv("PB_N38") == NULL) {
++        return;
++    }
++    if ((int)omcurovl != last_ovl) {
++        last_ovl = (int)omcurovl;
++        since = at;
++    }
++    memset(local, 0, 4 * sizeof(*local));
++    if (at % 24 < 4 && !(omcurovl == 3 && at - since < 120)) {
++        local[0].button = (omcurovl == 3 || omcurovl == 78) ? PAD_BUTTON_START : PAD_BUTTON_A;
++    }
++}
++
+ BOOL netplay_tick_begin(void)
+ {
+     PADStatus local[4];
+@@ -772,6 +790,7 @@ BOOL netplay_tick_begin(void)
+             local[i].err = PAD_ERR_NONE;
+         }
+     }
++    n38_pads(local, next);
+     /* pbnet takes the local pads at the first call for a frame only. */
+     if (!step_taken_set || step_taken_frame != next) {
+         for (i = 0; i < 4; i++) {
+diff --git i/src/port/ui/online.cpp w/src/port/ui/online.cpp
+index 2023fae1..97ed4fb0 100644
+--- i/src/port/ui/online.cpp
++++ w/src/port/ui/online.cpp
+@@ -13,6 +13,10 @@
+ #include "ui.hpp"
+ 
+ #include <SDL3/SDL_clipboard.h>
++#include <RmlUi/Core.h>
++#include <cstdio>
++#include <fstream>
++#include <sys/time.h>
+ #include <fmt/chrono.h>
+ #include <fmt/format.h>
+ #include <nlohmann/json.hpp>
+@@ -752,8 +756,10 @@ std::string OnlineWindow::lan_status() const
+     return "Press a game to join it.";
+ }
+ 
++#include "/home/ryha/repos/partyboard-slots/s3/research/journal/2026-10-27-n67-board-start-frame/harness/n67_harness.inc"
+ void update_online_match()
+ {
++    n38_harness();
+     static std::shared_ptr<bool> alive = std::make_shared<bool>(false);
+     static HoldModal *shown = nullptr;
+     static std::string shownKey;
