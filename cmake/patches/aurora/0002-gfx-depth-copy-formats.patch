@@ -1,0 +1,94 @@
+diff --git i/lib/gfx/common.cpp w/lib/gfx/common.cpp
+index eff0c65..0dbbd2b 100644
+--- i/lib/gfx/common.cpp
++++ w/lib/gfx/common.cpp
+@@ -1327,7 +1327,11 @@ static void render(wgpu::CommandEncoder& cmd, FramePacket& frame, RenderPass& pa
+         .dst = passInfo.resolveTarget,
+         .sampleFilter = needsScaling ? tex_copy_conv::SampleFilter::Linear : tex_copy_conv::SampleFilter::Nearest,
+     };
+-    if (needsConversion) {
++    if (isDepth && !needsConversion) {
++      // The blit and the plain copy read the color target; a depth view in the blit's color layout faults the GPU
++      // when validation is skipped (release builds).
++      Log.fatal("No depth tex copy conversion for format {}", static_cast<int>(passInfo.resolveFormat));
++    } else if (needsConversion) {
+       tex_copy_conv::run(cmd, convReq);
+     } else if (needsScaling) {
+       tex_copy_conv::blit(cmd, convReq);
+diff --git i/lib/gfx/tex_copy_conv.cpp w/lib/gfx/tex_copy_conv.cpp
+index 50f4c43..671723a 100644
+--- i/lib/gfx/tex_copy_conv.cpp
++++ w/lib/gfx/tex_copy_conv.cpp
+@@ -243,6 +243,59 @@ static constexpr std::string_view FragZ16 = R"(
+ }
+ )"sv;
+ 
++// GX_TF_Z24X8: 24-bit depth -> RGBA8 (R = bits 23:16, G = 15:8, B = 7:0, X = 1.0)
++static constexpr std::string_view FragZ24X8 = R"(
++@fragment fn fs_main(in: VertexOutput) -> @location(0) vec4f {
++    let z = gx_z24(in.uv);
++    let r = f32((z >> 16u) & 0xFFu) / 255.0;
++    let g = f32((z >> 8u) & 0xFFu) / 255.0;
++    let b = f32(z & 0xFFu) / 255.0;
++    return vec4f(r, g, b, 1.0);
++}
++)"sv;
++
++// GX_TF_Z8: Upper 8-bits depth -> I8
++static constexpr std::string_view FragZ8 = R"(
++@fragment fn fs_main(in: VertexOutput) -> @location(0) vec4f {
++    let i = f32((gx_z24(in.uv) >> 16u) & 0xFFu) / 255.0;
++    return vec4f(i, i, i, i);
++}
++)"sv;
++
++// GX_CTF_Z4: Upper 4-bits depth -> I4
++static constexpr std::string_view FragZ4 = R"(
++@fragment fn fs_main(in: VertexOutput) -> @location(0) vec4f {
++    let i = f32((gx_z24(in.uv) >> 20u) & 0xFu) / 15.0;
++    return vec4f(i, i, i, i);
++}
++)"sv;
++
++// GX_CTF_Z8M: Middle 8-bits depth -> I8
++static constexpr std::string_view FragZ8M = R"(
++@fragment fn fs_main(in: VertexOutput) -> @location(0) vec4f {
++    let i = f32((gx_z24(in.uv) >> 8u) & 0xFFu) / 255.0;
++    return vec4f(i, i, i, i);
++}
++)"sv;
++
++// GX_CTF_Z8L: Lower 8-bits depth -> I8
++static constexpr std::string_view FragZ8L = R"(
++@fragment fn fs_main(in: VertexOutput) -> @location(0) vec4f {
++    let i = f32(gx_z24(in.uv) & 0xFFu) / 255.0;
++    return vec4f(i, i, i, i);
++}
++)"sv;
++
++// GX_CTF_Z16L: Lower 16-bits depth -> IA8
++static constexpr std::string_view FragZ16L = R"(
++@fragment fn fs_main(in: VertexOutput) -> @location(0) vec4f {
++    let z16 = gx_z24(in.uv) & 0xFFFFu;
++    let i = f32((z16 >> 8u) & 0xFFu) / 255.0;
++    let a = f32(z16 & 0xFFu) / 255.0;
++    return vec4f(i, i, i, a);
++}
++)"sv;
++
+ struct ConvPipeline {
+   GXTexFmt fmt;
+   std::string_view fragShader;
+@@ -269,6 +322,12 @@ static constexpr std::array ConvPipelines{
+ 
+ static constexpr std::array DepthConvPipelines{
+     ConvPipeline{GX_TF_Z16, FragZ16, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv Z16"},
++    ConvPipeline{GX_TF_Z24X8, FragZ24X8, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv Z24X8"},
++    ConvPipeline{GX_TF_Z8, FragZ8, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv Z8"},
++    ConvPipeline{GX_CTF_Z4, FragZ4, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv Z4"},
++    ConvPipeline{GX_CTF_Z8M, FragZ8M, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv Z8M"},
++    ConvPipeline{GX_CTF_Z8L, FragZ8L, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv Z8L"},
++    ConvPipeline{GX_CTF_Z16L, FragZ16L, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv Z16L"},
+ };
+ 
+ static wgpu::BindGroupLayout g_bindGroupLayout;
