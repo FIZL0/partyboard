@@ -1,9 +1,5 @@
 <div align="center">
   <img src="res/logo.png" alt="Logo" width="800">
-
-  <p align="center">
-    <a href="https://discord.gg/T4faGveujK">Discord</a>
-  </p>
 </div>
 
 # Party Board Online
@@ -50,8 +46,6 @@ This is work in progress; see [plan/TODO.md](plan/TODO.md) for the full list. No
 
 [Build Status]: https://github.com/mariopartyrd/partyboard/actions/workflows/build.yml/badge.svg
 [actions]: https://github.com/mariopartyrd/partyboard/actions/workflows/build.yml
-[Discord Badge]: https://img.shields.io/discord/994839212618690590?color=%237289DA&logo=discord&logoColor=%23FFFFFF
-[discord]: https://discord.gg/T4faGveujK
 
 A work-in-progress Windows/Linux/macOS/Android/iOS port of Mario Party 4.
 
