@@ -29,6 +29,10 @@ u32 netplay_frame(void) { return 0; }
 BOOL netplay_debug_scripted(void) { return scripted; }
 static int reseeded;
 void netplay_reseed(void) { reseeded++; }
+/* N64: gameplay points (netplay.c). */
+static u32 reseed_point; static s32 reseed_ovl; static int point_reseeds;
+void netplay_point_reseed(u32 point, s32 ovl) { reseed_point = point; reseed_ovl = ovl; point_reseeds++; }
+BOOL netplay_gameplay_ovl(s32 ovl) { return (ovl >= DLL_w01dll && ovl <= DLL_w06dll) || (ovl >= DLL_m300dll && ovl <= DLL_m463dll); }
 void netplay_turn_resume_arm(void) {}
 
 static s32 party_args[8], party_calls, save_board = -1, vwait, pad_resets, motions[4], nmotions, ended;
@@ -52,6 +56,10 @@ void MGSeqKillAll(void) {}
 s32 SystemInitF; static s32 sys_inits;
 void CharInit(void) { sys_inits++; }
 void HuWindowInit(void) { sys_inits += 10; }
+/* N64: bootDll's title may have started the window process before SystemInitF. */
+static int win_proc, win_kills;
+BOOL HuWinProcActive(void) { return win_proc; }
+void HuWinAllKill(void) { win_kills++; win_proc = 0; }
 void MGSeqInit(void) { sys_inits += 100; }
 void CharMotionInit(s16 c) { motions[nmotions++ % 4] = c; }
 void HuAudSeqAllFadeOut(s32 s) { (void)s; }
@@ -308,8 +316,11 @@ int main(void)
     netplay_match_tick(); /* once only */
     assert(party_calls == 1);
 
-    /* Frame 0: the process calls the board with the menus' history and ends. */
+    /* Frame 0: the process calls the board with the menus' history and ends. bootDll's title already runs the window
+     * process (N64): it is ended before the windows are set up again, so only one runs. */
+    win_proc = 1;
     proc();
+    assert(win_kills == 1 && !win_proc);
     assert(called == DLL_w01dll + 2 && omovlhisidx == 3);
     assert(his[0].ovl == DLL_bootdll && his[1].ovl == DLL_modeseldll && his[1].event == 1 && his[2].ovl == DLL_mstory3dll);
     assert(nmotions == 4 && motions[0] == 7 && motions[3] == 4 && ended == 1);
@@ -340,29 +351,46 @@ int main(void)
     netplay_ovl_start(DLL_w01dll + 2); /* once only */
     assert(freed[0] == 0xCC);
 
-    /* N25: the party is over when a menu starts after the board (minigames and the results are not menus); the
-     * menu gets the player's own GWGameStat before it sets up. */
+    /* N64: a minigame's start and the results' entry are gameplay points (the seeds again, not from the frame). */
     assert(!netplay_match_over());
+    point_reseeds = 0;
     netplay_ovl_start(DLL_m401dll);
+    assert(point_reseeds == 1 && reseed_point == NETPLAY_POINT_MINIGAME && reseed_ovl == DLL_m401dll);
     netplay_ovl_start(DLL_resultdll);
+    assert(point_reseeds == 2 && reseed_point == NETPLAY_POINT_RESULTS && reseed_ovl == DLL_resultdll);
+    netplay_ovl_start(DLL_instdll);
     netplay_ovl_start(DLL_w01dll + 2);
-    netplay_ovl_start(DLL_mstory3dll);
-    assert(!netplay_match_over() && GWGameStat.language == 1);
+    assert(point_reseeds == 2 && !netplay_match_over());
+    /* N64: the party is over when its results (mstory3dll) start after the board: the same frame on every peer, while
+     * the results themselves may run a few frames apart. They keep the canned GWGameStat (they write records into it). */
     finished.ok = 1;
-    netplay_ovl_start(DLL_modeseldll);
-    assert(netplay_match_over() && netplay_match_running());
+    for (i = 0; i < 4; i++) {
+        GWPlayerCfg[i].pad_idx = i;
+        GWPlayerCfg[i].iscom = i >= 2;
+    }
+    netplay_ovl_start(DLL_mstory3dll);
+    assert(netplay_match_over() && netplay_match_running() && !netplay_match_results());
+    /* Every human seat waits on this machine's own controller in the results; CPU seats keep their pads. */
+    assert(GWPlayerCfg[0].pad_idx == 0 && GWPlayerCfg[1].pad_idx == 0 && GWPlayerCfg[2].pad_idx == 2 && GWPlayerCfg[3].pad_idx == 3);
     /* N31: its online save goes, by the match's room; no checkpoint was written, so no path to fall back on. */
     assert(finished.calls == 1 && strcmp(finished.dir, "/tmp/user") == 0 && strstr(finished.room, "\"started\":true"));
     assert(deleted.calls == 0);
+    assert(GWGameStat.language == 1);
+    netplay_ovl_start(DLL_mstory3dll);
+    assert(netplay_match_over() && finished.calls == 1); /* once */
+    /* The session ends at that frame; the results run on, outside it, still on the canned GWGameStat. */
+    netplay_match_end();
+    assert(!netplay_match_running() && !netplay_match_over() && netplay_match_results());
+    assert(GWGameStat.language == 1);
+    netplay_ovl_start(DLL_w01dll + 2); /* not a menu */
+    assert(netplay_match_results() && GWGameStat.language == 1);
+    /* The menu after them gets the player's own GWGameStat before it sets up. */
+    netplay_ovl_start(DLL_modeseldll);
+    assert(!netplay_match_results());
     assert(GWGameStat.language == 3 && GWGameStat.mg_custom[0] == 5 && GWGameStat.total_stars == 77);
     GWGameStat.total_stars = 78; /* the menu changes it: not taken back again */
     netplay_ovl_start(DLL_modeseldll);
-    assert(netplay_match_over() && finished.calls == 1); /* once */
-
-    /* End: the player's own GWGameStat stays; the match and its "over" are gone. */
-    netplay_match_end();
-    assert(!netplay_match_running() && !netplay_match_over());
-    assert(GWGameStat.language == 3 && GWGameStat.mg_custom[0] == 5 && GWGameStat.total_stars == 78);
+    assert(GWGameStat.total_stars == 78);
     GWGameStat.total_stars = 77;
 
     /* Teams and Bowser's board: groups from the seats, black wipe. A --script run keeps its session. */

@@ -4,7 +4,8 @@
     tools/netplay/hashdiff.py [--from FRAME] run1.log run2.log
 
 Prints the first differing frame, which sections of the line differ (sys, plr0-3, cfg, frand, rand8,
-brand, pad; see hash_log_line in src/port/netplay.c), the last frame that matched, and the overlay
+brand, pad, full: the gameplay hash plus the seeds, gp: 1 while the lockstep sends hashes; see hash_log_line in
+src/port/netplay.c), the last frame that matched, and the overlay
 (ovl=omcurovl) at both. --from skips the frames before FRAME (two runs that took different menu paths
 to a --match start). heap= (the heaps' layout) is not state: a difference there alone is reported as a
 note. Exit status: 0 identical, 1 diverged or different length, 2 bad input.

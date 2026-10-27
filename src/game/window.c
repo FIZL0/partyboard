@@ -162,6 +162,14 @@ void HuWindowInit(void)
     winPrio = 1000;
 }
 
+#ifdef TARGET_PC
+/* netplay's match start (N64): HuWinInit's process runs (HuWindowInit forgets it without ending it). */
+BOOL HuWinProcActive(void)
+{
+    return winProc != NULL;
+}
+#endif
+
 void HuWinInit(s32 mess_data_no)
 {
     s16 i;

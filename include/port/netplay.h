@@ -6,8 +6,8 @@
  * While a session is active the game must run identically on every peer, so:
  *  - OSGetTime/OSGetTick return a value derived from the netplay frame counter and the session seed
  *    (linker-wrapped, see cmake/netplay.cmake);
- *  - frand, rand8 and BoardRand are seeded from the session seed;
- *  - netplay_hash() hashes the game state that has to match between peers.
+ *  - frand, rand8 and BoardRand are seeded from the session seed, and again at every gameplay point;
+ *  - netplay_hash() hashes the gameplay state that has to match between peers.
  */
 
 #include <dolphin/types.h>
@@ -69,10 +69,25 @@ void netplay_still_drop(void);
 u32 netplay_pad_read(PADStatus *status);
 
 /*
- * 64-bit FNV-1a hash of GWSystem, GWPlayer[4], GWPlayerCfg[4], the random seeds (frand, rand8,
- * BoardRand) and the HuPad state. Equal on every peer as long as they stay in step.
+ * 64-bit FNV-1a hash of the gameplay state (N64): GWSystem, GWPlayer[4], GWPlayerCfg[4] and the HuPad state. Equal on
+ * every peer as long as they play alike; effects, menus and the random seeds are not in it. The lockstep sends it to
+ * pbnet only while a gameplay overlay runs (netplay_gameplay_ovl), so no desync is raised outside gameplay.
  */
 u64 netplay_hash(void);
+/* netplay_hash plus the frand, rand8 and BoardRand seeds (the pre-N64 hash): the --hash-log column full=. */
+u64 netplay_full_hash(void);
+/* A board (w01..w06) or minigame (m300..m463) overlay: what the desync check covers. */
+BOOL netplay_gameplay_ovl(s32 ovl);
+/*
+ * Gameplay points (N64): every player's turn start (netplay_turn_checkpoint), a minigame's start and the results'
+ * entry (netplay_ovl_start). frand, rand8 and BoardRand are set from the session seed, GWSystem.turn,
+ * GWSystem.player_curr, the point and `ovl` (the overlay starting, or omcurovl), not the frame: the same on every peer
+ * however many cosmetic rolls each made before, so those never reach later dice or minigames.
+ */
+#define NETPLAY_POINT_TURN 1
+#define NETPLAY_POINT_MINIGAME 2
+#define NETPLAY_POINT_RESULTS 3
+void netplay_point_reseed(u32 point, s32 ovl);
 
 /*
  * Debug: parse `--script <file>` and `--hash-log <file>` from the command line. With --script the
@@ -133,14 +148,21 @@ void netplay_match_tick(void);
 /* objmain.c omWatchOverlayProc, while netplay_active(): `ovl` is about to start. */
 void netplay_ovl_start(s32 ovl);
 /*
- * True once the match is over: netplay_ovl_start saw a menu overlay (modeseldll, mentDll, bootDll) start after the
- * board (board -> mstory3dll -> modeseldll), and gave the player's own GWGameStat back before it set up. Cleared by
+ * True once the match is over: netplay_ovl_start saw the party's results (mstory3dll, N64) or a menu overlay
+ * (modeseldll, mentDll, bootDll: the board's own exit) start after the board. A menu gets the player's own GWGameStat
+ * back before it sets up; the results keep the canned one until the menu after them (netplay_match_results). Cleared by
  * netplay_match_end. netplay_frame_end then ends the session at the end of that frame (the same on every peer):
  * pbnet_lockstep_finish, netplay_end, pbnet_lobby_back; a --script run only ends the match and keeps its session.
  */
 BOOL netplay_match_over(void);
-/* netplay_end: gives the player's own GWGameStat back. */
+/* netplay_end: gives the player's own GWGameStat back (after the results: once a menu starts). */
 void netplay_match_end(void);
+/*
+ * N64: TRUE from a match's end at its results until a menu overlay starts (or a match does). The results then run on
+ * this machine's own pads, outside the session; objmain.c still calls netplay_ovl_start, which gives the player's own
+ * GWGameStat back when the menu starts.
+ */
+BOOL netplay_match_results(void);
 /*
  * N34: leaves the match before its end (call after netplay_end, or netplay_match_end for a --script run): from the
  * next netplay_match_leave_poll on, whatever overlay runs goes back to modeseldll (the board through its own exit,
@@ -150,7 +172,8 @@ void netplay_match_end(void);
 void netplay_match_leave(void);
 void netplay_match_leave_poll(void);
 BOOL netplay_match_leaving(void);
-/* TRUE once after an online match ended and its lobby went back to open (or closed meanwhile): show the lobby. */
+/* TRUE once after an online match ended and its lobby went back to open (or closed meanwhile): show the lobby. Not
+ * while the match's results still run here (netplay_match_results). */
 BOOL netplay_lobby_returned(void);
 /* FNV-1a of every heap's used blocks (heap, offset, size, num): equal when peers' heaps are laid out alike. */
 u64 netplay_heap_hash(void);
