@@ -1,0 +1,11 @@
+N59: attached virtual joystick 5 (That operation is not supported)
+[INFO | aurora::input] Added controller 'N59 virtual pad' (instance 5, vid 054c, pid 09cc, type 5)
+N59: PADCount 1
+N59: port0 index 0 name N59 virtual pad type 5
+N59: provider pbicon://1/4
+N59: provider pbicon://1/15
+N59: provider pbicon://1/16
+N59: preview <div class="glyph-preview">PlayStation:<br/><img class="glyph" src="pbicon://1/0"/>&nbsp;A<br/><img class="glyph" src="pbicon://1/1"/>&nbsp;B<br/><img class="glyph" src="pbicon://1/2"/>&nbsp;X<br/><img class="glyph" src="pbicon://1/3"/>&nbsp;Y<br/><img class="glyph" src="pbicon://1/10"/>&nbsp;Z<br/><img class="glyph" src="pbicon://1/6"/>&nbsp;Start<br/><img class="glyph" src="pbicon://1/15"/>&nbsp;L<br/><img class="glyph" src="pbicon://1/16"/>&nbsp;R<br/><img class="glyph" src="pbicon://1/17"/>&nbsp;Control Stick<br/><img class="glyph" src="pbicon://1/18"/>&nbsp;C Stick<br/><img class="glyph" src="pbicon://1/19"/>&nbsp;D-Pad</div>
+N59: doc 2 img src=res/logo.png class= intrinsic 1614x256 box 721.5x114.4 visible 1 parent=<div class="eyebrow"><span>Mario Party R&amp;D</span> presents</div><img src="res/logo.png" />
+N59: doc 3 img src=pbicon://1/15 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Trigger L</key><icon /><value>lefttrigger</value><img src="pbicon://1/15" />
+N59: doc 3 img src=pbicon://1/16 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Trigger R</key><icon /><value>righttrigger</value><img src="pbicon://1/16" />

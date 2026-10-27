@@ -109,6 +109,8 @@ set(PORT_FILES
         src/port/ui/bool_button.hpp
         src/port/ui/button.cpp
         src/port/ui/button.hpp
+        src/port/ui/button_glyphs.cpp
+        src/port/ui/button_glyphs.hpp
         src/port/ui/component.cpp
         src/port/ui/component.hpp
         src/port/ui/controller_config.cpp

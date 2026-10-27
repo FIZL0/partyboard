@@ -504,3 +504,15 @@ progress.verification-progress-bar {
     flex: 0 0 auto;
     padding-top: 4dp;
 }
+
+/* N59: button glyphs (port/ui/button_glyphs.hpp) */
+img.glyph {
+    width: 1.5em;
+    height: 1.5em;
+    vertical-align: middle;
+    flex: 0 0 auto;
+}
+
+.glyph-preview {
+    line-height: 1.7em;
+}

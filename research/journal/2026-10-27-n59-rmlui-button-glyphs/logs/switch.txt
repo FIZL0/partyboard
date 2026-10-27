@@ -1,0 +1,17 @@
+N59: attached virtual joystick 5 (That operation is not supported)
+[INFO | aurora::input] Added controller 'N59 virtual pad' (instance 5, vid 057e, pid 2009, type 7)
+N59: PADCount 1
+N59: port0 index 0 name N59 virtual pad type 7
+N59: provider pbicon://3/4
+N59: provider pbicon://3/17
+N59: provider pbicon://3/18
+N59: preview <div class="glyph-preview">Switch:<br/><img class="glyph" src="pbicon://3/0"/>&nbsp;A<br/><img class="glyph" src="pbicon://3/1"/>&nbsp;B<br/><img class="glyph" src="pbicon://3/2"/>&nbsp;X<br/><img class="glyph" src="pbicon://3/3"/>&nbsp;Y<br/><img class="glyph" src="pbicon://3/10"/>&nbsp;Z<br/><img class="glyph" src="pbicon://3/6"/>&nbsp;Start<br/><img class="glyph" src="pbicon://3/15"/>&nbsp;L<br/><img class="glyph" src="pbicon://3/16"/>&nbsp;R<br/><img class="glyph" src="pbicon://3/17"/>&nbsp;Control Stick<br/><img class="glyph" src="pbicon://3/18"/>&nbsp;C Stick<br/><img class="glyph" src="pbicon://3/19"/>&nbsp;D-Pad</div>
+N59: doc 2 img src=res/logo.png class= intrinsic 1614x256 box 721.5x114.4 visible 1 parent=<div class="eyebrow"><span>Mario Party R&amp;D</span> presents</div><img src="res/logo.png" />
+N59: doc 3 img src=pbicon://3/17 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Up</key><icon /><value>lefty-</value><img src="pbicon://3/17" />
+N59: doc 3 img src=pbicon://3/17 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Down</key><icon /><value>lefty+</value><img src="pbicon://3/17" />
+N59: doc 3 img src=pbicon://3/17 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Left</key><icon /><value>leftx-</value><img src="pbicon://3/17" />
+N59: doc 3 img src=pbicon://3/17 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Right</key><icon /><value>leftx+</value><img src="pbicon://3/17" />
+N59: doc 3 img src=pbicon://3/18 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Up</key><icon /><value>righty-</value><img src="pbicon://3/18" />
+N59: doc 3 img src=pbicon://3/18 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Down</key><icon /><value>righty+</value><img src="pbicon://3/18" />
+N59: doc 3 img src=pbicon://3/18 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Left</key><icon /><value>rightx-</value><img src="pbicon://3/18" />
+N59: doc 3 img src=pbicon://3/18 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Right</key><icon /><value>rightx+</value><img src="pbicon://3/18" />

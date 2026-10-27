@@ -289,3 +289,10 @@ logo img.outer {
         top: 20dp;
     }
 }
+
+/* N59: button glyphs (port/ui/button_glyphs.hpp) */
+img.glyph {
+    width: 1.5em;
+    height: 1.5em;
+    vertical-align: middle;
+}

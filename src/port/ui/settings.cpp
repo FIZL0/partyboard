@@ -4,6 +4,7 @@
 
 #include "aurora/gfx.h"
 #include "bool_button.hpp"
+#include "button_glyphs.hpp"
 #include "controller_config.hpp"
 #include "port/config.hpp"
 #include "port/button_icons.h"
@@ -570,8 +571,8 @@ SettingsWindow::SettingsWindow(bool prelaunch)
                              "(PlayStation, Xbox, Switch, Steam Deck, else Xbox). Generic shows the buttons by position. "
                              "GameCube keeps the original icons.");
                 for (int port = 0; port < 4; ++port) {
-                    pane.add_rml(fmt::format("<br/>Port {}: {}", port + 1,
-                        pb_button_icons_family_name(pb_button_icons_family(port))));
+                    pane.add_rml(fmt::format("<br/>Port {}: {} {}", port + 1,
+                        pb_button_icons_family_name(pb_button_icons_family(port)), button_glyph_strip_rml(port)));
                 }
             });
 

@@ -835,6 +835,49 @@ int pb_button_icon_for_window(int entry, u32 pad_mask, ANIMDATA **anim, s16 *ban
     return 1;
 }
 
+static_assert(PB_GLYPH_SIZE == kSize && PB_GLYPH_BACK == C_BACK, "button_icons.h glyph constants");
+
+int pb_button_icons_glyph_count(void)
+{
+    return C_COUNT;
+}
+
+int pb_button_icons_glyph_for_native_button(s32 sdl_button)
+{
+    return sdl_button < 0 ? PB_GLYPH_NONE : ctl_for_native_button(static_cast<u32>(sdl_button));
+}
+
+int pb_button_icons_glyph_for_native_axis(s32 sdl_axis)
+{
+    return sdl_axis < 0 ? PB_GLYPH_NONE : ctl_for_native_axis(sdl_axis);
+}
+
+int pb_button_icons_glyph_for_entry(int port, int entry)
+{
+    const GcInput in = gc_input_for_entry(entry);
+    if (in == GC_NONE || pb_button_icons_family(port) == PB_FAMILY_GAMECUBE) {
+        return PB_GLYPH_NONE;
+    }
+    return bound_ctl(port, in);
+}
+
+int pb_button_icons_glyph_rgba(PbIconFamily family, int glyph, u8 *out)
+{
+    if (family <= PB_FAMILY_GAMECUBE || family >= PB_FAMILY_COUNT || glyph < 0 || glyph >= C_COUNT) {
+        return -1;
+    }
+    Canvas cv;
+    draw(cv, family, static_cast<Ctl>(glyph));
+    for (int i = 0; i < kSize * kSize; ++i) {
+        const Rgba &p = cv.px[i];
+        out[i * 4 + 0] = static_cast<u8>(std::lround(p.r * 255));
+        out[i * 4 + 1] = static_cast<u8>(std::lround(p.g * 255));
+        out[i * 4 + 2] = static_cast<u8>(std::lround(p.b * 255));
+        out[i * 4 + 3] = static_cast<u8>(std::lround(p.a * 255));
+    }
+    return 0;
+}
+
 int pb_button_icons_dump_sheet(const char *path)
 {
     FILE *out = std::fopen(path, "wb");

@@ -1,0 +1,87 @@
+diff --git i/src/port/ui/controller_config.cpp w/src/port/ui/controller_config.cpp
+index 8f216af9..1dfdebde 100644
+--- i/src/port/ui/controller_config.cpp
++++ w/src/port/ui/controller_config.cpp
+@@ -330,6 +330,7 @@ const std::vector<ButtonNames> kGamepadButtonNames = {
+ 
+ ControllerConfigWindow::ControllerConfigWindow()
+ {
++    if (const char *e = std::getenv("N59_PAGE")) { mPage = static_cast<Page>(std::atoi(e)); } // N59 TEST HOOK
+     listen(
+         Rml::EventId::Keydown,
+         [this](Rml::Event &event) {
+diff --git i/src/port/ui/ui.cpp w/src/port/ui/ui.cpp
+index 7b1374ef..c2604525 100644
+--- i/src/port/ui/ui.cpp
++++ w/src/port/ui/ui.cpp
+@@ -17,6 +17,13 @@
+ #include "input.hpp"
+ #include "prelaunch.hpp"
+ #include "window.hpp"
++#include "controller_config.hpp"
++#include "button_glyphs.hpp"
++#include <dolphin/pad.h>
++#include <SDL3/SDL_joystick.h>
++#include <SDL3/SDL_gamepad.h>
++#include <cstdio>
++#include <cstdlib>
+ 
+ #include <port/settings.h>
+ 
+@@ -233,6 +240,56 @@ void update() noexcept
+     }
+ 
+     input::update_input();
++    // N59 TEST HOOK
++    if (std::getenv("N59_TEST")) {
++        static int frame = 0;
++        ++frame;
++        if (frame == 30 && std::getenv("N59_PAD")) {
++            SDL_VirtualJoystickDesc d;
++            SDL_INIT_INTERFACE(&d);
++            d.type = SDL_JOYSTICK_TYPE_GAMEPAD;
++            d.naxes = SDL_GAMEPAD_AXIS_COUNT;
++            d.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
++            d.vendor_id = static_cast<Uint16>(std::strtol(std::getenv("N59_PAD"), nullptr, 16));
++            d.product_id = static_cast<Uint16>(std::strtol(std::getenv("N59_PID"), nullptr, 16));
++            d.name = "N59 virtual pad";
++            const SDL_JoystickID id = SDL_AttachVirtualJoystick(&d);
++            std::fprintf(stderr, "N59: attached virtual joystick %u (%s)\n", id, SDL_GetError());
++        }
++        if (frame == 90) {
++            std::fprintf(stderr, "N59: PADCount %u\n", PADCount());
++            if (PADCount() > 0) {
++                PADSetPortForIndex(0, 0);
++            }
++            std::fprintf(stderr, "N59: port0 index %d name %s type %d\n", PADGetIndexForPort(0), PADGetName(0) ? PADGetName(0) : "-", PADGetControllerType(0));
++            show_menu_notification();
++            push_document(std::make_unique<ControllerConfigWindow>());
++        }
++        if (frame == 200) {
++            std::fprintf(stderr, "N59: preview %s\n", button_glyph_preview_rml(0).c_str());
++            auto *ctx = aurora::rmlui::get_context();
++            for (int d = 0; d < ctx->GetNumDocuments(); ++d) {
++                Rml::ElementList imgs;
++                ctx->GetDocument(d)->GetElementsByTagName(imgs, "img");
++                for (auto *img : imgs) {
++                    Rml::Vector2f dim;
++                    float ratio = 0;
++                    img->GetIntrinsicDimensions(dim, ratio);
++                    auto *parent = img->GetParentNode();
++                    Rml::String key = parent ? parent->GetInnerRML() : "";
++                    if (key.size() > 160) key.resize(160);
++                    std::fprintf(stderr, "N59: doc %d img src=%s class=%s intrinsic %.0fx%.0f box %.1fx%.1f visible %d parent=%s\n", d,
++                        img->GetAttribute<Rml::String>("src", "").c_str(), img->GetClassNames().c_str(), dim.x, dim.y,
++                        img->GetBox().GetSize().x, img->GetBox().GetSize().y, img->IsVisible(), key.c_str());
++                }
++            }
++        }
++        if (frame == 260) {
++            std::fprintf(stderr, "N59: done\n");
++            std::fflush(stderr);
++            std::_Exit(0);
++        }
++    }
+     const auto update_documents = [](auto &documents) {
+         const std::size_t count = documents.size();
+         for (std::size_t i = 0; i < count && i < documents.size(); ++i) {
