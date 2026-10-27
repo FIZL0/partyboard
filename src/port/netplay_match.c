@@ -61,6 +61,8 @@ SHARED_SYM extern u32 GlobalCounter;
 SHARED_SYM extern s32 SystemInitF;
 void HuSysVWaitSet(s16 vcount);
 void HuWindowInit(void);
+BOOL HuWinProcActive(void);
+void HuWinAllKill(void);
 
 /* Board 5 is Bowser's Gnarly Party (w06): mentDll wipes to black for it, to white for the others. */
 #define BOARD_BOWSER 5
@@ -71,7 +73,8 @@ static struct {
     BOOL scrub;   /* applied; the board overlay has not started yet */
     BOOL resume;  /* a continue: the board state is `blob` */
     BOOL board;   /* the board overlay started */
-    BOOL over;    /* a menu overlay started after the board: the match is over */
+    BOOL over;    /* the party's results or a menu started after the board: the match is over */
+    BOOL results; /* over at the results' start: the canned GWGameStat stays until a menu starts */
     NetplayMatch m;
     u8 blob[NETPLAY_BLOB_MAX];
     u32 blob_size;
@@ -79,6 +82,8 @@ static struct {
 
 static GameStat own_stat;
 static BOOL own_stat_saved;
+/* N64: the match ended at its results, which run on outside the session; a menu overlay has not started yet. */
+static BOOL results_running;
 
 const char *netplay_match_invalid(const NetplayMatch *m)
 {
@@ -127,6 +132,8 @@ BOOL netplay_match_start(const NetplayMatch *m)
         return FALSE;
     }
     match.m = *m;
+    /* From the last match's results: the player's own GWGameStat is still in own_stat (game_stat_canned keeps it). */
+    results_running = FALSE;
     match.running = TRUE;
     match.pending = TRUE;
     match.scrub = FALSE;
@@ -350,6 +357,13 @@ static void MatchStartProc(void)
      * HuWinInit, no window data in ARAM) does it here, as bootDll's BootInitForSkippedSequence does. */
     if (!SystemInitF) {
         CharInit();
+        /* N64: bootDll's title has run HuWinInit before it sets SystemInitF. HuWindowInit would forget that window
+         * process without ending it, and the board's HuWinInit would start a second one: every window then ran twice
+         * per frame on this peer only, so messages ended a frame or more apart (the party results' dust, the board
+         * intro's turn-order dice). The windows are ended first, as on a peer that never opened one. */
+        if (HuWinProcActive()) {
+            HuWinAllKill();
+        }
         HuWindowInit();
         MGSeqInit();
         SystemInitF = TRUE;
@@ -487,9 +501,50 @@ u64 netplay_heap_hash(void)
     return heap_walk(FALSE, FALSE);
 }
 
+static BOOL menu_ovl(s32 ovl)
+{
+    return ovl == DLL_modeseldll || ovl == DLL_mentdll || ovl == DLL_bootdll;
+}
+
 void netplay_ovl_start(s32 ovl)
 {
-    if (match.board && !match.over && (ovl == DLL_modeseldll || ovl == DLL_mentdll || ovl == DLL_bootdll)) {
+    s32 i;
+
+    if (results_running) {
+        /* N64: the results ran on this machine alone; the menu after them reads the player's own GWGameStat. */
+        if (menu_ovl(ovl)) {
+            results_running = FALSE;
+            game_stat_own();
+            OSReport("netplay: the results are over: overlay %d starts\n", ovl);
+        }
+        return;
+    }
+    if (match.board && !match.over && ovl == DLL_mstory3dll) {
+        /*
+         * N64: the party's results (mstory3dll) start: the board's outcome is final, and the match is over here, the
+         * same frame on every peer. The results are not gameplay: two peers run them a few frames apart (N42: an
+         * effect's motion started a frame later on the host), so the same lockstep pads did different things and the
+         * guest left them while the host was still in them. Each peer plays them on its own pads after the session.
+         */
+        match.over = TRUE;
+        match.results = TRUE;
+        /* The results wait for every human seat's A on that seat's pad (result_seq.c fn_1_1442C, result.c): on this
+         * machine they all play with its own controller now. */
+        for (i = 0; i < 4; i++) {
+            if (!GWPlayerCfg[i].iscom) {
+                GWPlayerCfg[i].pad_idx = 0;
+            }
+        }
+        OSReport("netplay: match over: the results (overlay %d) start at frame %u\n", ovl, netplay_frame());
+        netplay_checkpoint_finish();
+        return;
+    }
+    if (ovl >= DLL_m300dll && ovl <= DLL_m463dll) {
+        netplay_point_reseed(NETPLAY_POINT_MINIGAME, ovl);
+    } else if (ovl == DLL_resultdll) {
+        netplay_point_reseed(NETPLAY_POINT_RESULTS, ovl);
+    }
+    if (match.board && !match.over && menu_ovl(ovl)) {
         /* The party is over (mstory3dll returns to modeseldll; the board itself does when flag (1,27) skips the
          * results). The menu reads GWGameStat as it sets up, so it gets the player's own back now. */
         match.over = TRUE;
@@ -525,9 +580,18 @@ BOOL netplay_match_over(void)
     return match.over;
 }
 
+BOOL netplay_match_results(void)
+{
+    return results_running;
+}
+
 void netplay_match_end(void)
 {
-    game_stat_own();
+    if (match.results) {
+        results_running = TRUE;
+    } else {
+        game_stat_own();
+    }
     memset(&match, 0, sizeof(match));
     netplay_checkpoint_set(NULL, 0);
 }

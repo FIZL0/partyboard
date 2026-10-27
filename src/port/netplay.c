@@ -135,6 +135,29 @@ static void fnv_u32(Fnv64 *f, u32 v)
     fnv_bytes(f, b, sizeof(b));
 }
 
+/* The pads every peer's tick read (HuPadRead's output): the same on every peer by construction. */
+static void fnv_pads(Fnv64 *f)
+{
+    fnv_bytes(f, HuPadBtn, sizeof(HuPadBtn));
+    fnv_bytes(f, HuPadBtnDown, sizeof(HuPadBtnDown));
+    fnv_bytes(f, HuPadBtnRep, sizeof(HuPadBtnRep));
+    fnv_bytes(f, HuPadStkX, sizeof(HuPadStkX));
+    fnv_bytes(f, HuPadStkY, sizeof(HuPadStkY));
+    fnv_bytes(f, HuPadSubStkX, sizeof(HuPadSubStkX));
+    fnv_bytes(f, HuPadSubStkY, sizeof(HuPadSubStkY));
+    fnv_bytes(f, HuPadTrigL, sizeof(HuPadTrigL));
+    fnv_bytes(f, HuPadTrigR, sizeof(HuPadTrigR));
+    fnv_bytes(f, HuPadDStk, sizeof(HuPadDStk));
+    fnv_bytes(f, HuPadDStkRep, sizeof(HuPadDStkRep));
+    fnv_bytes(f, HuPadErr, sizeof(HuPadErr));
+}
+
+/*
+ * N64: gameplay state only. The random generators are left out: effects roll them too (UpdateNpcDust's frand in the
+ * party results, N42), so a cosmetic roll count would raise a desync. What a roll decides lands in GWSystem/GWPlayer,
+ * and the generators are reseeded at every gameplay point (netplay_point_reseed), so extra cosmetic rolls never reach
+ * later dice or minigames.
+ */
 u64 netplay_hash(void)
 {
     Fnv64 f = { 0xCBF29CE484222325ULL };
@@ -142,22 +165,42 @@ u64 netplay_hash(void)
     fnv_bytes(&f, &GWSystem, sizeof(GWSystem));
     fnv_bytes(&f, GWPlayer, sizeof(GWPlayer));
     fnv_bytes(&f, GWPlayerCfg, sizeof(GWPlayerCfg));
+    fnv_pads(&f);
+    return f.h;
+}
+
+/* The pre-N64 hash: gameplay state plus the three generators (the --hash-log debug column full=). */
+u64 netplay_full_hash(void)
+{
+    Fnv64 f = { 0xCBF29CE484222325ULL };
+    fnv_bytes(&f, &GWSystem, sizeof(GWSystem));
+    fnv_bytes(&f, GWPlayer, sizeof(GWPlayer));
+    fnv_bytes(&f, GWPlayerCfg, sizeof(GWPlayerCfg));
     fnv_u32(&f, frandSeedGet());
     fnv_u32(&f, (u32)rnd_seed);
     fnv_u32(&f, boardRandSeed);
-    fnv_bytes(&f, HuPadBtn, sizeof(HuPadBtn));
-    fnv_bytes(&f, HuPadBtnDown, sizeof(HuPadBtnDown));
-    fnv_bytes(&f, HuPadBtnRep, sizeof(HuPadBtnRep));
-    fnv_bytes(&f, HuPadStkX, sizeof(HuPadStkX));
-    fnv_bytes(&f, HuPadStkY, sizeof(HuPadStkY));
-    fnv_bytes(&f, HuPadSubStkX, sizeof(HuPadSubStkX));
-    fnv_bytes(&f, HuPadSubStkY, sizeof(HuPadSubStkY));
-    fnv_bytes(&f, HuPadTrigL, sizeof(HuPadTrigL));
-    fnv_bytes(&f, HuPadTrigR, sizeof(HuPadTrigR));
-    fnv_bytes(&f, HuPadDStk, sizeof(HuPadDStk));
-    fnv_bytes(&f, HuPadDStkRep, sizeof(HuPadDStkRep));
-    fnv_bytes(&f, HuPadErr, sizeof(HuPadErr));
+    fnv_pads(&f);
     return f.h;
+}
+
+BOOL netplay_gameplay_ovl(s32 ovl)
+{
+    return (ovl >= DLL_w01dll && ovl <= DLL_w06dll) || (ovl >= DLL_m300dll && ovl <= DLL_m463dll);
+}
+
+void netplay_point_reseed(u32 point, s32 ovl)
+{
+    u32 key = mix32(point ^ mix32((u32)GWSystem.turn ^ mix32((u32)(GWSystem.player_curr & 0xFF) ^ mix32((u32)ovl))));
+    u32 seed;
+
+    seed = mix32(session_seed ^ mix32(NETPLAY_SALT_FRAND ^ key));
+    frandSeedSet(seed != 0 ? seed : 1);
+    seed = mix32(session_seed ^ mix32(NETPLAY_SALT_RAND8 ^ key));
+    rnd_seed = (s32)(seed != 0 ? seed : 1);
+    seed = mix32(session_seed ^ mix32(NETPLAY_SALT_BOARD ^ key));
+    boardRandSeed = seed != 0 ? seed : 1;
+    OSReport("netplay: reseed at frame %u: point %u, turn %d, player %d, overlay %d\n", frame, (unsigned)point,
+        (int)GWSystem.turn, (int)GWSystem.player_curr, (int)ovl);
 }
 
 static u64 fnv_once(const void *data, size_t len)
@@ -177,20 +220,9 @@ static u64 fnv_once(const void *data, size_t len)
 static void hash_log_line(FILE *out, u32 at)
 {
     Fnv64 pad = { 0xCBF29CE484222325ULL };
-    fnv_bytes(&pad, HuPadBtn, sizeof(HuPadBtn));
-    fnv_bytes(&pad, HuPadBtnDown, sizeof(HuPadBtnDown));
-    fnv_bytes(&pad, HuPadBtnRep, sizeof(HuPadBtnRep));
-    fnv_bytes(&pad, HuPadStkX, sizeof(HuPadStkX));
-    fnv_bytes(&pad, HuPadStkY, sizeof(HuPadStkY));
-    fnv_bytes(&pad, HuPadSubStkX, sizeof(HuPadSubStkX));
-    fnv_bytes(&pad, HuPadSubStkY, sizeof(HuPadSubStkY));
-    fnv_bytes(&pad, HuPadTrigL, sizeof(HuPadTrigL));
-    fnv_bytes(&pad, HuPadTrigR, sizeof(HuPadTrigR));
-    fnv_bytes(&pad, HuPadDStk, sizeof(HuPadDStk));
-    fnv_bytes(&pad, HuPadDStkRep, sizeof(HuPadDStkRep));
-    fnv_bytes(&pad, HuPadErr, sizeof(HuPadErr));
+    fnv_pads(&pad);
     fprintf(out, "%u %016llX ovl=%d sys=%016llX plr0=%016llX plr1=%016llX plr2=%016llX plr3=%016llX cfg=%016llX "
-                 "frand=%08X rand8=%08X brand=%08X pad=%016llX heap=%016llX\n",
+                 "frand=%08X rand8=%08X brand=%08X pad=%016llX full=%016llX gp=%d heap=%016llX\n",
         at, (unsigned long long)netplay_hash(), (int)omcurovl,
         (unsigned long long)fnv_once(&GWSystem, sizeof(GWSystem)),
         (unsigned long long)fnv_once(&GWPlayer[0], sizeof(GWPlayer[0])),
@@ -198,7 +230,8 @@ static void hash_log_line(FILE *out, u32 at)
         (unsigned long long)fnv_once(&GWPlayer[2], sizeof(GWPlayer[2])),
         (unsigned long long)fnv_once(&GWPlayer[3], sizeof(GWPlayer[3])),
         (unsigned long long)fnv_once(GWPlayerCfg, sizeof(GWPlayerCfg)), (unsigned)frandSeedGet(), (unsigned)rnd_seed,
-        (unsigned)boardRandSeed, (unsigned long long)pad.h, (unsigned long long)netplay_heap_hash());
+        (unsigned)boardRandSeed, (unsigned long long)pad.h, (unsigned long long)netplay_full_hash(),
+        netplay_gameplay_ovl(omcurovl) ? 1 : 0, (unsigned long long)netplay_heap_hash());
 }
 
 /*
@@ -235,7 +268,8 @@ static FILE *hash_log;
 /* --match <board>@<frame>: start a debug match after that frame of a --script run. */
 static NetplayMatch debug_match;
 static u32 debug_match_at;
-/* --desync-at: the frame (of a lockstep session) at which this peer flips its frand seed once, to test a resync (N46). */
+/* --desync-at: the frame (of a lockstep session) at which this peer flips its frand seed and a coin of player 0 once, to
+ * test a resync (N46). The coin is gameplay state (N64: the seeds are not in the lockstep hash). */
 static u32 debug_desync_at;
 static BOOL debug_desync_done;
 /* --leave-at: the frame at which a running match is left as if its lobby had gone (N34). */
@@ -571,7 +605,12 @@ static void match_left(const char *why)
 
 BOOL netplay_lobby_returned(void)
 {
-    BOOL r = lobby_returned;
+    BOOL r;
+    /* N64: the lobby shows once this machine's party results are over, not on top of them. */
+    if (netplay_match_results()) {
+        return FALSE;
+    }
+    r = lobby_returned;
     lobby_returned = FALSE;
     return r;
 }
@@ -586,7 +625,8 @@ void netplay_frame_end(void)
         /* Once per process: a resync restarts the frames, and the same flip again would desync forever. */
         debug_desync_done = TRUE;
         frandSeedSet(frandSeedGet() ^ 1);
-        OSReport("netplay: --desync-at %u: frand seed flipped on this peer\n", frame);
+        GWPlayer[0].coins ^= 1;
+        OSReport("netplay: --desync-at %u: frand seed and player 0's coins flipped on this peer\n", frame);
     }
     if (netplay_match_over()) {
         match_finish();
@@ -651,7 +691,9 @@ BOOL netplay_tick_begin(void)
     }
     next = pbnet_frame();
     /* Once per frame number: a WAIT repeats the call for the same frame with the same state. */
-    if (next % 30 == 0 && (!step_hash_set || step_hash_frame != next)) {
+    /* N64: only gameplay is checked. Menus, instDll and the results may run a frame apart on two peers (an effect's
+     * timing), and raise no desync. */
+    if (next % 30 == 0 && (!step_hash_set || step_hash_frame != next) && netplay_gameplay_ovl(omcurovl)) {
         pbnet_set_hash(next, netplay_hash());
         step_hash_frame = next;
         step_hash_set = TRUE;

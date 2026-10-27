@@ -14,6 +14,7 @@
 #include "dolphin.h"
 #include "game/flag.h"
 #include "game/gamework_data.h"
+#include "game/object.h"
 #include "port/netplay.h"
 #include "port/pbnet.h"
 
@@ -27,6 +28,10 @@ void netplay_turn_checkpoint(void)
     static u8 blob[NETPLAY_BLOB_MAX];
     u32 size;
 
+    /* N64: a gameplay point; what effects rolled during the last turn does not reach this one. */
+    if (netplay_active()) {
+        netplay_point_reseed(NETPLAY_POINT_TURN, omcurovl);
+    }
     if (!netplay_match_running()) {
         netplay_party_autosave();
         return;

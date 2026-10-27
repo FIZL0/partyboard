@@ -4,6 +4,7 @@
 #include "dolphin.h"
 #include "game/flag.h"
 #include "game/gamework_data.h"
+#include "game/object.h"
 #include "game/saveload.h"
 #include "port/netplay.h"
 #include "port/pbnet.h"
@@ -24,6 +25,11 @@ s32 _CheckFlag(u32 f) { return flags[f >> 16][f & 0x3F]; }
 static BOOL active, running, lockstep;
 BOOL netplay_active(void) { return active; }
 BOOL netplay_match_running(void) { return running; }
+/* N64: an online match's results after its session; a turn start is a gameplay point (seeds again). */
+static BOOL results; static int point_reseeds;
+BOOL netplay_match_results(void) { return results; }
+OMOVL omcurovl;
+void netplay_point_reseed(u32 point, s32 ovl) { assert(point == NETPLAY_POINT_TURN); (void)ovl; point_reseeds++; }
 u32 netplay_frame(void) { return 77; }
 u32 netplay_session_seed(void) { return 3; }
 u32 frandSeedGet(void) { return 4; }
@@ -106,7 +112,7 @@ int main(void)
      * is unchanged. */
     party_at(1, 0);
     netplay_turn_checkpoint();
-    assert(exists(path) && !exists(tmp) && writes == 0 && points == 0);
+    assert(exists(path) && !exists(tmp) && writes == 0 && points == 0 && point_reseeds == 0);
     party_at(4, 2);
     netplay_turn_checkpoint();
     assert(exists(path) && !exists(tmp) && memcmp(card, saveBuf.buf, sizeof(card)) == 0);
@@ -186,7 +192,7 @@ int main(void)
     running = active = TRUE;
     party_at(3, 1);
     netplay_turn_checkpoint();
-    assert(writes == 1 && points == 0 && !exists(path));
+    assert(writes == 1 && points == 0 && !exists(path) && point_reseeds == 1);
     lockstep = TRUE;
     party_at(3, 2);
     netplay_turn_checkpoint();
@@ -204,6 +210,12 @@ int main(void)
     running = TRUE;
     netplay_party_finish();
     assert(exists(path));
+    /* N64: nor are an online match's results, which run on after its session. */
+    running = FALSE;
+    results = TRUE;
+    netplay_party_finish();
+    assert(exists(path));
+    results = FALSE;
 
     /* netplay_turn_hooks: on while netplay runs, or in any party. */
     running = FALSE;

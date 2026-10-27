@@ -21,6 +21,9 @@ u32 frandSeedGet(void) { return fseed; } void frandSeedSet(u32 s) { fseed = s; }
 static int over, match_ends, still_drops;
 void netplay_match_tick(void) {} u64 netplay_heap_hash(void) { return 0; }
 void netplay_match_end(void) { match_ends++; over = 0; }
+/* N64: the match's results still run here (the lobby waits for them). */
+static int results;
+BOOL netplay_match_results(void) { return results; }
 BOOL netplay_match_over(void) { return over; }
 void netplay_still_drop(void) { still_drops++; }
 /* N34: the match running, its leave and the leave's per-loop poll. */
@@ -112,6 +115,10 @@ static void match_end_checks(void)
     assert(netplay_frame() == at + 1);
     assert(!netplay_active() && !netplay_lockstep() && finish_calls == 1 && match_ends == 1 && still_drops == 1);
     assert(back_calls == 1 && lobby_state == PBNET_LOBBY_OPEN && forget_calls == 1);
+    /* N64: not while this machine's results run; then once. */
+    results = 1;
+    assert(!netplay_lobby_returned());
+    results = 0;
     assert(netplay_lobby_returned() && !netplay_lobby_returned());
     /* Back on local controllers. */
     phys[0].button = PAD_BUTTON_START;
@@ -128,6 +135,39 @@ static void match_end_checks(void)
     netplay_frame_end();
     assert(!netplay_active() && back_calls == 1 && !netplay_lobby_returned());
     assert(forget_calls == 2); /* the lobby closed meanwhile: still forgotten */
+}
+
+/* N64: the lockstep hash is gameplay state; the seeds are only in the full hash. Gameplay points reseed from the
+ * session seed, turn, player, point and overlay: not from the frame or the seeds the effects left. */
+static void hash_checks(void)
+{
+    u64 h = netplay_hash(), full = netplay_full_hash();
+    u32 f, r, b;
+    fseed ^= 1;
+    assert(netplay_hash() == h && netplay_full_hash() != full);
+    GWPlayer[2].coins++;
+    assert(netplay_hash() != h);
+    GWPlayer[2].coins--;
+    assert(netplay_gameplay_ovl(DLL_w06dll) && netplay_gameplay_ovl(DLL_m463dll) && netplay_gameplay_ovl(DLL_m300dll));
+    assert(!netplay_gameplay_ovl(DLL_mstory3dll) && !netplay_gameplay_ovl(DLL_instdll) && !netplay_gameplay_ovl(DLL_resultdll));
+    assert(!netplay_gameplay_ovl(DLL_modeseldll) && !netplay_gameplay_ovl(DLL_NONE));
+    GWSystem.turn = 4; GWSystem.player_curr = 2;
+    fseed = 11; rnd_seed = 12; boardRandSeed = 13;
+    netplay_point_reseed(NETPLAY_POINT_TURN, DLL_w01dll);
+    f = fseed; r = (u32)rnd_seed; b = boardRandSeed;
+    assert(f != 11 && r != 12 && b != 13 && f != r && r != b && f != 0 && r != 0 && b != 0);
+    fseed = 99; rnd_seed = 98; boardRandSeed = 97;
+    netplay_frame_end(); /* another frame, other seeds before: the same point gives the same seeds */
+    netplay_point_reseed(NETPLAY_POINT_TURN, DLL_w01dll);
+    assert(fseed == f && (u32)rnd_seed == r && boardRandSeed == b);
+    netplay_point_reseed(NETPLAY_POINT_MINIGAME, DLL_m401dll);
+    assert(fseed != f);
+    netplay_point_reseed(NETPLAY_POINT_MINIGAME, DLL_m402dll);
+    assert(fseed != f);
+    GWSystem.player_curr = 3;
+    netplay_point_reseed(NETPLAY_POINT_TURN, DLL_w01dll);
+    assert(fseed != f);
+    memset(&GWSystem, 0, sizeof(GWSystem));
 }
 
 static char fixture[4096];
@@ -302,6 +342,7 @@ int main(void)
     assert(netplay_tick_begin());
     assert(netplay_pad_read(got) == 0 && got[0].button == PAD_BUTTON_B);
 
+    omcurovl = DLL_w01dll;
     netplay_begin(7);
     on = 1;
     /* Before the first READY: idle, connected. */
@@ -337,6 +378,16 @@ int main(void)
     hash_calls = 0; wait_now = 1;
     netplay_tick_begin(); netplay_tick_begin(); netplay_tick_begin();
     assert(hash_calls == 1 && hashed_frame == 30);
+    /* N64: no hash (so no desync) outside gameplay: the party's results, a menu, instDll. Minigames are checked. */
+    wait_now = 0;
+    omcurovl = DLL_mstory3dll;
+    while (fr < 61) assert(netplay_tick_begin());
+    assert(hash_calls == 1);
+    omcurovl = DLL_m401dll;
+    while (fr < 91) assert(netplay_tick_begin());
+    assert(hash_calls == 2 && hashed_frame == 90);
+    omcurovl = DLL_w01dll;
+    wait_now = 1;
     /* N11: every mismatch goes to pbnet_desync_recover (it logs and reloads once per session). */
     desyncs_queued = 2;
     netplay_tick_begin();
@@ -346,6 +397,7 @@ int main(void)
     assert(netplay_tick_begin());
     netplay_pad_read(got);
     assert(got[0].button == PAD_BUTTON_Y);
+    hash_checks();
     lobby_checks();
     match_end_checks();
     match_left_checks();

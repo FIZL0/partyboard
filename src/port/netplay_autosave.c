@@ -147,7 +147,8 @@ void netplay_party_offer(void)
 
 void netplay_party_finish(void)
 {
-    if (netplay_match_running() || GWPartyGet() != 1) {
+    /* An online match's results (N64) run after its session: they are not the local party's. */
+    if (netplay_match_running() || netplay_match_results() || GWPartyGet() != 1) {
         return;
     }
     if (netplay_file_remove(autosave_path())) {

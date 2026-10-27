@@ -93,7 +93,7 @@ static void omWatchOverlayProc(void)
                 OSReport("objman>Used Memory Size:%08x\n", HuMemUsedMallocSizeGet(HEAP_SYSTEM));
                 OSReport("objman>Used Memory Cnt:%d\n", HuMemUsedMallocBlockGet(HEAP_SYSTEM));
 #ifdef TARGET_PC
-                if (netplay_active()) {
+                if (netplay_active() || netplay_match_results()) {
                     netplay_ovl_start(omnextovl);
                 }
 #endif
