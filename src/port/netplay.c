@@ -9,6 +9,7 @@
 #include "game/pad.h"
 #include "port/main.h"
 #include "port/netplay.h"
+#include "port/pbnet.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -31,6 +32,17 @@ static u32 session_seed;
 static u32 frame;
 static OSTime time_base;
 static OSTime time_last;
+
+/* Lockstep (netplay_tick_begin): pads of the frame the last READY pbnet_step returned, which PADRead hands
+ * the game during that tick; the last frame hashed; the frame whose local pads pbnet took; buttons pressed
+ * while it did not take pads (sent with the next pads it takes, so a tap during a WAIT is not lost). */
+static PADStatus step_pads[4];
+static BOOL step_pads_set;
+static BOOL step_hash_set;
+static u32 step_hash_frame;
+static BOOL step_taken_set;
+static u32 step_taken_frame;
+static u16 step_latched[4];
 
 static u32 mix32(u32 x)
 {
@@ -70,6 +82,10 @@ void netplay_begin(u32 seed)
     time_base = OSSecondsToTicks(NETPLAY_EPOCH_SECONDS + (s64)(seed % NETPLAY_SEED_SPREAD_SECONDS));
     time_last = 0;
     active = TRUE;
+    step_pads_set = FALSE;
+    step_hash_set = FALSE;
+    step_taken_set = FALSE;
+    memset(step_latched, 0, sizeof(step_latched));
     frandSeedSet(netplay_seed(NETPLAY_SALT_FRAND));
     rnd_seed = (s32)netplay_seed(NETPLAY_SALT_RAND8);
     boardRandSeed = netplay_seed(NETPLAY_SALT_BOARD);
@@ -447,13 +463,109 @@ void netplay_frame_end(void)
 }
 
 #ifdef PB_NETPLAY_WRAP
+u32 __real_PADRead(PADStatus *status);
+#endif
+
+/* This machine's controllers, bypassing the PADRead wrap. */
+static u32 local_pad_read(PADStatus *status)
+{
+#ifdef PB_NETPLAY_WRAP
+    return __real_PADRead(status);
+#else
+    return PADRead(status);
+#endif
+}
+
+BOOL netplay_lockstep(void)
+{
+    return pbnet_lockstep_active() != 0;
+}
+
+BOOL netplay_tick_begin(void)
+{
+    PADStatus local[4];
+    u32 next;
+    u32 desync_frame;
+    int peer;
+    u64 ours, theirs;
+    int i;
+
+    if (script.loaded || !pbnet_lockstep_active()) {
+        return TRUE;
+    }
+    next = pbnet_frame();
+    /* Once per frame number: a WAIT repeats the call for the same frame with the same state. */
+    if (next % 30 == 0 && (!step_hash_set || step_hash_frame != next)) {
+        pbnet_set_hash(next, netplay_hash());
+        step_hash_frame = next;
+        step_hash_set = TRUE;
+    }
+    while (pbnet_poll_desync(&desync_frame, &peer, &ours, &theirs)) {
+        OSReport("netplay: desync at frame %u with peer %d: ours %016llX, theirs %016llX\n", desync_frame, peer,
+            (unsigned long long)ours, (unsigned long long)theirs);
+    }
+    /*
+     * Local controller i plays this machine's i-th seat (pbnet ignores pads beyond its seats). A seat is
+     * connected for the whole match, so a local pad error is sent as an idle, connected pad.
+     */
+    local_pad_read(local);
+    for (i = 0; i < 4; i++) {
+        local[i].extButton = 0;
+        if (local[i].err != PAD_ERR_NONE) {
+            memset(&local[i], 0, sizeof(local[i]));
+            local[i].err = PAD_ERR_NONE;
+        }
+    }
+    /* pbnet takes the local pads at the first call for a frame only. */
+    if (!step_taken_set || step_taken_frame != next) {
+        for (i = 0; i < 4; i++) {
+            local[i].button |= step_latched[i];
+            step_latched[i] = 0;
+        }
+        step_taken_frame = next;
+        step_taken_set = TRUE;
+    } else {
+        for (i = 0; i < 4; i++) {
+            step_latched[i] |= local[i].button;
+        }
+    }
+    switch (pbnet_step(local, 4, step_pads)) {
+        case PBNET_READY:
+            step_pads_set = TRUE;
+            return TRUE;
+        case PBNET_WAIT:
+            return FALSE;
+        default:
+            /* The session ended between the two calls: run on local pads. */
+            return TRUE;
+    }
+}
+
+u32 netplay_pad_read(PADStatus *status)
+{
+    if (script.loaded) {
+        script_pads(status);
+        return 0;
+    }
+    if (pbnet_lockstep_active()) {
+        if (step_pads_set) {
+            memcpy(status, step_pads, sizeof(step_pads));
+        } else {
+            /* Before the first READY frame (boot-time PADRead calls): idle, connected pads. */
+            memset(status, 0, 4 * sizeof(*status));
+        }
+        return 0;
+    }
+    return local_pad_read(status);
+}
+
+#ifdef PB_NETPLAY_WRAP
 /*
  * Linker wraps (cmake/netplay.cmake, ELF only): every OSGetTime/OSGetTick/PADRead call in dol and the
  * RELs lands here. Offline they pass straight through to aurora.
  */
 OSTime __real_OSGetTime(void);
 OSTick __real_OSGetTick(void);
-u32 __real_PADRead(PADStatus *status);
 
 OSTime __wrap_OSGetTime(void)
 {
@@ -473,9 +585,8 @@ OSTick __wrap_OSGetTick(void)
 
 u32 __wrap_PADRead(PADStatus *status)
 {
-    if (active && script.loaded) {
-        script_pads(status);
-        return 0;
+    if (active) {
+        return netplay_pad_read(status);
     }
     return __real_PADRead(status);
 }
