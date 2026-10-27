@@ -1,0 +1,13 @@
+# Unattended runs: `tmux new -s pb agent-runner run 3`, see https://github.com/FIZL0/agent-runner
+[plan]
+dir = "plan"
+journal = "research/journal"
+
+[run]
+test = "tools/check.sh"
+slots = 3
+rules = "AGENTS.md"
+notes = ".runner"
+links = ["orig"]
+joinable = ["plan/*.md", "research/journal/*"]
+untested = ["*.md", "research/*"]

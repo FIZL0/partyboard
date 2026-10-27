@@ -34,3 +34,5 @@ compile_commands.json
 # Miscellaneous
 /*.txt
 *.exe
+.runner/
+net/target/
