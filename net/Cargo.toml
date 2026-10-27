@@ -33,6 +33,13 @@ rustls-platform-verifier = "0.7"
 jni22 = { package = "jni", version = "0.22", default-features = false }
 webpki-roots = "1"
 
+# N12: iOS. iroh -> netwatch -> netdev 0.46's darwin code uses `libc::in6_ifreq`, which libc 0.2.190 and later define
+# for macOS only, so the crate stops compiling for aarch64-apple-ios (research/journal/2026-10-27-n12-mobile).
+# 0.2.189 has it for every Apple target (opentennis ships iOS on it). One libc builds for the whole graph, so this
+# pins it everywhere; lift it once netdev or libc fix the cfg.
+[target.'cfg(target_os = "ios")'.dependencies]
+libc = "=0.2.189"
+
 [profile.release]
 # Never unwind across the C ABI.
 panic = "abort"

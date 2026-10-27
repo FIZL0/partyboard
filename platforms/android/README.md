@@ -16,6 +16,21 @@ export ANDROID_NDK_VERSION="29.0.14206865"
 export JAVA_HOME="/usr/lib/jvm/java-17-openjdk"
 ```
 
+## One Step: Gradle Builds Everything
+
+`./gradlew :app:assembleDebug` (from `platforms/android`) runs the CMake preset for each ABI first (game, aurora,
+and the `pbnet` netplay crate through cargo, see `cmake/pbnet.cmake`), stages the `.so` files into
+`app/src/main/jniLibs`, then packages the APK. Needs `cmake`, `ninja`, `cargo` and the Rust target
+(`rustup target add aarch64-linux-android`) on `PATH`. `ANDROID_HOME` / `ANDROID_NDK_VERSION` default to the SDK
+Gradle uses (`local.properties` `sdk.dir`) and its newest NDK.
+
+- `-Ppartyboard.nativeAbis=arm64-v8a,x86_64`: ABIs to build (default `arm64-v8a`; `x86_64` needs
+  `rustup target add x86_64-linux-android`, and is what the emulator runs).
+- `-Ppartyboard.skipNative=true`: package whatever is already staged (the manual steps below).
+- `-Ppartyboard.cmake=/path/to/cmake`: a cmake that is not on `PATH`.
+
+Gradle 8.13 needs a JDK 17 to 24 (`JAVA_HOME`); newer JDKs fail with "Unsupported class file major version".
+
 ## Build Native Libraries
 
 ```bash

@@ -136,6 +136,13 @@ if (ANDROID AND PBNET_CARGO_TARGET)
     endif ()
 endif ()
 
+# iOS: build the crate (and ring's / blake3's C, via cc-rs) for the toolchain's deployment target, not rustc's default
+# minimum. Not SDKROOT: cargo also builds host build scripts, which must not see the iPhoneOS SDK. Env set at
+# configure time wins.
+if (IOS AND CMAKE_OSX_DEPLOYMENT_TARGET AND NOT DEFINED ENV{IPHONEOS_DEPLOYMENT_TARGET})
+    list(APPEND PBNET_CARGO_ENV "IPHONEOS_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+endif ()
+
 # Always ask cargo (it does its own change tracking); the byproduct is only rewritten when the crate
 # changed, so Ninja's restat keeps `dol` from relinking needlessly.
 add_custom_target(pbnet_cargo

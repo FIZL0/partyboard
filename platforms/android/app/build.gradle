@@ -71,6 +71,87 @@ dependencies {
     implementation "org.rustls:rustls-platform-verifier:$rustlsPlatformVerifierVersion"
 }
 
+// N12: the native libraries (libmain.so etc., pbnet's cargo cross-build included: cmake/pbnet.cmake) come from the
+// android-* CMake presets. buildNativeLibs configures and builds each ABI's preset and stages its .so files into
+// src/main/jniLibs (scripts/stage-jni-libs.*), so `./gradlew :app:assembleDebug` alone gives an APK with netplay.
+//   -Ppartyboard.nativeAbis=arm64-v8a,x86_64   ABIs to build (default arm64-v8a)
+//   -Ppartyboard.skipNative=true               keep what is already staged (the manual stage-jni-libs flow)
+//   -Ppartyboard.cmake=/path/to/cmake          cmake to run (default: cmake on PATH)
+// The presets read ANDROID_HOME and ANDROID_NDK_VERSION; when unset they come from the SDK Gradle uses and the
+// newest NDK installed in it.
+def nativePresets = ['arm64-v8a': 'android-arm64', 'x86_64': 'android-x86_64']
+def nativeAbis = (findProperty('partyboard.nativeAbis') ?: 'arm64-v8a').toString().split(',')*.trim().findAll { it }
+nativeAbis.each { abi ->
+    if (!nativePresets.containsKey(abi)) {
+        throw new GradleException("partyboard.nativeAbis: no CMake preset for ABI '$abi' (have: ${nativePresets.keySet().join(', ')})")
+    }
+}
+def skipNative = (findProperty('partyboard.skipNative') ?: 'false').toString().toBoolean()
+def cmakeExe = (findProperty('partyboard.cmake') ?: 'cmake').toString()
+def isWindowsHost = System.getProperty('os.name').toLowerCase().contains('windows')
+
+def nativeEnv = {
+    def sdkDir = System.getenv('ANDROID_HOME') ?: android.sdkDirectory.absolutePath
+    def ndkVersion = System.getenv('ANDROID_NDK_VERSION')
+    if (!ndkVersion) {
+        def versions = new File(sdkDir, 'ndk').listFiles()?.findAll { it.isDirectory() }*.name ?: []
+        ndkVersion = versions.max { a, b ->
+            def x = a.tokenize('.')*.toInteger(), y = b.tokenize('.')*.toInteger()
+            [x, y].transpose().findResult { p -> p[0] <=> p[1] ?: null } ?: x.size() <=> y.size()
+        }
+        if (!ndkVersion) throw new GradleException("No NDK in $sdkDir/ndk; install one or set ANDROID_NDK_VERSION")
+    }
+    [ANDROID_HOME: sdkDir, ANDROID_NDK_VERSION: ndkVersion]
+}
+
+def nativeBuildTasks = nativeAbis.collect { abi ->
+    def preset = nativePresets[abi]
+    def taskSuffix = preset.split('-').collect { it.capitalize() }.join('')
+    def configure = tasks.register("configure$taskSuffix", Exec) {
+        description = "Configures the $preset CMake preset"
+        workingDir partyboardRepoDir
+        commandLine cmakeExe, '--preset', preset
+        doFirst { environment nativeEnv() }
+        // cmake reconfigures by itself when CMakeLists change; only the first configure is needed here.
+        onlyIf { !new File(partyboardRepoDir, "build/$preset/build.ninja").exists() }
+    }
+    tasks.register("build$taskSuffix", Exec) {
+        description = "Builds the $preset CMake preset (game, aurora, pbnet via cargo)"
+        dependsOn configure
+        workingDir partyboardRepoDir
+        commandLine cmakeExe, '--build', '--preset', preset
+        doFirst { environment nativeEnv() }
+        // cmake/ninja/cargo do their own up-to-date checks.
+        outputs.upToDateWhen { false }
+    }
+}
+
+def stageNativeLibs = tasks.register('stageNativeLibs', Exec) {
+    description = "Copies the built .so files of ${nativeAbis.join(', ')} into src/main/jniLibs"
+    dependsOn nativeBuildTasks
+    workingDir partyboardRepoDir
+    if (isWindowsHost) {
+        commandLine 'cmd', '/c', new File(partyboardRepoDir, 'platforms/android/scripts/stage-jni-libs.bat').absolutePath
+    } else {
+        commandLine 'bash', new File(partyboardRepoDir, 'platforms/android/scripts/stage-jni-libs.sh').absolutePath
+    }
+    environment ANDROID_STAGE_ABIS: nativeAbis.join(' ')
+    doFirst { environment nativeEnv() }
+    outputs.upToDateWhen { false }
+}
+
+tasks.register('buildNativeLibs') {
+    group = 'build'
+    description = 'Builds the native libraries with CMake (pbnet included) and stages them for the APK'
+    dependsOn stageNativeLibs
+}
+
+tasks.named('preBuild') {
+    if (!skipNative) {
+        dependsOn 'buildNativeLibs'
+    }
+}
+
 tasks.configureEach { task ->
     if ((task.name.startsWith('merge') && task.name.endsWith('Assets')) ||
         task.name.toLowerCase().contains('lint')) {
