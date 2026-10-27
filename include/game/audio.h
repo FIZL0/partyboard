@@ -55,6 +55,9 @@ void HuAudSStreamAllFadeOut(s32 speed);
 void HuAudSStreamAllStop(void);
 s32 HuAudSStreamStatGet(s32 seNo);
 void HuAudDllSndGrpSet(u16 ovl);
+#ifdef TARGET_PC
+void HuAudNetplayAuxReset(void);
+#endif
 void HuAudSndGrpSetSet(s16 grpSet);
 void HuAudSndGrpSet(s16 grpId);
 void HuAudSndCommonGrpSet(s16 grp, BOOL delGrpF);
