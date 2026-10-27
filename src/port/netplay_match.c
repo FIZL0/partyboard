@@ -292,6 +292,8 @@ static void party_config(const NetplayMatch *m)
         GWPlayerCfg[i].iscom = m->seats[i].cpu ? 1 : 0;
     }
     BoardSaveInit(m->board);
+    /* N65: modeseldll's, so instDll picks the board's host (Minigame mode's sets 1). */
+    mgBoardHostEnableF = 0;
 }
 
 /* A continue: mentDll's party continue (main.c:798-805, SLLoadBoard) from the checkpoint, then who plays each seat now. */
@@ -325,6 +327,8 @@ static void resume_config(const NetplayMatch *m)
     BoardMGSetupPlayClear();
     /* mentDll's continue sets it to 1, and mstory3dll then writes the local card at the end of the party. */
     saveExecF = 0;
+    /* N65: as in party_config. */
+    mgBoardHostEnableF = 0;
 }
 
 /* The module (shared library) holding the code at `fn`, NULL if unknown. */
