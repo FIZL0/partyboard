@@ -2,6 +2,7 @@
 //! that starts it ([`start`]) is Rust's (the match start, N2/N6), C only steps it.
 
 use crate::lockstep::{delay_for, Config, Pad, Session, Step, Transport};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Instant;
 
@@ -18,6 +19,8 @@ struct Live {
 }
 
 static LIVE: Mutex<Option<Live>> = Mutex::new(None);
+/// N10: a reload is being set up (`crate::recover`): every step waits until the next [`start`].
+static HELD: AtomicBool = AtomicBool::new(false);
 
 fn live() -> std::sync::MutexGuard<'static, Option<Live>> {
     LIVE.lock().unwrap_or_else(|e| e.into_inner())
@@ -26,22 +29,36 @@ fn live() -> std::sync::MutexGuard<'static, Option<Live>> {
 /// Starts the lockstep session on `wire` (replacing one that runs).
 pub fn start(cfg: Config, wire: Box<dyn Transport + Send>) {
     *live() = Some(Live { session: Session::new(cfg, wire), start: Instant::now() });
+    HELD.store(false, Ordering::SeqCst);
+}
+
+/// N10: holds the game (every `pbnet_step` waits, `pbnet_lockstep_active` stays 1) until the next [`start`]: a
+/// reload's new session must not run a frame before the game took the checkpoint.
+pub fn hold() {
+    HELD.store(true, Ordering::SeqCst);
+}
+
+/// N10: peer `p`'s silence (ms) in the running session (None: no session, or `p` is this machine or no peer).
+pub fn quiet_ms(p: u8) -> Option<u64> {
+    live().as_ref().and_then(|l| l.session.quiet_ms(p, l.start.elapsed().as_millis() as u64))
 }
 
 /// Ends the lockstep session, if one runs. Safe to call any time, from any thread.
 #[no_mangle]
 pub extern "C" fn pbnet_lockstep_stop() {
     *live() = None;
+    HELD.store(false, Ordering::SeqCst);
 }
 
 /// 1 if a lockstep session runs, else 0. Safe to call any time, from any thread.
 #[no_mangle]
 pub extern "C" fn pbnet_lockstep_active() -> i32 {
-    live().is_some() as i32
+    (live().is_some() || HELD.load(Ordering::SeqCst)) as i32
 }
 
 /// One real frame of the lockstep: `PBNET_READY` with every seat's pads in `out[0..4]` (run the frame),
-/// `PBNET_WAIT` (skip the game tick, `out` untouched), or `PBNET_OFF` (no session, `out` untouched).
+/// `PBNET_WAIT` (skip the game tick, `out` untouched; also while a reload is held, N10), or `PBNET_OFF` (no
+/// session, `out` untouched).
 ///
 /// # Safety
 ///
@@ -51,6 +68,9 @@ pub extern "C" fn pbnet_lockstep_active() -> i32 {
 /// only used during the call. Thread-safe (serialised by a mutex), but meant for the game thread.
 #[no_mangle]
 pub unsafe extern "C" fn pbnet_step(local: *const Pad, n_local: i32, out: *mut Pad) -> i32 {
+    if HELD.load(Ordering::SeqCst) {
+        return PBNET_WAIT;
+    }
     let mut g = live();
     let Some(l) = g.as_mut() else { return PBNET_OFF };
     let local = if local.is_null() || n_local <= 0 {

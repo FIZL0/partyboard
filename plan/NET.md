@@ -41,6 +41,11 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
   would write the card) -> `pbnet_save_write` (`net/src/save.rs`) -> `<user dir>/online/<match id>.json`; continue is
   `Host::resume` (`net/src/lobby.rs`, setup `"resume"`) + `netplay_match_continue`. Findings:
   `research/journal/2026-10-27-n9-online-saves`.
+- Drops (N10): `net/src/recover.rs` (rejoin token in `<user dir>/rejoin.txt`, host's `Book`, reload room, epoch tag on
+  lockstep datagrams), wired in `lobby_c.rs` (guest redials mid-match, host `rejoin`/`host_reload`/`stand_in`, reload
+  held via `lockstep_c::hold` until `pbnet_recover_go`); `netplay_lobby_poll` starts each epoch's room (continue from
+  its checkpoint); `update_online_match` (`src/port/ui/online.cpp`) shows the hold. Findings:
+  `research/journal/2026-10-27-n10-drops`.
 - UI: RmlUi documents in `src/port/ui/`, config in `src/port/config.cpp`, user dir from SDL pref path.
 
 ## Rules

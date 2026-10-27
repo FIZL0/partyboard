@@ -21,6 +21,7 @@ private:
     void save();
     void host();
     void join();
+    void rejoin();
     void open_lobby();
 
     online::Profile mProfile;
@@ -50,5 +51,9 @@ private:
     Pane *mRightPane = nullptr;
     std::function<void(Pane &)> mRightBuilder;
 };
+
+// N10: during an online match, "Waiting for <name>" (the host may let the CPU play the seat, or save and quit) and,
+// on a guest, "Host left". Call once per loop from ui_update.
+void update_online_match();
 
 } // namespace partyboard::ui

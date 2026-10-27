@@ -242,6 +242,16 @@ pub enum Msg {
     Ready { ver: u32, ready: bool },
     Start(Room),
     Leave,
+    /// N10 (`crate::recover`), host → one guest at the start: its rejoin token.
+    Token(String),
+    /// N10, guest → host on a new connection after the start: back in the match with `token`. `intact`: its
+    /// lockstep session of `epoch` still runs (same app), else it lost its state and needs a reload.
+    Rejoin { token: String, intact: bool, epoch: u32 },
+    /// N10, host → the rejoined guest: the lockstep goes on where it is.
+    Resumed,
+    /// N10, host → all: every peer reloads `room`'s checkpoint (none: the match's start) and runs a new lockstep
+    /// session, numbered `epoch`, on `room`'s line-up.
+    Reload { room: Room, epoch: u32 },
 }
 
 /// Where the host sends a message.
@@ -294,6 +304,11 @@ impl Host {
 
     pub fn room(&self) -> &Room {
         &self.room
+    }
+
+    /// The room, for the recovery after the start (N10, `crate::recover`): who plays which seat changes there.
+    pub fn room_mut(&mut self) -> &mut Room {
+        &mut self.room
     }
 
     /// Seats `players` for `peer`: first the seats their keys already hold (a player back after a reconnect),
@@ -415,7 +430,7 @@ impl Host {
     }
 
     /// `peer`'s connection is gone (or it left): its seats open. Before the start only; a drop mid-match is the
-    /// recovery's (N10).
+    /// recovery's (N10, `crate::recover`).
     pub fn gone(&mut self, peer: &str) -> Vec<(To, Msg)> {
         if self.room.started || peer == HOST {
             return vec![];

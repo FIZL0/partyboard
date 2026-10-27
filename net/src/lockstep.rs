@@ -177,6 +177,8 @@ struct Remote {
     theirs: BTreeMap<u32, u64>,
     /// Frames of its hashes already compared (dropping the repeats every datagram carries).
     compared: VecDeque<u32>,
+    /// Our clock when its last datagram came (N10: silence).
+    heard: Option<u64>,
 }
 
 /// One machine's lockstep.
@@ -194,6 +196,8 @@ pub struct Session<T: Transport> {
     remotes: Vec<Option<Remote>>,
     hashes: BTreeMap<u32, u64>,
     desyncs: VecDeque<Desync>,
+    /// The clock of the first step (a peer never heard is silent since then).
+    began: Option<u64>,
 }
 
 impl<T: Transport> Session<T> {
@@ -212,6 +216,7 @@ impl<T: Transport> Session<T> {
                     rtt: None,
                     theirs: BTreeMap::new(),
                     compared: VecDeque::new(),
+                    heard: None,
                 })
             })
             .collect();
@@ -225,7 +230,27 @@ impl<T: Transport> Session<T> {
             remotes,
             hashes: BTreeMap::new(),
             desyncs: VecDeque::new(),
+            began: None,
         }
+    }
+
+    /// Who plays where.
+    pub fn config(&self) -> &Config {
+        &self.cfg
+    }
+
+    /// How long (ms, on the `step` clock) peer `p` has been silent: since its last datagram, or since the first
+    /// step if none came yet. None for this machine or no such peer. Every step sends every peer a datagram (also
+    /// while it waits), so a peer that still runs is never silent for long: this is the keep-alive.
+    pub fn quiet_ms(&self, p: u8, now_ms: u64) -> Option<u64> {
+        let r = self.remotes.get(p as usize)?.as_ref()?;
+        let since = r.heard.or(self.began).unwrap_or(now_ms);
+        Some(now_ms.saturating_sub(since))
+    }
+
+    /// The peers silent for `after_ms` or more (bit per line-up index).
+    pub fn silent(&self, now_ms: u64, after_ms: u64) -> u8 {
+        (0..self.remotes.len() as u8).filter(|&p| self.quiet_ms(p, now_ms).is_some_and(|q| q >= after_ms)).fold(0, |m, p| m | 1 << p)
     }
 
     /// The next frame to run.
@@ -271,6 +296,7 @@ impl<T: Transport> Session<T> {
     /// While it waits, `local` is not taken: the pads that go out are the ones of the call that first
     /// reached a frame.
     pub fn step(&mut self, now_ms: u64, local: &[Pad]) -> Step {
+        self.began.get_or_insert(now_ms);
         self.pump(now_ms);
         if self.own_next == self.tick + self.cfg.delay {
             let pads = (0..self.mine.len()).map(|i| local.get(i).copied().unwrap_or(IDLE)).collect();
@@ -454,6 +480,7 @@ impl<T: Transport> Session<T> {
                 });
             }
         }
+        r.heard = Some(now_ms);
         if r.stamp.is_none_or(|(s, _)| stamp.wrapping_sub(s) < u32::MAX / 2) {
             r.stamp = Some((stamp, now_ms));
         }
@@ -503,6 +530,8 @@ pub mod fake {
         flight: Vec<(u64, u8, u8, Vec<u8>)>,
         sent: u64,
         lost: u64,
+        /// Peers whose link is down (N10): everything to and from them is lost.
+        cut: u8,
     }
 
     #[derive(Clone)]
@@ -515,13 +544,22 @@ pub mod fake {
 
     impl Net {
         pub fn new(lag_ms: u64, loss: f64, seed: u64) -> Net {
-            Net(Rc::new(RefCell::new(Hub { now: 0, lag_ms, loss, rng: seed | 1, flight: Vec::new(), sent: 0, lost: 0 })))
+            Net(Rc::new(RefCell::new(Hub { now: 0, lag_ms, loss, rng: seed | 1, flight: Vec::new(), sent: 0, lost: 0, cut: 0 })))
         }
         pub fn end(&self, me: u8) -> End {
             End { net: self.clone(), me }
         }
         pub fn set_now(&self, ms: u64) {
             self.0.borrow_mut().now = ms;
+        }
+        /// Takes peer `p`'s link down (`down`) or back up; datagrams already in flight still arrive.
+        pub fn cut(&self, p: u8, down: bool) {
+            let mut h = self.0.borrow_mut();
+            if down {
+                h.cut |= 1 << p;
+            } else {
+                h.cut &= !(1 << p);
+            }
         }
         /// (sent, lost)
         pub fn counts(&self) -> (u64, u64) {
@@ -538,7 +576,7 @@ pub mod fake {
             h.rng ^= h.rng >> 7;
             h.rng ^= h.rng << 17;
             h.sent += 1;
-            if (h.rng >> 11) as f64 / (1u64 << 53) as f64 <= h.loss {
+            if (h.rng >> 11) as f64 / (1u64 << 53) as f64 <= h.loss || h.cut & (1 << self.me | 1 << to) != 0 {
                 h.lost += 1;
                 return;
             }

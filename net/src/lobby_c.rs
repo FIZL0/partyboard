@@ -15,7 +15,12 @@
 //! At the start the lockstep runs on the same connections ([`Wire`]): datagrams, addressed by line-up index
 //! ([`Room::peers`]), guest to guest through the host. The host picks the input delay from its connections' round
 //! trips and puts it in the final room; every peer then hands its [`Config`] and [`Wire`] to the [`Starter`]
-//! (`lockstep_c::start` in C). A drop after the start is N10's.
+//! (`lockstep_c::start` in C).
+//!
+//! A drop after the start never ends the match (N10, [`crate::recover`]): a guest redials the host and rejoins with
+//! its token, and the host either routes its line-up index to the new connection (the lockstep resumes on the same
+//! frame) or has every peer reload the last checkpoint on a new session (the epoch in front of every lockstep
+//! datagram). A reload holds the lockstep until the game took the room (`pbnet_recover_go`).
 //!
 //! On a shared network an open host lobby puts a [`Listing`] in its endpoint's mDNS record
 //! ([`Transport::set_lan_listing`]), kept to the room's open seats and taken down at the start or close. A [`Browse`]
@@ -35,6 +40,7 @@ use crate::codes;
 use crate::lobby::{Event, Guest, Host, Ident, Msg, Pick, Player, Room, To, CPU, HOST, SEATS};
 use crate::lockstep::{self, delay_for, Config, NO_PEER};
 use crate::lockstep_c;
+use crate::recover::{self, Book, Outcome, Rejoin, Status};
 use crate::transport::{datagram, undatagram, Incoming, LanHost, Peer, Relay, Transport};
 
 /// No lobby.
@@ -54,6 +60,15 @@ const REFUSED_LINGER: Duration = Duration::from_secs(2);
 const LEAVE_LINGER: Duration = Duration::from_millis(300);
 /// How often the host reads a guest connection's round trip (for the input delay).
 const RTT_EVERY: Duration = Duration::from_millis(250);
+/// N10: how long a guest whose connection to the host dropped mid-match waits between dials.
+const REDIAL_EVERY: Duration = Duration::from_secs(2);
+
+/// The lockstep's datagram outboxes by line-up index (host: each guest's connection, None for itself; guest: the
+/// host's alone): shared with the lobby so a reconnect points an index at the new connection (N10).
+pub type Routes = Arc<Mutex<Vec<Option<mpsc::UnboundedSender<Vec<u8>>>>>>;
+
+/// Holds the game's lockstep while a reload is set up (N10; `lockstep_c::hold` in C).
+pub type Holder = Arc<dyn Fn() + Send + Sync>;
 
 /// Takes the lockstep a started lobby made: this machine's line-up and the wire to the others.
 pub type Starter = Arc<dyn Fn(Config, Wire) + Send + Sync>;
@@ -71,16 +86,19 @@ pub fn global_starter() -> Starter {
 /// the backlog would never end). The host delivers its own and relays guest to guest, renamed to the sender.
 pub struct Wire {
     /// Host: each guest's datagram outbox by line-up index (None for the host); guest: the host's, alone.
-    out: Vec<Option<mpsc::UnboundedSender<Vec<u8>>>>,
+    out: Routes,
     host: bool,
     inbox: mpsc::UnboundedReceiver<(u8, Vec<u8>)>,
+    /// The session's number (N10): in front of every datagram ([`recover::tag`]); the inbox has this epoch's only.
+    epoch: u32,
 }
 
 impl lockstep::Transport for Wire {
     fn send(&mut self, to: u8, d: &[u8]) {
         let (via, name) = if self.host { (to as usize, "0".to_string()) } else { (0, to.to_string()) };
-        if let Some(Some(tx)) = self.out.get(via) {
-            let _ = tx.send(datagram(&name, d));
+        let tx = self.out.lock().unwrap_or_else(|e| e.into_inner()).get(via).cloned().flatten();
+        if let Some(tx) = tx {
+            let _ = tx.send(datagram(&name, &recover::tag(self.epoch, d)));
         }
     }
 
@@ -147,6 +165,27 @@ struct Shared {
     lan: Option<(Arc<Transport>, Handle)>,
     listed: Option<String>,
     host_name: String,
+    // N10 (crate::recover)
+    /// The running session's routes.
+    routes: Option<Routes>,
+    /// Host: the rejoin tokens (issued once) and the epoch; guest: `book.epoch` is the epoch it runs.
+    book: Book,
+    issued: bool,
+    /// Guest: its rejoin token, and the code it dialled.
+    token: String,
+    code: String,
+    /// A reload waits for the game (`go`).
+    reload_pending: bool,
+    hold: Holder,
+    /// A line-up index's silence in the running session (ms; `lockstep_c::quiet_ms` in C).
+    quiet: Arc<dyn Fn(u8) -> Option<u64> + Send + Sync>,
+    /// Host: the live connection of each peer name (a rejoin from the same endpoint replaces the old one, whose
+    /// end must not remove the new one's outboxes).
+    conns: BTreeMap<String, u64>,
+    next_conn: u64,
+    /// Guest: its connection to the host dropped mid-match (it redials), or the host left.
+    host_lost: bool,
+    host_left: bool,
 }
 
 impl Shared {
@@ -169,6 +208,18 @@ impl Shared {
             lan: None,
             listed: None,
             host_name: String::new(),
+            routes: None,
+            book: Book::default(),
+            issued: false,
+            token: String::new(),
+            code: String::new(),
+            reload_pending: false,
+            hold: Arc::new(|| {}),
+            quiet: Arc::new(|_| None),
+            conns: BTreeMap::new(),
+            next_conn: 0,
+            host_lost: false,
+            host_left: false,
         }
     }
 
@@ -286,20 +337,177 @@ impl Shared {
         } else {
             vec![self.dgrams.get(HOST).cloned()]
         };
+        let out: Routes = Arc::new(Mutex::new(out));
         let (tx, inbox) = mpsc::unbounded_channel();
         let cfg = Config { me: me as u8, peers: lineup.len() as u8, seats, delay: room.delay.clamp(2, 15) };
         self.lineup = lineup;
         self.inbox = Some(tx);
-        (self.start)(cfg, Wire { out, host: self.host, inbox });
+        self.routes = Some(out.clone());
+        if self.host && !self.issued {
+            // N10: every guest's rejoin token, to it alone
+            self.issued = true;
+            for (peer, t) in self.book.issue(&room) {
+                if let Some(tx) = self.peers.get(&peer) {
+                    let _ = tx.send(Msg::Token(t));
+                }
+            }
+        }
+        (self.start)(cfg, Wire { out, host: self.host, inbox, epoch: self.book.epoch });
+    }
+
+    // ------------------------------------------------ N10: recovery
+
+    /// The started room (host's or guest's).
+    fn room(&self) -> Option<&Room> {
+        match &self.role {
+            Some(Role::Host(h)) => Some(h.room()),
+            Some(Role::Guest(g)) => g.room.as_ref(),
+            None => None,
+        }
+    }
+
+    /// Epoch `epoch` of `room` is to be played: the lockstep holds until the game took it ([`Shared::go`]).
+    fn begin_reload(&mut self, room: Room, epoch: u32) {
+        match &mut self.role {
+            Some(Role::Host(h)) => *h.room_mut() = room,
+            Some(Role::Guest(g)) => g.room = Some(room),
+            None => return,
+        }
+        self.book.epoch = epoch;
+        self.phase = Phase::Started;
+        self.inbox = None;
+        self.routes = None;
+        self.reload_pending = true;
+        (self.hold)();
+        self.bump();
+    }
+
+    /// The game set up the current epoch's room: its lockstep starts. False if `epoch` is not the current one.
+    fn go(&mut self, epoch: u32) -> bool {
+        if !self.reload_pending {
+            return true;
+        }
+        if epoch != self.book.epoch {
+            return false;
+        }
+        self.reload_pending = false;
+        self.lockstep();
+        self.bump();
+        true
+    }
+
+    /// Host: every peer reloads the last checkpoint with the room as it is now, on the next epoch.
+    fn host_reload(&mut self) {
+        let Some(Role::Host(h)) = &self.role else { return };
+        let room = recover::reload_room(h.room(), recover::last_checkpoint(&h.room().id));
+        let epoch = self.book.epoch + 1;
+        // every connected guest: also one the computer now stands in for, which (still there after all) asks for
+        // its seats back at once
+        for tx in self.peers.values() {
+            let _ = tx.send(Msg::Reload { room: room.clone(), epoch });
+        }
+        eprintln!("pbnet: reload {epoch} from {}", if room.checkpoint.is_some() { "the last checkpoint" } else { "the match start" });
+        self.begin_reload(room, epoch);
+    }
+
+    /// Host: `peer` (a connection's name) is back with `token`.
+    fn rejoin(&mut self, peer: &str, token: &str, intact: bool, epoch: u32) {
+        let reply = |s: &Self, m: Msg| {
+            if let Some(tx) = s.peers.get(peer) {
+                let _ = tx.send(m);
+            }
+        };
+        if self.phase != Phase::Started {
+            return reply(self, Msg::Refused("the match has not started".into()));
+        }
+        let mut lineup = self.lineup.clone();
+        let Some(Role::Host(h)) = &mut self.role else { return };
+        let out = self.book.rejoin(h.room_mut(), &mut lineup, token, peer, intact, epoch);
+        eprintln!("pbnet: rejoin of {peer}: {out:?}");
+        match out {
+            Outcome::Resume { index } => {
+                if !self.reload_pending {
+                    self.lineup = lineup;
+                    if let Some(r) = &self.routes {
+                        let tx = self.dgrams.get(peer).cloned();
+                        if let Some(slot) = r.lock().unwrap_or_else(|e| e.into_inner()).get_mut(index) {
+                            *slot = tx;
+                        }
+                    }
+                    reply(self, Msg::Resumed);
+                } else {
+                    // the host itself is setting up a reload: the rejoiner takes that one
+                    let room = h.room().clone();
+                    reply(self, Msg::Reload { room, epoch: self.book.epoch });
+                }
+            }
+            Outcome::Join => {
+                self.lineup = lineup;
+                let room = h.room().clone();
+                reply(self, Msg::Reload { room, epoch: self.book.epoch });
+            }
+            Outcome::Reload => self.host_reload(),
+            Outcome::Refused(why) => reply(self, Msg::Refused(why)),
+        }
+        self.bump();
+    }
+
+    /// Host: the computer plays the seats of line-up index `index`; everyone reloads.
+    fn stand_in(&mut self, index: usize) -> bool {
+        if !self.host || self.phase != Phase::Started || index == 0 {
+            return false;
+        }
+        let Some(peer) = self.lineup.get(index).cloned() else { return false };
+        let Some(Role::Host(h)) = &mut self.role else { return false };
+        if !recover::stand_in(h.room_mut(), &peer) {
+            return false;
+        }
+        eprintln!("pbnet: the computer plays {peer}'s seats");
+        self.host_reload();
+        true
+    }
+
+    fn status(&self) -> Status {
+        let running = self.phase == Phase::Started && self.room().is_some_and(|r| r.started);
+        let mut st = Status {
+            running,
+            host: self.host,
+            epoch: self.book.epoch,
+            reconnecting: self.host_lost && !self.host_left,
+            host_left: self.host_left || self.host_lost,
+            reloading: self.reload_pending,
+            ..Status::default()
+        };
+        if let (true, Some(room)) = (running, self.room()) {
+            if self.inbox.is_some() {
+                st.waiting = recover::waiting(room, &self.lineup, &self.me, |p| (self.quiet)(p));
+            }
+        }
+        if st.host_left {
+            st.message = recover::HOST_LEFT.into();
+        } else if let Some(w) = st.waiting.first() {
+            st.message = format!("Waiting for {}", w.name);
+        }
+        st
+    }
+
+    /// Guest: the rejoin record for the match it plays (once it has a token).
+    fn keep_record(&self) {
+        let (Some(dir), Some(room)) = (recover::user_dir(), self.room()) else { return };
+        if self.host || self.token.is_empty() || self.code.is_empty() {
+            return;
+        }
+        recover::save_record(&dir, &Rejoin { code: self.code.clone(), id: room.id.clone(), token: self.token.clone(), at: 0 });
     }
 
     /// A lockstep datagram from the connection to `peer`: delivered here, or (host) relayed to the guest it is for.
     fn datagram_in(&self, peer: &str, d: &[u8]) {
         let (Some(inbox), Some((name, data))) = (&self.inbox, undatagram(d)) else { return };
         let Ok(idx) = name.parse::<usize>() else { return };
+        let epoch = self.book.epoch;
         if !self.host {
             // from the host: the name is the sender's
-            if self.lineup.get(idx).is_some_and(|p| *p != self.me) {
+            if let (true, Some(data)) = (self.lineup.get(idx).is_some_and(|p| *p != self.me), recover::untag(epoch, data)) {
                 let _ = inbox.send((idx as u8, data.to_vec()));
             }
             return;
@@ -307,8 +515,11 @@ impl Shared {
         // from a guest: the name is the receiver's
         let Some(from) = self.lineup.iter().position(|p| p == peer) else { return };
         if idx == 0 {
-            let _ = inbox.send((from as u8, data.to_vec()));
+            if let Some(data) = recover::untag(epoch, data) {
+                let _ = inbox.send((from as u8, data.to_vec()));
+            }
         } else if idx != from {
+            // relayed as it came (with its epoch: the receiver drops another session's)
             if let Some(tx) = self.lineup.get(idx).and_then(|p| self.dgrams.get(p)) {
                 let _ = tx.send(datagram(&from.to_string(), data));
             }
@@ -476,7 +687,52 @@ impl Lobby {
 
     /// This lobby started a lockstep (it reached the start).
     pub fn lockstep_started(&self) -> bool {
-        lock(&self.shared).inbox.is_some()
+        let s = lock(&self.shared);
+        s.inbox.is_some() || s.reload_pending
+    }
+
+    /// Rejoins the match of the rejoin record `r` from a new process (N10): dials its code from the endpoint `bind`
+    /// makes and asks the host for a reload; the lockstep of the reloaded room goes to `start`.
+    pub fn rejoin<B>(rt: &Handle, bind: B, setup: Setup, r: Rejoin, start: Starter) -> Lobby
+    where
+        B: Future<Output = Result<Transport, String>> + Send + 'static,
+    {
+        let shared: Sh = Arc::new(Mutex::new(Shared::new(false, start)));
+        let (quit, q) = oneshot::channel();
+        {
+            let mut s = lock(&shared);
+            s.token = r.token.clone();
+            s.code = r.code.clone();
+        }
+        rt.spawn(run_guest(bind, shared.clone(), setup, r.code, q));
+        Lobby { shared, quit: Some(quit) }
+    }
+
+    /// N10: how the lobby holds the game's lockstep during a reload, and reads a peer's silence.
+    pub fn set_hooks(&self, hold: Holder, quiet: Arc<dyn Fn(u8) -> Option<u64> + Send + Sync>) {
+        let mut s = lock(&self.shared);
+        s.hold = hold;
+        s.quiet = quiet;
+    }
+
+    /// N10: the match's recovery as its UI shows it.
+    pub fn status(&self) -> Status {
+        lock(&self.shared).status()
+    }
+
+    /// N10: the started match's epoch (one more per reload).
+    pub fn epoch(&self) -> u32 {
+        lock(&self.shared).book.epoch
+    }
+
+    /// N10: the game took epoch `epoch`'s room: its lockstep starts (true also when nothing was held).
+    pub fn go(&self, epoch: u32) -> bool {
+        lock(&self.shared).go(epoch)
+    }
+
+    /// N10, host: the computer plays line-up index `index`'s seats; every peer reloads the last checkpoint.
+    pub fn stand_in(&self, index: usize) -> bool {
+        lock(&self.shared).stand_in(index)
     }
 
     /// Leaves: the host closes the lobby for everyone, a guest frees its seats. The tasks wind down on their own.
@@ -548,10 +804,9 @@ async fn run_host<B: Future<Output = Result<Transport, String>>>(bind: B, sh: Sh
     }
     let leaving = {
         let mut s = lock(&sh);
-        if s.phase != Phase::Started {
-            for tx in s.peers.values() {
-                let _ = tx.send(Msg::Leave);
-            }
+        // after the start too: the guests show that the host saved and quit (N10)
+        for tx in s.peers.values() {
+            let _ = tx.send(Msg::Leave);
         }
         s.close("You closed the lobby.");
         !s.peers.is_empty()
@@ -597,7 +852,7 @@ async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
     let peer = p.id().to_string();
     let (tx, mut outbox) = mpsc::unbounded_channel();
     let (dtx, mut dgrams) = mpsc::unbounded_channel::<Vec<u8>>();
-    {
+    let conn = {
         let mut s = lock(&sh);
         if s.phase == Phase::Closed {
             p.close("closed");
@@ -605,7 +860,11 @@ async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
         }
         s.peers.insert(peer.clone(), tx);
         s.dgrams.insert(peer.clone(), dtx);
-    }
+        s.next_conn += 1;
+        let conn = s.next_conn;
+        s.conns.insert(peer.clone(), conn);
+        conn
+    };
     let mut refused = None;
     let mut rtt = tokio::time::interval(RTT_EVERY);
     loop {
@@ -618,6 +877,7 @@ async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
             }
             m = p.recv_any() => match m {
                 Incoming::Datagram(d) => lock(&sh).datagram_in(&peer, &d),
+                Incoming::Msg(Ok(Msg::Rejoin { token, intact, epoch })) => lock(&sh).rejoin(&peer, &token, intact, epoch),
                 Incoming::Msg(Ok(m)) => {
                     let mut s = lock(&sh);
                     let Some(h) = s.host() else { break };
@@ -637,6 +897,11 @@ async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
     }
     p.close("bye");
     let mut s = lock(&sh);
+    if s.conns.get(&peer) != Some(&conn) {
+        // a rejoin from the same endpoint has replaced this connection: its outboxes are the new one's
+        return;
+    }
+    s.conns.remove(&peer);
     s.peers.remove(&peer);
     s.dgrams.remove(&peer);
     s.rtts.remove(&peer);
@@ -660,92 +925,183 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
         let mut s = lock(&sh);
         s.role = Some(Role::Guest(Guest::new(me.clone())));
         s.me = me;
+        if s.code.is_empty() {
+            s.code = code.clone();
+        }
         s.bump();
     }
-    let mut p = tokio::select! {
-        r = t.dial::<Msg>(&code) => match r {
-            Ok(p) => p,
-            Err(e) => {
-                lock(&sh).close(&e);
+    // N10: a rejoin from a new process (it has a token and no match yet) asks for a reload at once
+    let mut first = true;
+    let mut kept = 0u64;
+    // one connection per round: after the start a dropped one is dialled again until the host is back or left
+    'conn: loop {
+        let mut p = tokio::select! {
+            r = t.dial::<Msg>(&code) => match r {
+                Ok(p) => p,
+                Err(e) => {
+                    let held = {
+                        let mut s = lock(&sh);
+                        let held = s.phase == Phase::Started || !s.token.is_empty();
+                        if held {
+                            s.host_lost = true;
+                            s.bump();
+                        } else {
+                            s.close(&e);
+                        }
+                        held
+                    };
+                    if held {
+                        // N10: the match holds; dial again
+                        tokio::select! {
+                            _ = tokio::time::sleep(REDIAL_EVERY) => continue 'conn,
+                            _ = &mut quit => {
+                                lock(&sh).close("You left.");
+                                break 'conn;
+                            }
+                        }
+                    }
+                    return t.close().await;
+                }
+            },
+            _ = &mut quit => {
+                lock(&sh).close("You left.");
                 return t.close().await;
             }
-        },
-        _ = &mut quit => {
-            lock(&sh).close("You left.");
-            return t.close().await;
-        }
-    };
-    let (tx, mut outbox) = mpsc::unbounded_channel();
-    let (dtx, mut dgrams) = mpsc::unbounded_channel::<Vec<u8>>();
-    {
-        let mut s = lock(&sh);
-        s.peers.insert(HOST.into(), tx);
-        s.dgrams.insert(HOST.into(), dtx);
-    }
-    p.send(Guest::hello(setup.ident(), setup.players.clone()));
-    loop {
-        tokio::select! {
-            Some(d) = dgrams.recv() => p.send_datagram(d),
-            m = p.recv_any() => {
-                let m = match m {
-                    Incoming::Datagram(d) => {
-                        lock(&sh).datagram_in(HOST, &d);
-                        continue;
-                    }
-                    Incoming::Msg(m) => m,
-                };
-                let mut s = lock(&sh);
-                let started = s.phase == Phase::Started;
-                let ev = match (m, &mut s.role) {
-                    (Ok(m), Some(Role::Guest(g))) => g.on(m),
-                    (Ok(_), _) => None,
-                    (Err(_), _) if started => {
-                        // the match's connection is gone: N10's to recover; the room stays as it started
-                        s.error = "Lost the connection to the host.".into();
-                        s.bump();
-                        break;
-                    }
-                    (Err(_), _) => {
-                        s.close("Lost the connection to the host.");
-                        break;
-                    }
-                };
-                match ev {
-                    Some(Event::Room) => {
-                        if s.phase == Phase::Connecting {
-                            s.phase = Phase::Open;
-                        }
-                        s.bump();
-                    }
-                    Some(Event::Started) => {
-                        s.phase = Phase::Started;
-                        s.lockstep();
-                        s.bump();
-                    }
-                    Some(Event::Refused(why)) => {
-                        s.close(&format!("The host refused: {why}"));
-                        break;
-                    }
-                    Some(Event::HostLeft) => {
-                        s.close("The host closed the lobby.");
-                        break;
-                    }
-                    None => {}
-                }
+        };
+        let (tx, mut outbox) = mpsc::unbounded_channel();
+        let (dtx, mut dgrams) = mpsc::unbounded_channel::<Vec<u8>>();
+        {
+            let mut s = lock(&sh);
+            s.peers.insert(HOST.into(), tx);
+            s.dgrams.insert(HOST.into(), dtx.clone());
+            if let Some(r) = &s.routes {
+                // N10: the running session's datagrams go out on this connection
+                r.lock().unwrap_or_else(|e| e.into_inner())[0] = Some(dtx);
             }
-            Some(m) = outbox.recv() => p.send(m),
-            _ = &mut quit => {
-                let started = {
+            if first && s.token.is_empty() {
+                p.send(Guest::hello(setup.ident(), setup.players.clone()));
+            } else {
+                let intact = s.inbox.is_some() || s.reload_pending;
+                p.send(Msg::Rejoin { token: s.token.clone(), intact, epoch: s.book.epoch });
+            }
+            first = false;
+        }
+        let mut keep = tokio::time::interval(Duration::from_secs(recover::KEEP));
+        loop {
+            tokio::select! {
+                Some(d) = dgrams.recv() => p.send_datagram(d),
+                _ = keep.tick() => {
+                    if let (Some(dir), true) = (recover::user_dir(), lock(&sh).phase == Phase::Started) {
+                        recover::keep(&dir, &mut kept);
+                    }
+                }
+                m = p.recv_any() => {
+                    let m = match m {
+                        Incoming::Datagram(d) => {
+                            lock(&sh).datagram_in(HOST, &d);
+                            continue;
+                        }
+                        Incoming::Msg(m) => m,
+                    };
                     let mut s = lock(&sh);
                     let started = s.phase == Phase::Started;
-                    s.close("You left.");
-                    started
-                };
-                if !started {
-                    p.send(Msg::Leave);
+                    let rejoining = !s.token.is_empty();
+                    // N10's messages, and the host leaving mid-match
+                    let m = match m {
+                        Ok(Msg::Token(tok)) => {
+                            s.token = tok;
+                            s.keep_record();
+                            continue;
+                        }
+                        Ok(Msg::Resumed) => {
+                            s.host_lost = false;
+                            s.bump();
+                            continue;
+                        }
+                        Ok(Msg::Reload { room, epoch }) => {
+                            s.host_lost = false;
+                            eprintln!("pbnet: reload {epoch}");
+                            let seated = !room.seats_of(&s.me).is_empty();
+                            s.begin_reload(room, epoch);
+                            s.keep_record();
+                            if !seated && !s.token.is_empty() {
+                                // the computer stands in for this machine, which is here: take the seats back
+                                p.send(Msg::Rejoin { token: s.token.clone(), intact: false, epoch });
+                            }
+                            continue;
+                        }
+                        Ok(Msg::Leave) if started => {
+                            // the host saved and quit: the match stays held, the guest shows recover::HOST_LEFT
+                            s.host_left = true;
+                            s.bump();
+                            break 'conn;
+                        }
+                        m => m,
+                    };
+                    let ev = match (m, &mut s.role) {
+                        (Ok(m), Some(Role::Guest(g))) => g.on(m),
+                        (Ok(_), _) => None,
+                        (Err(_), _) if started || rejoining => {
+                            // N10: the match's connection is gone: dial again; the room stays as it is
+                            s.error = "Lost the connection to the host.".into();
+                            s.host_lost = true;
+                            s.peers.remove(HOST);
+                            s.dgrams.remove(HOST);
+                            s.bump();
+                            break;
+                        }
+                        (Err(_), _) => {
+                            s.close("Lost the connection to the host.");
+                            break 'conn;
+                        }
+                    };
+                    match ev {
+                        Some(Event::Room) => {
+                            if s.phase == Phase::Connecting {
+                                s.phase = Phase::Open;
+                            }
+                            s.bump();
+                        }
+                        Some(Event::Started) => {
+                            s.phase = Phase::Started;
+                            s.lockstep();
+                            s.bump();
+                        }
+                        Some(Event::Refused(why)) => {
+                            s.close(&format!("The host refused: {why}"));
+                            break 'conn;
+                        }
+                        Some(Event::HostLeft) => {
+                            s.close("The host closed the lobby.");
+                            break 'conn;
+                        }
+                        None => {}
+                    }
                 }
-                tokio::time::sleep(LEAVE_LINGER).await;
-                break;
+                Some(m) = outbox.recv() => p.send(m),
+                _ = &mut quit => {
+                    let started = {
+                        let mut s = lock(&sh);
+                        let started = s.phase == Phase::Started;
+                        s.close("You left.");
+                        started
+                    };
+                    if !started {
+                        p.send(Msg::Leave);
+                    }
+                    tokio::time::sleep(LEAVE_LINGER).await;
+                    p.close("bye");
+                    break 'conn;
+                }
+            }
+        }
+        // N10: the connection dropped mid-match: dial again after a while
+        p.close("bye");
+        tokio::select! {
+            _ = tokio::time::sleep(REDIAL_EVERY) => {}
+            _ = &mut quit => {
+                lock(&sh).close("You left.");
+                break 'conn;
             }
         }
     }
@@ -754,7 +1110,6 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
         s.peers.clear();
         s.dgrams.clear();
     }
-    p.close("bye");
     t.close().await;
 }
 
@@ -930,6 +1285,35 @@ unsafe fn arg<'a>(p: *const c_char) -> Option<&'a str> {
     unsafe { CStr::from_ptr(p) }.to_str().ok()
 }
 
+/// The C ABI's lobby with the game's hooks: the global lockstep's hold and silence (N10).
+fn hooked(l: Lobby) -> Lobby {
+    l.set_hooks(Arc::new(lockstep_c::hold), Arc::new(lockstep_c::quiet_ms));
+    l
+}
+
+/// `f` on the process lobby, if one runs (N10's C ABI in `recover.rs`).
+pub(crate) fn with_global<R>(f: impl FnOnce(&Lobby) -> R) -> Option<R> {
+    global().as_ref().map(f)
+}
+
+/// A setup JSON as `pbnet_lobby_host` takes it (N10's rejoin).
+pub(crate) fn parse_setup(json: &str) -> Option<(Setup, Relay)> {
+    setup(json)
+}
+
+/// Rejoins the match of record `r` as the process lobby (replacing one that runs).
+pub(crate) fn rejoin_global((s, relay): (Setup, Relay), r: Rejoin) -> bool {
+    if let Some(old) = global().take() {
+        if old.lockstep_started() {
+            lockstep_c::pbnet_lockstep_stop();
+        }
+        old.leave();
+    }
+    let l = Lobby::rejoin(rt().handle(), async move { Transport::bind(&relay).await }, s, r, global_starter());
+    *global() = Some(hooked(l));
+    true
+}
+
 fn setup(json: &str) -> Option<(Setup, Relay)> {
     let s: Setup = serde_json::from_str(json).map_err(|e| eprintln!("pbnet: lobby setup: {e}")).ok()?;
     if s.players.is_empty() || s.players.len() > SEATS {
@@ -953,7 +1337,7 @@ pub unsafe extern "C" fn pbnet_lobby_host(setup_json: *const c_char) -> i32 {
     // a host doesn't browse: its own endpoint is the one listed
     browse().take();
     let l = Lobby::host(rt().handle(), async move { Transport::bind(&relay).await }, s, global_starter());
-    *global() = Some(l);
+    *global() = Some(hooked(l));
     1
 }
 
@@ -970,7 +1354,7 @@ pub unsafe extern "C" fn pbnet_lobby_join(setup_json: *const c_char, code: *cons
     let (Some((s, relay)), Some(code)) = (s.and_then(setup), code.filter(|c| !c.trim().is_empty())) else { return 0 };
     let bind = Browse::or_bind(browse().take(), relay);
     let l = Lobby::join(rt().handle(), bind, s, code, global_starter());
-    *global() = Some(l);
+    *global() = Some(hooked(l));
     1
 }
 
@@ -1427,6 +1811,116 @@ mod tests {
             host.leave();
             a.leave();
             b.leave();
+        });
+    }
+
+    /// Steps `peers` until each ran `frames` frames on its own pads (`pad(p, frame)`); every peer's runs.
+    async fn run_lockstep(peers: &mut [crate::lockstep::Session<Wire>], frames: u32, pad: impl Fn(usize, u32) -> crate::lockstep::Pad) -> Vec<Vec<[crate::lockstep::Pad; 4]>> {
+        use crate::lockstep::Step;
+        let mut runs = vec![vec![]; peers.len()];
+        let t0 = std::time::Instant::now();
+        while runs.iter().any(|r: &Vec<_>| (r.len() as u32) < frames) {
+            assert!(t0.elapsed() < Duration::from_secs(20), "stuck at {:?}", runs.iter().map(Vec::len).collect::<Vec<_>>());
+            for (p, sess) in peers.iter_mut().enumerate() {
+                let f = sess.frame();
+                let local = if runs[p].len() as u32 >= frames { vec![] } else { vec![pad(p, f + sess.delay())] };
+                if let Step::Ready(pads) = sess.step(t0.elapsed().as_millis() as u64, &local) {
+                    runs[p].push(pads);
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(4)).await;
+        }
+        runs
+    }
+
+    /// N10 on two real endpoints: the guest's app "restarts" (its lobby is gone, a new one rejoins from a new
+    /// endpoint with the token it was given); the host has both reload: the lobby goes on at epoch 1 with the
+    /// rejoiner in its seat, the lockstep holds until each side's game took the room (`go`), and the new sessions
+    /// run in step on the new connection. Then the host gives the seat to the computer while the guest is still
+    /// connected: it is reloaded without it, asks for it back at once, and gets it with one more reload.
+    #[test]
+    fn a_restarted_guest_rejoins_by_token_and_both_reload() {
+        use crate::lockstep::{Pad, Session, IDLE};
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(3).await.unwrap();
+            let h = Handle::current();
+            let (hs, hrx) = catch();
+            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"), hs);
+            let held = Arc::new(std::sync::atomic::AtomicU32::new(0));
+            let hh = held.clone();
+            host.set_hooks(Arc::new(move || {
+                hh.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }), Arc::new(|_| Some(5000)));
+            let s = until(&host, "host open", |s| s.state == Phase::Open && !s.code.is_empty()).await;
+            let code = s.code.clone();
+            let (as_, arx) = catch();
+            let a = Lobby::join(&h, bind(&net), setup("a", "GMPE01-00"), &code, as_);
+            until(&a, "a seated", |s| s.state == Phase::Open).await;
+            assert!(a.ready(true));
+            until(&host, "a ready", |s| s.room.as_ref().unwrap().all_ready()).await;
+            host.start(9).unwrap();
+            until(&a, "a started", |s| s.state == Phase::Started).await;
+            let got = |rx: &std::sync::mpsc::Receiver<(Config, Wire)>| rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            let (hc, hw) = got(&hrx);
+            let (ac, aw) = got(&arx);
+            let pad = |p: usize, f: u32| Pad { button: 1 << p, stick_x: (f % 100) as i8, ..IDLE };
+            let mut peers = vec![Session::new(hc, hw), Session::new(ac, aw)];
+            let runs = run_lockstep(&mut peers, 60, pad).await;
+            assert_eq!(runs[0][..60], runs[1][..60]);
+            // the token came, privately
+            for _ in 0..500 {
+                if !lock(&a.shared).token.is_empty() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            let token = lock(&a.shared).token.clone();
+            assert_eq!(token.len(), 32);
+            let st = host.status();
+            assert!(st.running && st.host && st.waiting.len() == 1 && st.message == "Waiting for a", "{st:?}");
+
+            // the guest's app is gone; a new one rejoins with the record
+            let old_me = a.snapshot().me;
+            a.leave();
+            drop(peers);
+            let r = Rejoin { code: code.clone(), id: "m1".into(), token, at: 0 };
+            let (a2s, a2rx) = catch();
+            let a2 = Lobby::rejoin(&h, bind(&net), setup("a", "GMPE01-00"), r, a2s);
+            let g = until(&a2, "a2 reloaded", |s| s.state == Phase::Started && s.room.is_some()).await;
+            assert_ne!(g.me, old_me);
+            assert_eq!(g.seats, [1], "its seat back");
+            assert_eq!(a2.epoch(), 1);
+            until(&host, "host reloaded", |s| s.room.as_ref().unwrap().seats[1].as_ref().unwrap().peer == g.me).await;
+            assert_eq!(host.epoch(), 1);
+            assert!(host.status().reloading && a2.status().reloading);
+            assert!(held.load(std::sync::atomic::Ordering::SeqCst) >= 1, "the host's game was held");
+            // nothing runs before the game took the room
+            assert!(hrx.recv_timeout(Duration::from_millis(200)).is_err());
+            assert!(!host.go(0), "not the current epoch");
+            assert!(host.go(1) && a2.go(1));
+            let (hc, hw) = got(&hrx);
+            let (ac, aw) = got(&a2rx);
+            assert_eq!((hc.me, hc.peers, ac.me, ac.peers), (0, 2, 1, 2));
+            let mut peers = vec![Session::new(hc, hw), Session::new(ac, aw)];
+            let runs = run_lockstep(&mut peers, 60, pad).await;
+            assert_eq!(runs[0][..60], runs[1][..60], "the reloaded sessions run in step");
+            let d = peers[0].delay() as usize;
+            assert_eq!(runs[0][d + 1], [pad(0, d as u32 + 1), pad(1, d as u32 + 1), IDLE, IDLE]);
+
+            // the computer stands in for the guest, which is still there: it gets the seat back at once
+            assert!(host.stand_in(1));
+            assert_eq!(host.epoch(), 2);
+            until(&host, "seat back", |s| host.epoch() == 3 && s.room.as_ref().unwrap().seats[1].as_ref().unwrap().peer == g.me).await;
+            let s = host.snapshot().room.unwrap();
+            assert!(!s.seats[1].as_ref().unwrap().cpu && s.seats[1].as_ref().unwrap().name == "a");
+            until(&a2, "a2 at epoch 3", |_| a2.epoch() == 3).await;
+            assert!(!host.stand_in(0), "never the host");
+            host.leave();
+            let st = until(&a2, "host left", |_| a2.status().host_left).await;
+            let _ = st;
+            assert_eq!(a2.status().message, recover::HOST_LEFT);
+            a2.leave();
         });
     }
 
