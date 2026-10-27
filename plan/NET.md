@@ -63,6 +63,10 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
   hold 2/4/8/16 s first (`desync::Resync::delay`, `pbnet_resync_poll`). "Resyncing with <host>..." toast. Debug:
   `--desync-at <frame>`. Whole-state transfer was spiked and is not possible yet. Findings:
   `research/journal/2026-10-27-n46-desync-resync`.
+- Autosave every turn (N47): the turn hook also writes the online save (`netplay_checkpoint`) on every peer, so
+  Continue resumes the last player's turn; offline parties write `<user dir>/local/party.json`
+  (`src/port/netplay_autosave.c`), offered by mentDll's own party Continue and deleted at the party's results. The turn
+  hooks' guard is `netplay_turn_hooks()` (netplay or a party). Findings: `research/journal/2026-10-27-n47-autosave-every-turn`.
 - UI: RmlUi documents in `src/port/ui/`, config in `src/port/config.cpp`, user dir from SDL pref path.
 
 ## Rules
