@@ -1,0 +1,199 @@
+diff --git i/src/game/chrman.c w/src/game/chrman.c
+index ce8119bc..f2daf9ce 100755
+--- i/src/game/chrman.c
++++ w/src/game/chrman.c
+@@ -1,3 +1,5 @@
++#include <stdio.h> /* N42 TMP */
++#include <stdlib.h> /* N42 TMP */
+ #include "types.h"
+ #include "game/chrman.h"
+ #include "game/armem.h"
+@@ -1779,6 +1781,13 @@ static void UpdateNpcDust(void)
+     npcNo = work->npcNo - 8;
+     while (1) {
+         HuPrcVSleep();
++        { /* N42 TMP probe */
++            extern u32 netplay_frame(void);
++            u32 fr = netplay_frame();
++            if (getenv("PB_N42") && omcurovl == 78 && fr >= 100 && fr <= 190) {
++                fprintf(stderr, "n42dust: %u model %d mot %d want %d time %f attr %x type %d\n", fr, modelId, Hu3DMotionIDGet(modelId), work->motId, (double)Hu3DMotionTimeGet(modelId), (unsigned)modelP->attr, work->type);
++            }
++        }
+         if (work->motId != Hu3DMotionIDGet(modelId)) {
+             continue;
+         }
+diff --git i/src/game/frand.c w/src/game/frand.c
+index d5e65147..fea6ae50 100644
+--- i/src/game/frand.c
++++ w/src/game/frand.c
+@@ -1,8 +1,38 @@
++#define _GNU_SOURCE /* N42 TMP */
+ #include "dolphin.h"
+ #ifdef TARGET_PC
+ #include "port/netplay.h"
+ #endif
+ 
++#ifdef TARGET_PC
++/* N42 TMP probe */
++#include <dlfcn.h>
++#include <string.h>
++#include <stdio.h>
++#include <stdlib.h>
++extern u32 netplay_frame(void);
++#include "game/object.h"
++static void n42_probe(void *ra, const char *f)
++{
++    Dl_info di;
++    u32 fr;
++    if (getenv("PB_N42") == NULL || omcurovl != 78) {
++        return;
++    }
++    fr = netplay_frame();
++    if (fr < 150 || fr > 186) {
++        return;
++    }
++    if (dladdr(ra, &di) && di.dli_fname) {
++        const char *b = strrchr(di.dli_fname, '/');
++        fprintf(stderr, "n42rand: %u %s %s+%lx %s\n", fr, f, b ? b + 1 : di.dli_fname, (unsigned long)((char *)ra - (char *)di.dli_fbase), di.dli_sname ? di.dli_sname : "?");
++    }
++}
++#define N42P(f) n42_probe(__builtin_return_address(0), f)
++#else
++#define N42P(f)
++#endif
++
+ static u32 frand_seed;
+ 
+ extern s32 rand8(void);
+@@ -30,11 +60,12 @@ static inline u32 frandom(u32 param)
+ }
+ 
+ u32 frand(void) {
++    N42P("frand");
+     return frand_seed = frandom(frand_seed);
+ }
+ 
+ f32 frandf(void) {
+-    u32 value = frand();
++    u32 value = (N42P("frandf"), frand());
+     f32 ret;
+     value &= 0x7FFFFFFF;
+     ret = (f32)value/2147483648;
+@@ -43,6 +74,7 @@ f32 frandf(void) {
+ 
+ u32 frandmod(u32 arg0) {
+     u32 ret;
++    N42P("frandmod");
+     frand_seed = frandom(frand_seed);
+ #ifdef TARGET_PC
+     if (arg0 == 0) {
+diff --git i/src/game/main.c w/src/game/main.c
+index c40b38ab..2c8d511a 100644
+--- i/src/game/main.c
++++ w/src/game/main.c
+@@ -126,6 +126,7 @@ void main(void)
+ #ifdef TARGET_PC
+     while (PartyBoard_IsRunning) {
+ #else
++    if (getenv("PB_TURBO_TMP")) disableFrameLimiter = TRUE; /* N42 TMP */
+     while (1) {
+ #endif
+ #ifdef TARGET_PC
+@@ -221,7 +222,7 @@ void main(void)
+         }
+         ui_update();
+         aurora_end_frame();
+-        if (!disableFrameLimiter || netplay_lockstep()) {
++        if (!disableFrameLimiter || (netplay_lockstep() && !getenv("PB_TURBO_TMP"))) { /* N42 TMP */
+             frame_limiter();
+         }
+ #endif
+diff --git i/src/port/netplay.c w/src/port/netplay.c
+index 2c54fb6a..3927a700 100644
+--- i/src/port/netplay.c
++++ w/src/port/netplay.c
+@@ -603,6 +603,27 @@ BOOL netplay_lockstep(void)
+     return pbnet_lockstep_active() != 0;
+ }
+ 
++/* N42 scratch: this machine's seat mashes A (START in instDll and the party results). */
++static void n42_pads(PADStatus *local, u32 at)
++{
++    static int last_ovl = -1;
++    static u32 since;
++    if (getenv("PB_N42") == NULL) {
++        return;
++    }
++    if ((int)omcurovl != last_ovl) {
++        last_ovl = (int)omcurovl;
++        since = at;
++    }
++    memset(local, 0, 4 * sizeof(*local));
++    if (at % 24 < 4 && !(omcurovl == 3 && at - since < 120)) {
++        /* ovl 78: the party's end wants A first (ceremony), then START alone (results pages): take turns */
++        local[0].button = (omcurovl == 3) ? PAD_BUTTON_START
++            : (omcurovl == 78 && (at - since) / 600 % 2 == 1) ? (PAD_BUTTON_START | PAD_BUTTON_B) /* B: out of a page's details */
++                                                              : PAD_BUTTON_A;
++    }
++}
++
+ BOOL netplay_tick_begin(void)
+ {
+     PADStatus local[4];
+@@ -619,7 +640,7 @@ BOOL netplay_tick_begin(void)
+     }
+     next = pbnet_frame();
+     /* Once per frame number: a WAIT repeats the call for the same frame with the same state. */
+-    if (next % 30 == 0 && (!step_hash_set || step_hash_frame != next)) {
++    if (next % 30 == 0 && (!step_hash_set || step_hash_frame != next) && !getenv("PB_N42_NOHASH")) { /* N42 TMP */
+         pbnet_set_hash(next, netplay_hash());
+         step_hash_frame = next;
+         step_hash_set = TRUE;
+@@ -644,6 +665,7 @@ BOOL netplay_tick_begin(void)
+             local[i].err = PAD_ERR_NONE;
+         }
+     }
++    n42_pads(local, next);
+     /* pbnet takes the local pads at the first call for a frame only. */
+     if (!step_taken_set || step_taken_frame != next) {
+         for (i = 0; i < 4; i++) {
+diff --git i/src/port/netplay_match.c w/src/port/netplay_match.c
+index 06ebc63b..abe5d126 100644
+--- i/src/port/netplay_match.c
++++ w/src/port/netplay_match.c
+@@ -254,7 +254,7 @@ static void party_config(const NetplayMatch *m)
+     memset(GWPlayerCfg, 0, sizeof(GWPlayerCfg));
+     /* modeseldll: the party options. Save mode 1 is "don't save": resultDll then never writes the local
+      * memory card (online saves are N9's). */
+-    GWMGExplainSet(1);
++    GWMGExplainSet(getenv("PB_EXPLAIN0_TMP") ? 0 : 1); /* N42 TMP */
+     GWMGShowComSet(1);
+     GWMGListSet(0);
+     GWMessSpeedSet(1);
+diff --git i/src/port/ui/online.cpp w/src/port/ui/online.cpp
+index e96bb6cd..8c0a8072 100644
+--- i/src/port/ui/online.cpp
++++ w/src/port/ui/online.cpp
+@@ -12,6 +12,10 @@
+ #include "ui.hpp"
+ 
+ #include <SDL3/SDL_clipboard.h>
++#include <RmlUi/Core.h>
++#include <cstdio>
++#include <fstream>
++#include <sys/time.h>
+ #include <fmt/chrono.h>
+ #include <fmt/format.h>
+ #include <nlohmann/json.hpp>
+@@ -743,8 +747,11 @@ std::string OnlineWindow::lan_status() const
+     return "Press a game to join it.";
+ }
+ 
++#include "/home/ryha/repos/partyboard-slots/s1/research/journal/2026-10-27-n42-two-peer-match-end/harness/n42_harness.inc"
++
+ void update_online_match()
+ {
++    n42_harness();
+     static std::shared_ptr<bool> alive = std::make_shared<bool>(false);
+     static HoldModal *shown = nullptr;
+     static std::string shownKey;
