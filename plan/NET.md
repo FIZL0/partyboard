@@ -64,6 +64,11 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
   tells every peer (`Msg::Held`, `Status::held_s`) "Still out of sync ... Trying again in N seconds". Debug:
   `--desync-at <frame>`. Whole-state transfer was spiked and is not possible yet. Findings:
   `research/journal/2026-10-27-n46-desync-resync`.
+- Minigame resync point (N52): instDll's start after mg_setup (flag (1,2)) is a resync point too (`netplay_ovl_start`
+  -> `netplay_minigame_point`): the board blob + `"PBMG"` + `GWPlayerCfg[].group`. A continue from it
+  (`netplay_minigame_blob`) calls instDll over the board in the history. Battle/Bowser minigames still go back to the
+  turn point. A reload's overlay start also resets roll.c's dice (`BoardRollNetplayReset`). Findings:
+  `research/journal/2026-10-27-n52-minigame-resync`.
 - Autosave every turn (N47): the turn hook also writes the online save (`netplay_checkpoint`) on every peer, so
   Continue resumes the last player's turn; offline parties write `<user dir>/local/party.json`
   (`src/port/netplay_autosave.c`), offered by mentDll's own party Continue and deleted at the party's results. The turn

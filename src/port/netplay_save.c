@@ -87,6 +87,19 @@ s32 netplay_board_blob_board(const u8 *blob, u32 size)
     return board;
 }
 
+/* N52: a minigame's resync point (netplay_resync.c): the board blob, NETPLAY_MG_MARK and the four groups. */
+u32 netplay_minigame_blob(const u8 *blob, u32 size, u8 groups[4])
+{
+    u32 board = netplay_board_blob_size();
+
+    if (blob == NULL || size != board + NETPLAY_MG_TRAILER_SIZE
+        || memcmp(&blob[board], NETPLAY_MG_MARK, NETPLAY_MG_MARK_SIZE) != 0) {
+        return 0;
+    }
+    memcpy(groups, &blob[board + NETPLAY_MG_MARK_SIZE], 4);
+    return board;
+}
+
 void netplay_checkpoint(void)
 {
     static char room[2048];
