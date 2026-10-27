@@ -411,6 +411,10 @@ extern "C" int port_main(int argc, char* argv[]) {
         config.appName = "Party Board";
         config.userPath = reinterpret_cast<const char*>(configPathString.c_str());
         config.vsync = partyboard::getSettings().video.enableVsync;
+        if (netplay_debug_turbo_arg(argc, argv)) {
+            // --turbo: a hidden window blocks on present with vsync (~10 fps); this run only, not saved
+            config.vsync = false;
+        }
         config.startFullscreen = partyboard::getSettings().video.enableFullscreen;
         config.windowPosX = -1;
         config.windowPosY = -1;

@@ -85,6 +85,14 @@ u64 netplay_hash(void);
 BOOL netplay_debug_init(int argc, char *argv[]);
 /* True if --script was given (the prelaunch UI is skipped so runs need no clicks). */
 BOOL netplay_debug_scripted(void);
+/*
+ * `--turbo` (with --script, N50): the run skips the 60 Hz frame limiter, like holding the TAB turbo key, so
+ * scripted checks run as fast as the machine goes. True only for a --script run outside lockstep (a lockstep
+ * session keeps the pace its peers share); without --script the flag is ignored (and logged).
+ */
+BOOL netplay_debug_turbo(void);
+/* Before netplay_debug_init: argv has --turbo and --script, so the window opens without vsync (portmain). */
+BOOL netplay_debug_turbo_arg(int argc, char *argv[]);
 
 /*
  * Match start (src/port/netplay_match.c). The lobby's Room as the game needs it; N20/N7 fill it from the

@@ -9,6 +9,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 SystemState GWSystem; PlayerState GWPlayer[4]; PlayerConfig GWPlayerCfg[4];
 u16 HuPadBtn[4], HuPadBtnDown[4], HuPadBtnRep[4]; s8 HuPadStkX[4], HuPadStkY[4], HuPadSubStkX[4], HuPadSubStkY[4];
@@ -267,6 +269,31 @@ static void match_left_checks(void)
     lobby_state = PBNET_LOBBY_NONE;
 }
 
+/* N50: --turbo skips the frame limiter only for a --script run, and never under lockstep. */
+static void turbo_checks(void)
+{
+    char path[] = "/tmp/pb-turbo-XXXXXX";
+    char *bare[] = {"pb", "--turbo"};
+    char *noflag[] = {"pb", "--script", path};
+    char *both[] = {"pb", "--turbo", "--script", path};
+    char *scriptarg[] = {"pb", "--script", "--turbo"};
+    int fd = mkstemp(path);
+    assert(fd >= 0);
+    assert(write(fd, "end 10\n", 7) == 7);
+    close(fd);
+    assert(!netplay_debug_turbo_arg(2, bare));
+    assert(!netplay_debug_turbo_arg(3, noflag));
+    assert(netplay_debug_turbo_arg(4, both));
+    assert(!netplay_debug_turbo_arg(3, scriptarg)); /* "--turbo" is the script's path there */
+    on = 0;
+    assert(netplay_debug_init(2, bare) && !netplay_debug_turbo());
+    assert(netplay_debug_init(4, both) && netplay_debug_turbo());
+    on = 1;
+    assert(!netplay_debug_turbo());
+    on = 0;
+    unlink(path);
+}
+
 int main(void)
 {
     PADStatus got[4];
@@ -322,6 +349,7 @@ int main(void)
     lobby_checks();
     match_end_checks();
     match_left_checks();
+    turbo_checks();
     puts("harness: all checks passed");
     return 0;
 }
