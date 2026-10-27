@@ -56,4 +56,7 @@ private:
 // on a guest, "Host left". Call once per loop from ui_update.
 void update_online_match();
 
+// An online match is over and its lobby open again (netplay_lobby_returned): shows the lobby.
+void open_lobby_after_match();
+
 } // namespace partyboard::ui

@@ -37,6 +37,9 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
 - Match start: `netplay_match_start` (`src/port/netplay_match.c`): canned state at the loop top before frame 0,
   a top-priority process calls the board in frame 0, free heap memory zeroed when the board overlay starts
   (`omWatchOverlayProc` hook). Findings: `research/journal/2026-10-27-n8-match-start`.
+- Match end: a menu overlay (modeseldll) starting after the board marks it over (`netplay_ovl_start`); at that frame's
+  `netplay_frame_end` `pbnet_lockstep_finish` (drains what peers still need), `netplay_end`, `pbnet_lobby_back` (room open
+  again, new match id) and the UI shows the lobby. Findings: `research/journal/2026-10-27-n25-match-end`.
 - Online saves / continue: `netplay_checkpoint` (`src/port/netplay_save.c`, hooked in `resultDll` where `SaveExec`
   would write the card) -> `pbnet_save_write` (`net/src/save.rs`) -> `<user dir>/online/<match id>.json`; continue is
   `Host::resume` (`net/src/lobby.rs`, setup `"resume"`) + `netplay_match_continue`. Findings:

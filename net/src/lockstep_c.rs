@@ -2,9 +2,9 @@
 //! that starts it ([`start`]) is Rust's (the match start, N2/N6), C only steps it.
 
 use crate::lockstep::{delay_for, Config, Pad, Session, Step, Transport};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// `pbnet_step`: run the frame.
 pub const PBNET_READY: i32 = 1;
@@ -21,6 +21,11 @@ struct Live {
 static LIVE: Mutex<Option<Live>> = Mutex::new(None);
 /// N10: a reload is being set up (`crate::recover`): every step waits until the next [`start`].
 static HELD: AtomicBool = AtomicBool::new(false);
+/// Moves on every start and stop: a finished session's drain ends when it moved.
+static EPOCH: AtomicU32 = AtomicU32::new(0);
+/// How long a finished session keeps sending what its peers lack ([`pbnet_lockstep_finish`]).
+const DRAIN_FOR: Duration = Duration::from_secs(5);
+const DRAIN_EVERY: Duration = Duration::from_millis(10);
 
 fn live() -> std::sync::MutexGuard<'static, Option<Live>> {
     LIVE.lock().unwrap_or_else(|e| e.into_inner())
@@ -28,6 +33,7 @@ fn live() -> std::sync::MutexGuard<'static, Option<Live>> {
 
 /// Starts the lockstep session on `wire` (replacing one that runs).
 pub fn start(cfg: Config, wire: Box<dyn Transport + Send>) {
+    EPOCH.fetch_add(1, Ordering::SeqCst);
     *live() = Some(Live { session: Session::new(cfg, wire), start: Instant::now() });
     HELD.store(false, Ordering::SeqCst);
 }
@@ -46,8 +52,29 @@ pub fn quiet_ms(p: u8) -> Option<u64> {
 /// Ends the lockstep session, if one runs. Safe to call any time, from any thread.
 #[no_mangle]
 pub extern "C" fn pbnet_lockstep_stop() {
+    EPOCH.fetch_add(1, Ordering::SeqCst);
     *live() = None;
     HELD.store(false, Ordering::SeqCst);
+}
+
+/// Ends the lockstep session after its last frame (every peer ends after the same frame): it no longer runs
+/// (`pbnet_lockstep_active` is 0 at once), but a background thread keeps sending the peers the pads they still lack
+/// and the acks of theirs, until every peer has this machine's pads up to its last frame, 5 s passed, or a session
+/// starts or stops. Without it a peer still behind could wait forever for pads whose datagrams were lost. Safe to
+/// call any time, from any thread; nothing happens with no session.
+#[no_mangle]
+pub extern "C" fn pbnet_lockstep_finish() {
+    let Some(mut l) = live().take() else { return };
+    let epoch = EPOCH.load(Ordering::SeqCst);
+    std::thread::spawn(move || {
+        let until = Instant::now() + DRAIN_FOR;
+        while EPOCH.load(Ordering::SeqCst) == epoch && Instant::now() < until {
+            if l.session.drain(l.start.elapsed().as_millis() as u64) {
+                return;
+            }
+            std::thread::sleep(DRAIN_EVERY);
+        }
+    });
 }
 
 /// 1 if a lockstep session runs, else 0. Safe to call any time, from any thread.
@@ -180,6 +207,11 @@ mod tests {
         assert_eq!(unsafe { pbnet_poll_desync(std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut()) }, 0);
         pbnet_lockstep_stop();
         assert_eq!(pbnet_lockstep_active(), 0);
+        start(Config { me: 0, peers: 1, seats: [NO_PEER, 0, NO_PEER, NO_PEER], delay: 2 }, Box::new(Nowhere));
+        pbnet_lockstep_finish();
+        assert_eq!(pbnet_lockstep_active(), 0);
+        assert_eq!(unsafe { pbnet_step(&a, 1, out.as_mut_ptr()) }, PBNET_OFF);
+        pbnet_lockstep_finish();
         assert_eq!(pbnet_delay_for(150), 6);
     }
 }

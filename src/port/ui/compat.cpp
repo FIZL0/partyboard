@@ -38,6 +38,10 @@ void ui_update(void)
     netplay_lobby_poll();
     // N10: a dropped peer holds the match: "Waiting for <name>", "Host left"
     partyboard::ui::update_online_match();
+    // An online match ended: every peer is back in its lobby.
+    if (netplay_lobby_returned()) {
+        partyboard::ui::open_lobby_after_match();
+    }
     partyboard::ui::update();
 }
 

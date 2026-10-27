@@ -16,8 +16,11 @@ u8 HuPadTrigL[4], HuPadTrigR[4], HuPadDStk[4], HuPadDStkRep[4]; s8 HuPadErr[4];
 OMOVL omcurovl; s32 rnd_seed; u32 boardRandSeed; BOOL PartyBoard_IsRunning = TRUE; static u32 fseed;
 u32 frandSeedGet(void) { return fseed; } void frandSeedSet(u32 s) { fseed = s; }
 /* netplay_match.c is not linked here (tools/netplay/match_test.c tests it). */
-void netplay_match_tick(void) {} void netplay_match_end(void) {} u64 netplay_heap_hash(void) { return 0; }
-void netplay_still_drop(void) {}
+static int over, match_ends, still_drops;
+void netplay_match_tick(void) {} u64 netplay_heap_hash(void) { return 0; }
+void netplay_match_end(void) { match_ends++; over = 0; }
+BOOL netplay_match_over(void) { return over; }
+void netplay_still_drop(void) { still_drops++; }
 static NetplayMatch started; static int start_calls;
 BOOL netplay_match_start(const NetplayMatch *m) { started = *m; start_calls++; return TRUE; }
 const char *netplay_match_invalid(const NetplayMatch *m) { return m->teams && m->seats[0].team == m->seats[1].team && m->seats[0].team == m->seats[2].team ? "teams" : NULL; }
@@ -59,6 +62,43 @@ static u32 epoch_now, went = 0xFFFFFFFF; static int go_calls, blob_len;
 uint32_t pbnet_recover_epoch(void) { return epoch_now; }
 int pbnet_recover_go(uint32_t e) { go_calls++; went = e; return 1; }
 int pbnet_lobby_checkpoint(uint8_t *buf, int cap) { if (buf != NULL) memset(buf, 7, (size_t)(blob_len < cap ? blob_len : cap)); return blob_len; }
+static int finish_calls, back_calls;
+void pbnet_lockstep_finish(void) { finish_calls++; on = 0; }
+int pbnet_lobby_back(void) { back_calls++; if (lobby_state != PBNET_LOBBY_STARTED) return 0; lobby_state = PBNET_LOBBY_OPEN; return 1; }
+
+/* N25: the match is over (netplay_match_over) at the end of a frame: the lockstep finishes, the session ends and the
+ * lobby goes back to open, once, at the end of that frame; the UI hears it once. */
+static void match_end_checks(void)
+{
+    u32 at;
+    netplay_begin(9);
+    on = 1;
+    lobby_state = PBNET_LOBBY_STARTED;
+    finish_calls = back_calls = match_ends = still_drops = 0;
+    netplay_frame_end();
+    assert(netplay_active() && finish_calls == 0 && !netplay_lobby_returned());
+    over = 1;
+    at = netplay_frame();
+    netplay_frame_end();
+    assert(netplay_frame() == at + 1);
+    assert(!netplay_active() && !netplay_lockstep() && finish_calls == 1 && match_ends == 1 && still_drops == 1);
+    assert(back_calls == 1 && lobby_state == PBNET_LOBBY_OPEN);
+    assert(netplay_lobby_returned() && !netplay_lobby_returned());
+    /* Back on local controllers. */
+    phys[0].button = PAD_BUTTON_START;
+    assert(netplay_tick_begin());
+    {
+        PADStatus got[4];
+        netplay_pad_read(got);
+        assert(got[0].button == PAD_BUTTON_START);
+    }
+    /* Without a lockstep (a local match with no lobby): the session ends, no lobby to go back to. */
+    netplay_begin(9);
+    lobby_state = PBNET_LOBBY_NONE;
+    over = 1;
+    netplay_frame_end();
+    assert(!netplay_active() && back_calls == 1 && !netplay_lobby_returned());
+}
 
 static char fixture[4096];
 
@@ -210,6 +250,7 @@ int main(void)
     netplay_pad_read(got);
     assert(got[0].button == PAD_BUTTON_Y);
     lobby_checks();
+    match_end_checks();
     puts("harness: all checks passed");
     return 0;
 }

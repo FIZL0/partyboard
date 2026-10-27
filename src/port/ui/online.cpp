@@ -582,6 +582,12 @@ void update_online_match()
     push_document(std::move(modal));
 }
 
+void open_lobby_after_match()
+{
+    push_toast({ .title = "Online match", .content = "The match is over. Back in the lobby.", .duration = std::chrono::seconds(3) });
+    push_document(std::make_unique<LobbyWindow>());
+}
+
 LobbyWindow::LobbyWindow()
 {
     refresh();

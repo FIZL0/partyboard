@@ -228,10 +228,26 @@ int main(void)
     netplay_ovl_start(DLL_w01dll + 2); /* once only */
     assert(freed[0] == 0xCC);
 
-    /* End: the player's own GWGameStat is back. */
-    netplay_match_end();
-    assert(!netplay_match_running());
+    /* N25: the party is over when a menu starts after the board (minigames and the results are not menus); the
+     * menu gets the player's own GWGameStat before it sets up. */
+    assert(!netplay_match_over());
+    netplay_ovl_start(DLL_m401dll);
+    netplay_ovl_start(DLL_resultdll);
+    netplay_ovl_start(DLL_w01dll + 2);
+    netplay_ovl_start(DLL_mstory3dll);
+    assert(!netplay_match_over() && GWGameStat.language == 1);
+    netplay_ovl_start(DLL_modeseldll);
+    assert(netplay_match_over() && netplay_match_running());
     assert(GWGameStat.language == 3 && GWGameStat.mg_custom[0] == 5 && GWGameStat.total_stars == 77);
+    GWGameStat.total_stars = 78; /* the menu changes it: not taken back again */
+    netplay_ovl_start(DLL_modeseldll);
+    assert(netplay_match_over());
+
+    /* End: the player's own GWGameStat stays; the match and its "over" are gone. */
+    netplay_match_end();
+    assert(!netplay_match_running() && !netplay_match_over());
+    assert(GWGameStat.language == 3 && GWGameStat.mg_custom[0] == 5 && GWGameStat.total_stars == 78);
+    GWGameStat.total_stars = 77;
 
     /* Teams and Bowser's board: groups from the seats, black wipe. A --script run keeps its session. */
     m.teams = 1;
@@ -244,6 +260,9 @@ int main(void)
     for (i = 0; i < 4; i++) {
         assert(GWPlayerCfg[i].group == i % 2);
     }
+    /* A menu before the board started (the match start itself leaves one) is not the end. */
+    netplay_ovl_start(DLL_modeseldll);
+    assert(!netplay_match_over());
     netplay_match_end();
     assert(GWGameStat.language == 3);
 
