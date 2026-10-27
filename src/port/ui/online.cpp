@@ -342,7 +342,7 @@ OnlineWindow::OnlineWindow()
             left.add_section("Your Match");
             help(left, right, left.add_button("Rejoin Match").on_pressed([this] { rejoin(); }),
                 fmt::format("Go back to the online match <b>{}</b> you were playing. Everyone goes back to its last "
-                            "save point (after the last minigame) and plays on from there.",
+                            "save point (the start of the last turn) and plays on from there.",
                     escape(match)));
             help(left, right, left.add_button("Forget Match").on_pressed([] {
                 pbnet_rejoin_forget();
@@ -443,7 +443,7 @@ OnlineWindow::OnlineWindow()
         left.add_section("Saved Online Matches");
         const auto saves = load_saves();
         if (saves.empty()) {
-            left.add_text("No saved online matches. A match is saved after every minigame.");
+            left.add_text("No saved online matches. A match is saved at every player's turn.");
         }
         for (const auto &save : saves) {
             const Rml::String date = local_date(save.time);
@@ -599,7 +599,7 @@ void OnlineWindow::pick_save(const SaveInfo &save)
     push(std::make_unique<Modal>(Modal::Props {
         .title = title,
         .bodyRml = "Host this saved match again? You get a code to send to the others; it goes on from the last "
-                   "minigame.",
+                   "player's turn.",
         .actions = std::move(actions),
         .onDismiss = [](Modal &modal) { modal.pop(); },
         .icon = "question-mark",
