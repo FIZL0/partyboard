@@ -164,6 +164,19 @@ const char *netplay_user_dir(void);
 /* The Room JSON for a save when no lobby runs (a --match debug run): from the match, id "local-<seed>". */
 int netplay_match_room_json(char *buf, int cap);
 
+/*
+ * Lobby to match (src/port/netplay.c). netplay_match_from_lobby reads a started lobby's JSON (pbnet_lobby_json)
+ * into `m`: NULL if it is a playable match, else why not (static string). local_seats (may be NULL) gets bit i
+ * set for each seat this machine plays (pbnet feeds them local pads 0, 1, ... in seat order).
+ */
+const char *netplay_match_from_lobby(const char *json, NetplayMatch *m, u8 *local_seats);
+/*
+ * Call once per loop on the game thread, outside the game tick (ui_update does): once the lobby reaches
+ * PBNET_LOBBY_STARTED, starts its match (netplay_match_start), once per started lobby. A started lobby whose
+ * room is not a playable match is left (pbnet_lobby_leave), so the other peers do not wait on this one.
+ */
+void netplay_lobby_poll(void);
+
 /* Seed accessors for the hash and session start (frand_seed is static in src/game/frand.c). */
 u32 frandSeedGet(void);
 void frandSeedSet(u32 seed);

@@ -604,6 +604,483 @@ u32 netplay_pad_read(PADStatus *status)
     return local_pad_read(status);
 }
 
+/*
+ * Lobby to match. The lobby's JSON (serde_json from net/src/lobby_c.rs) is read with a small reader that knows
+ * only what that JSON holds: objects, arrays, strings, unsigned integers, true/false/null. The seed is a full
+ * u64, which a double-based JSON reader would round.
+ */
+
+typedef struct {
+    const char *p;
+    BOOL ok;
+} JsonIn;
+
+#define JSON_DEPTH_MAX 16
+
+static void json_ws(JsonIn *j)
+{
+    while (*j->p == ' ' || *j->p == '\t' || *j->p == '\n' || *j->p == '\r') {
+        j->p++;
+    }
+}
+
+/* Eats `c` (after white space) if it is next. */
+static BOOL json_eat(JsonIn *j, char c)
+{
+    json_ws(j);
+    if (*j->p == c) {
+        j->p++;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL json_fail(JsonIn *j)
+{
+    j->ok = FALSE;
+    return FALSE;
+}
+
+/* A string into out (cut to cap-1 bytes; escapes other than \" and \\ kept as the escaped char or '?'). */
+static BOOL json_string(JsonIn *j, char *out, size_t cap)
+{
+    size_t n = 0;
+    char c;
+
+    if (!json_eat(j, '"')) {
+        return json_fail(j);
+    }
+    while ((c = *j->p) != '"') {
+        if (c == '\0') {
+            return json_fail(j);
+        }
+        j->p++;
+        if (c == '\\') {
+            c = *j->p;
+            if (c == '\0') {
+                return json_fail(j);
+            }
+            j->p++;
+            if (c == 'u') {
+                if (strspn(j->p, "0123456789abcdefABCDEF") < 4) {
+                    return json_fail(j);
+                }
+                j->p += 4;
+                c = '?';
+            }
+        }
+        if (n + 1 < cap) {
+            out[n++] = c;
+        }
+    }
+    j->p++;
+    if (cap > 0) {
+        out[n] = '\0';
+    }
+    return TRUE;
+}
+
+static BOOL json_u64(JsonIn *j, u64 *out)
+{
+    u64 v = 0;
+    json_ws(j);
+    if (!isdigit((unsigned char)*j->p)) {
+        return json_fail(j);
+    }
+    while (isdigit((unsigned char)*j->p)) {
+        u32 d = (u32)(*j->p++ - '0');
+        if (v > (0xFFFFFFFFFFFFFFFFULL - d) / 10) {
+            return json_fail(j);
+        }
+        v = v * 10 + d;
+    }
+    if (*j->p == '.' || *j->p == 'e' || *j->p == 'E') {
+        return json_fail(j);
+    }
+    *out = v;
+    return TRUE;
+}
+
+/* An integer in lo..hi. */
+static BOOL json_u8(JsonIn *j, u8 lo, u8 hi, u8 *out)
+{
+    u64 v;
+    if (!json_u64(j, &v) || v < lo || v > hi) {
+        return json_fail(j);
+    }
+    *out = (u8)v;
+    return TRUE;
+}
+
+static BOOL json_word(JsonIn *j, const char *word)
+{
+    size_t n = strlen(word);
+    json_ws(j);
+    if (strncmp(j->p, word, n) != 0) {
+        return FALSE;
+    }
+    j->p += n;
+    return TRUE;
+}
+
+static BOOL json_bool(JsonIn *j, u8 *out)
+{
+    if (json_word(j, "true")) {
+        *out = 1;
+    } else if (json_word(j, "false")) {
+        *out = 0;
+    } else {
+        return json_fail(j);
+    }
+    return TRUE;
+}
+
+static BOOL json_skip(JsonIn *j, int depth)
+{
+    char key[2];
+    json_ws(j);
+    if (depth > JSON_DEPTH_MAX) {
+        return json_fail(j);
+    }
+    switch (*j->p) {
+        case '"':
+            return json_string(j, key, sizeof(key));
+        case '{':
+            j->p++;
+            if (json_eat(j, '}')) {
+                return TRUE;
+            }
+            do {
+                if (!json_string(j, key, sizeof(key)) || !json_eat(j, ':') || !json_skip(j, depth + 1)) {
+                    return json_fail(j);
+                }
+            } while (json_eat(j, ','));
+            return json_eat(j, '}') || json_fail(j);
+        case '[':
+            j->p++;
+            if (json_eat(j, ']')) {
+                return TRUE;
+            }
+            do {
+                if (!json_skip(j, depth + 1)) {
+                    return FALSE;
+                }
+            } while (json_eat(j, ','));
+            return json_eat(j, ']') || json_fail(j);
+        case '-':
+            j->p++;
+            /* fall through */
+        default:
+            if (isdigit((unsigned char)*j->p)) {
+                while (isdigit((unsigned char)*j->p) || strchr(".eE+-", *j->p) != NULL) {
+                    j->p++;
+                }
+                return TRUE;
+            }
+            if (json_word(j, "true") || json_word(j, "false") || json_word(j, "null")) {
+                return TRUE;
+            }
+            return json_fail(j);
+    }
+}
+
+/*
+ * Walks an object: for each member, `member(j, key, user)` reads its value and returns TRUE, or returns FALSE to
+ * have it skipped. FALSE if the object is malformed or a member's reader failed (j->ok).
+ */
+static BOOL json_object(JsonIn *j, BOOL (*member)(JsonIn *j, const char *key, void *user), void *user)
+{
+    char key[32];
+    if (!json_eat(j, '{')) {
+        return json_fail(j);
+    }
+    if (json_eat(j, '}')) {
+        return TRUE;
+    }
+    do {
+        if (!json_string(j, key, sizeof(key)) || !json_eat(j, ':')) {
+            return json_fail(j);
+        }
+        if (!member(j, key, user) && (!j->ok || !json_skip(j, 1))) {
+            return json_fail(j);
+        }
+        if (!j->ok) {
+            return FALSE;
+        }
+    } while (json_eat(j, ','));
+    return json_eat(j, '}') || json_fail(j);
+}
+
+/* Fields a started room must have, as bits of LobbyRoom.seen. */
+enum {
+    ROOM_BOARD = 1 << 0,
+    ROOM_TURNS = 1 << 1,
+    ROOM_BONUS = 1 << 2,
+    ROOM_TEAMS = 1 << 3,
+    ROOM_HANDICAPS = 1 << 4,
+    ROOM_SEED = 1 << 5,
+    ROOM_SEATS = 1 << 6,
+    ROOM_STARTED = 1 << 7,
+    ROOM_ALL = (1 << 8) - 1,
+};
+
+enum {
+    SEAT_CHARACTER = 1 << 0,
+    SEAT_CPU = 1 << 1,
+    SEAT_DIFFICULTY = 1 << 2,
+    SEAT_TEAM = 1 << 3,
+    SEAT_ALL = (1 << 4) - 1,
+};
+
+typedef struct {
+    NetplayMatch *m;
+    u32 seen;
+    u8 started;
+    const char *why;
+} LobbyRoom;
+
+typedef struct {
+    NetplaySeat *seat;
+    u32 seen;
+} LobbySeat;
+
+typedef struct {
+    LobbyRoom room;
+    BOOL has_room;
+    char state[16];
+    u8 local_seats;
+} LobbyTop;
+
+static BOOL lobby_seat_member(JsonIn *j, const char *key, void *user)
+{
+    LobbySeat *s = user;
+    if (strcmp(key, "character") == 0) {
+        json_u8(j, 0, 7, &s->seat->character);
+        s->seen |= SEAT_CHARACTER;
+    } else if (strcmp(key, "cpu") == 0) {
+        json_bool(j, &s->seat->cpu);
+        s->seen |= SEAT_CPU;
+    } else if (strcmp(key, "difficulty") == 0) {
+        json_u8(j, 0, 3, &s->seat->difficulty);
+        s->seen |= SEAT_DIFFICULTY;
+    } else if (strcmp(key, "team") == 0) {
+        json_u8(j, 0, 1, &s->seat->team);
+        s->seen |= SEAT_TEAM;
+    } else {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL lobby_room_member(JsonIn *j, const char *key, void *user)
+{
+    LobbyRoom *r = user;
+    NetplayMatch *m = r->m;
+    s32 i;
+
+    if (strcmp(key, "board") == 0) {
+        json_u8(j, 0, NETPLAY_BOARDS - 1, &m->board);
+        r->seen |= ROOM_BOARD;
+    } else if (strcmp(key, "turns") == 0) {
+        json_u8(j, 10, 50, &m->turns);
+        r->seen |= ROOM_TURNS;
+    } else if (strcmp(key, "bonus") == 0) {
+        json_bool(j, &m->bonus);
+        r->seen |= ROOM_BONUS;
+    } else if (strcmp(key, "teams") == 0) {
+        json_bool(j, &m->teams);
+        r->seen |= ROOM_TEAMS;
+    } else if (strcmp(key, "seed") == 0) {
+        json_u64(j, &m->seed);
+        r->seen |= ROOM_SEED;
+    } else if (strcmp(key, "started") == 0) {
+        json_bool(j, &r->started);
+        r->seen |= ROOM_STARTED;
+    } else if (strcmp(key, "handicaps") == 0) {
+        if (!json_eat(j, '[')) {
+            return json_fail(j);
+        }
+        for (i = 0; i < 4; i++) {
+            if ((i > 0 && !json_eat(j, ',')) || !json_u8(j, 0, 9, &m->seats[i].handicap)) {
+                return json_fail(j);
+            }
+        }
+        if (!json_eat(j, ']')) {
+            return json_fail(j);
+        }
+        r->seen |= ROOM_HANDICAPS;
+    } else if (strcmp(key, "seats") == 0) {
+        if (!json_eat(j, '[')) {
+            return json_fail(j);
+        }
+        for (i = 0; i < 4; i++) {
+            LobbySeat s;
+            NetplaySeat seat;
+            if (i > 0 && !json_eat(j, ',')) {
+                return json_fail(j);
+            }
+            if (json_word(j, "null")) {
+                /* Open seats become CPUs at the start: a started room has none. */
+                r->why = "the room has an open seat";
+                continue;
+            }
+            s.seat = &seat;
+            s.seen = 0;
+            if (!json_object(j, lobby_seat_member, &s)) {
+                return FALSE;
+            }
+            if (s.seen != SEAT_ALL) {
+                r->why = "a seat is missing a field";
+                continue;
+            }
+            /* The handicap comes from the room's handicaps (either order). */
+            seat.handicap = m->seats[i].handicap;
+            m->seats[i] = seat;
+        }
+        if (!json_eat(j, ']')) {
+            return json_fail(j);
+        }
+        r->seen |= ROOM_SEATS;
+    } else {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL lobby_top_member(JsonIn *j, const char *key, void *user)
+{
+    LobbyTop *t = user;
+    u8 seat;
+
+    if (strcmp(key, "state") == 0) {
+        json_string(j, t->state, sizeof(t->state));
+    } else if (strcmp(key, "seats") == 0) {
+        if (!json_eat(j, '[')) {
+            return json_fail(j);
+        }
+        if (json_eat(j, ']')) {
+            return TRUE;
+        }
+        do {
+            if (!json_u8(j, 0, 3, &seat)) {
+                return FALSE;
+            }
+            t->local_seats |= (u8)(1u << seat);
+        } while (json_eat(j, ','));
+        if (!json_eat(j, ']')) {
+            return json_fail(j);
+        }
+    } else if (strcmp(key, "room") == 0) {
+        if (json_word(j, "null")) {
+            return TRUE;
+        }
+        t->has_room = TRUE;
+        json_object(j, lobby_room_member, &t->room);
+    } else {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+const char *netplay_match_from_lobby(const char *json, NetplayMatch *m, u8 *local_seats)
+{
+    JsonIn j;
+    LobbyTop t;
+    NetplayMatch out;
+
+    memset(&out, 0, sizeof(out));
+    memset(&t, 0, sizeof(t));
+    t.room.m = &out;
+    j.p = json;
+    j.ok = TRUE;
+    if (json == NULL || !json_object(&j, lobby_top_member, &t) || !j.ok) {
+        return "the lobby's JSON cannot be read";
+    }
+    json_ws(&j);
+    if (*j.p != '\0') {
+        return "the lobby's JSON cannot be read";
+    }
+    if (strcmp(t.state, "started") != 0) {
+        return "the lobby has not started";
+    }
+    if (!t.has_room || t.room.seen != ROOM_ALL) {
+        return "the room is missing a field";
+    }
+    if (!t.room.started) {
+        return "the room has not started";
+    }
+    if (t.room.why != NULL) {
+        return t.room.why;
+    }
+    if (t.local_seats == 0) {
+        return "this machine has no seat";
+    }
+    {
+        const char *why = netplay_match_invalid(&out);
+        if (why != NULL) {
+            return why;
+        }
+    }
+    *m = out;
+    if (local_seats != NULL) {
+        *local_seats = t.local_seats;
+    }
+    return NULL;
+}
+
+/* The started lobby whose match netplay_lobby_poll started (or gave up on); cleared when it is no longer started. */
+static BOOL lobby_handled;
+
+void netplay_lobby_poll(void)
+{
+    NetplayMatch m;
+    const char *why;
+    char *json;
+    int len, cap = 0;
+    u8 local = 0;
+    s32 i;
+
+    if (pbnet_lobby_state() != PBNET_LOBBY_STARTED) {
+        lobby_handled = FALSE;
+        return;
+    }
+    if (lobby_handled) {
+        return;
+    }
+    lobby_handled = TRUE;
+    len = pbnet_lobby_json(NULL, 0);
+    json = NULL;
+    /* The JSON may grow between the calls (gen moves): retry with the new length. */
+    for (i = 0; i < 4 && len >= 0; i++) {
+        char *grown;
+        cap = len + 1;
+        grown = realloc(json, (size_t)cap);
+        if (grown == NULL) {
+            break;
+        }
+        json = grown;
+        len = pbnet_lobby_json(json, cap);
+        if (len < cap) {
+            break;
+        }
+    }
+    why = json != NULL && len >= 0 && len < cap ? netplay_match_from_lobby(json, &m, &local)
+                                                 : "the lobby's JSON cannot be read";
+    free(json);
+    if (why == NULL) {
+        OSReport("netplay: lobby started: seed %016llX, this machine plays seats%s%s%s%s\n",
+            (unsigned long long)m.seed, (local & 1) ? " 1P" : "", (local & 2) ? " 2P" : "", (local & 4) ? " 3P" : "",
+            (local & 8) ? " 4P" : "");
+        if (netplay_match_start(&m)) {
+            return;
+        }
+        why = "netplay_match_start refused it";
+    }
+    /* Every other peer waits on this one's pads from frame 0: leave so the lobby says why instead. */
+    OSReport("netplay: cannot play the started lobby: %s; leaving it\n", why);
+    pbnet_lobby_leave();
+}
+
 #ifdef PB_NETPLAY_WRAP
 /*
  * Linker wraps or preprocessor renames (cmake/netplay.cmake): every OSGetTime/OSGetTick/PADRead call in

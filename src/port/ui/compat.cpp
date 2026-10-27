@@ -1,5 +1,6 @@
 // Credits: TwilitRealm
 
+#include "port/netplay.h"
 #include "port/ui.h"
 
 #include <chrono>
@@ -32,6 +33,8 @@ void ui_handle_sdl_event(const SDL_Event *event)
 
 void ui_update(void)
 {
+    // A started online lobby's match begins here, between game ticks (src/port/netplay.c).
+    netplay_lobby_poll();
     partyboard::ui::update();
 }
 
