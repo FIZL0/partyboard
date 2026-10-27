@@ -86,3 +86,29 @@
 - Offline play unchanged: covered by code reading only. Every hook is behind `netplay_active()`,
   which is false unless `--script`/`--hash-log` is passed, and the wraps then call `__real_*`. Not run
   in-game (no disc).
+
+## Reopened after N15: the run check, done
+
+N15 ran the check with the GMPE01 Rev 1 image (`$PB_DISC`) and tuned `mash-a.script`; see
+research/journal/2026-10-27-n15-determinism-run. On reopening, I re-ran it myself on this branch
+(main at f4448756, which includes N15's heap-hash fix):
+
+- Script: `tools/netplay/mash-a.script` with `end 13200` cut to `end 5000` (a scratch copy, not committed),
+  enough to get past the w01 board start.
+- Two runs in parallel, each with its own fresh user dir under the worktree (`XDG_DATA_HOME`/`HOME`, no
+  memory card) holding only `config.json` = `{"video.enableVsync": false}`. `timeout -s KILL 1500`.
+- Result: both logs 5000 lines, `cmp`-identical, `hashdiff.py` "identical: 5000 frames", overlays
+  `1@1, 74@995, 70@1911, 89@4182` (boot, modesel, mentDll, w01). Final line
+  `4999 4A0ED9FA457207D9 ... brand=DDDE7A22 ... heap=60ED8E15B4595D47` in both.
+  `brand` is reseeded by BoardRandInit at frame 4184 in both runs (from the session-seed value
+  `7B85A83E`); `frand` changes 40 times.
+- The user dirs were deleted afterwards; nothing from them is committed.
+
+No code changed in this pass: the N4 code plus N15's fix already give identical logs.
+
+### Not verified (this pass)
+
+- The minigame and the return to the board (second BoardRandInit, `frand` inside a minigame): the script
+  does not reach a minigame yet. That is N43 (open), not repeated here.
+- My run stopped at frame 5000; the full 13200-frame pair (into instDll) is N15's result, not re-run here.
+- Different machines or builds, and non-ELF platforms (N14): not run, same reasons as above.
