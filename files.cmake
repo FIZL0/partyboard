@@ -89,6 +89,7 @@ set(PORT_FILES
         src/port/imgui.cpp
         src/port/io.cpp
         src/port/iso_validate.cpp
+        src/port/netplay.c
         src/port/OS.c
         src/port/portmain.cpp
         src/port/settings.cpp
