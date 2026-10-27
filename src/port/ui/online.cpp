@@ -748,6 +748,7 @@ void update_online_match()
     static std::string shownKey;
     static std::string dismissedKey;
     static int tick = 0;
+    static std::string resyncShown;
 
     // A few times a second is enough for a 3 s hold.
     if (++tick % 10 != 0) {
@@ -762,9 +763,11 @@ void update_online_match()
     bool hostLeft = false;
     int waitIndex = -1;
     std::string waitName;
+    std::string resync;
     if (pbnet_lobby_state() == Started) {
         const auto j = nlohmann::json::parse(pbnet_text(pbnet_recover_json), nullptr, false);
         if (j.is_object() && j.value("running", false)) {
+            resync = j.value("resync", "");
             message = j.value("message", "");
             host = j.value("host", false);
             hostLeft = j.value("host_left", false);
@@ -775,6 +778,11 @@ void update_online_match()
             key = fmt::format("{}|{}|{}", message, waitIndex, j.value("epoch", 0));
         }
     }
+    // N46: a desync is mended without asking anyone: a short notice, play goes on.
+    if (!resync.empty() && resync != resyncShown) {
+        push_toast({ .title = "Online match", .content = resync, .duration = std::chrono::seconds(3) });
+    }
+    resyncShown = resync;
     if (message.empty()) {
         dismissedKey.clear();
     }

@@ -424,6 +424,9 @@ static void MainFunc(void)
         #endif
     }
     CreateBoard();
+    if (netplay_active()) {
+        netplay_turn_resumed();
+    }
     if(!_CheckFlag(FLAG_ID_MAKE(1, 1))) {
         GWSystem.player_curr = -1;
         BoardStartExec();
@@ -471,6 +474,9 @@ static void MainFunc(void)
                 if(!turn_cont) {
                     BoardCameraMoveSet(0);
                     GWSystem.player_curr = i;
+                    if (netplay_active()) {
+                        netplay_turn_checkpoint();
+                    }
                     BoardCameraTargetPlayerSet(i);
                     BoardCameraMotionWait();
                     {
@@ -621,6 +627,9 @@ void BoardNextOvlSet(OMOVL overlay)
 
 s32 BoardStartCheck(void)
 {
+    if (netplay_active() && netplay_turn_resuming()) {
+        return 1;
+    }
     if(_CheckFlag(FLAG_ID_MAKE(1, 2)) || _CheckFlag(FLAG_ID_MAKE(1, 3)) || _CheckFlag(FLAG_ID_MAKE(1, 4)) || _CheckFlag(FLAG_ID_MAKE(1, 5)) || _CheckFlag(FLAG_ID_MAKE(1, 6))) {
         return 1;
     } else {

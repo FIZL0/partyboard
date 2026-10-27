@@ -75,6 +75,9 @@ void pbnet_lobby_leave(void) { leave_calls++; lobby_state = PBNET_LOBBY_NONE; }
 static u32 epoch_now, went = 0xFFFFFFFF; static int go_calls, blob_len;
 uint32_t pbnet_recover_epoch(void) { return epoch_now; }
 int pbnet_recover_go(uint32_t e) { go_calls++; went = e; return 1; }
+/* N46: a held-back resync is polled on every loop of a started lobby. */
+static int resync_polls;
+int pbnet_resync_poll(void) { resync_polls++; return 0; }
 int pbnet_lobby_checkpoint(uint8_t *buf, int cap) { if (buf != NULL) memset(buf, 7, (size_t)(blob_len < cap ? blob_len : cap)); return blob_len; }
 static int finish_calls, back_calls;
 void pbnet_lockstep_finish(void) { finish_calls++; on = 0; }
@@ -172,10 +175,11 @@ static void lobby_checks(void)
     lobby_text = fixture;
     lobby_state = PBNET_LOBBY_OPEN;
     netplay_lobby_poll();
-    assert(start_calls == 0);
+    assert(start_calls == 0 && resync_polls == 0);
     lobby_state = PBNET_LOBBY_STARTED;
     netplay_lobby_poll(); netplay_lobby_poll();
     assert(start_calls == 1 && started.seed == 0xFEDCBA9876543210ULL && leave_calls == 0);
+    assert(resync_polls == 2); /* N46: every loop, also once the start is handled */
     lobby_state = PBNET_LOBBY_NONE;
     netplay_lobby_poll();
     lobby_state = PBNET_LOBBY_STARTED;

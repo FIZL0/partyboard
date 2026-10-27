@@ -51,8 +51,13 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
   `research/journal/2026-10-27-n10-drops`.
 - Desyncs (N11): `netplay_tick_begin` hands each `pbnet_poll_desync` mismatch to `pbnet_desync_recover`
   (`net/src/desync.rs`): first one per session writes `<user dir>/desync-*.json` (`Session::input_log`), the host
-  reloads the last checkpoint via `host_reload` (max 3 per checkpoint). Findings:
-  `research/journal/2026-10-27-n11-desync-recovery`.
+  reloads the last checkpoint via `host_reload`. Findings: `research/journal/2026-10-27-n11-desync-recovery`.
+- Resync (N46): never runs on desynced, never refused. Resync points at every player's turn start (`MainFunc` ->
+  `netplay_turn_checkpoint`, `src/port/netplay_resync.c` -> `pbnet_resync_point`, memory only); a turn point resumes
+  that turn (`BoardStartCheck` answers yes while the board is created, `netplay_turn_resuming`). Repeats from one point
+  hold 2/4/8/16 s first (`desync::Resync::delay`, `pbnet_resync_poll`). "Resyncing with <host>..." toast. Debug:
+  `--desync-at <frame>`. Whole-state transfer was spiked and is not possible yet. Findings:
+  `research/journal/2026-10-27-n46-desync-resync`.
 - UI: RmlUi documents in `src/port/ui/`, config in `src/port/config.cpp`, user dir from SDL pref path.
 
 ## Rules

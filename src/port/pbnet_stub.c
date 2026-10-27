@@ -67,6 +67,20 @@ int pbnet_desync_recover(uint32_t frame, int peer, uint64_t ours, uint64_t their
     return 0;
 }
 
+int pbnet_resync_poll(void)
+{
+    return 0;
+}
+
+int pbnet_resync_point(const uint8_t *blob, int len, int turn, int max_turn)
+{
+    (void)blob;
+    (void)len;
+    (void)turn;
+    (void)max_turn;
+    return 0;
+}
+
 uint32_t pbnet_delay_for(uint32_t rtt_ms)
 {
     /* Same double arithmetic as net/src/lockstep.rs delay_for, so both give the same frames. */
