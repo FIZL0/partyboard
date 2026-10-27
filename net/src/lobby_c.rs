@@ -1158,4 +1158,28 @@ mod tests {
         let (_, r) = super::setup(r#"{"build":"b","disc":"d","players":[{"name":"n","key":"k"}],"relay":"off"}"#).unwrap();
         assert_eq!(r, Relay::Off);
     }
+
+    /// The started lobby's JSON as `pbnet_lobby_json` gives it: the C reader (netplay_match_from_lobby,
+    /// src/port/netplay.c) is tested against this same file by tools/netplay/tick_gate_test.sh.
+    #[test]
+    fn started_json_fixture() {
+        let s = Setup { players: vec![Player { name: "A \"quoted\" name".into(), key: "k".into() }], ..setup("h", "d") };
+        let mut h = Host::new("m1".into(), s.ident(), &s.players);
+        h.settings(3, 25, false, true, [0, 2, 9, 1]);
+        h.cpu(2, Some(3));
+        h.start_with(0xFEDC_BA98_7654_3210, 4).unwrap();
+        let snap = Snapshot {
+            state: Phase::Started,
+            host: true,
+            me: HOST.into(),
+            code: "ticket".into(),
+            short: String::new(),
+            error: String::new(),
+            seats: h.room().seats_of(HOST),
+            room: Some(h.room().clone()),
+            gen: 9,
+        };
+        let json = serde_json::to_string(&snap).unwrap();
+        assert_eq!(json, include_str!("../../tools/netplay/lobby_started.json").trim_end(), "regenerate the fixture: {json}");
+    }
 }

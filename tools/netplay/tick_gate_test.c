@@ -17,7 +17,9 @@ OMOVL omcurovl; s32 rnd_seed; u32 boardRandSeed; BOOL PartyBoard_IsRunning = TRU
 u32 frandSeedGet(void) { return fseed; } void frandSeedSet(u32 s) { fseed = s; }
 /* netplay_match.c is not linked here (tools/netplay/match_test.c tests it). */
 void netplay_match_tick(void) {} void netplay_match_end(void) {} u64 netplay_heap_hash(void) { return 0; }
-BOOL netplay_match_start(const NetplayMatch *m) { (void)m; return TRUE; }
+static NetplayMatch started; static int start_calls;
+BOOL netplay_match_start(const NetplayMatch *m) { started = *m; start_calls++; return TRUE; }
+const char *netplay_match_invalid(const NetplayMatch *m) { return m->teams && m->seats[0].team == m->seats[1].team && m->seats[0].team == m->seats[2].team ? "teams" : NULL; }
 BOOL netplay_match_parse_debug(const char *s, NetplayMatch *m, u32 *at) { (void)s; (void)m; (void)at; return FALSE; }
 void OSReport(const char *fmt, ...) { va_list a; va_start(a, fmt); vprintf(fmt, a); va_end(a); }
 
@@ -41,6 +43,87 @@ int pbnet_step(const struct PADStatus *local, int n, struct PADStatus *out)
     out[2].button = 0x1234;      /* a remote seat */
     fr++;
     return PBNET_READY;
+}
+
+/* Fake lobby for netplay_lobby_poll. */
+static int lobby_state, leave_calls; static const char *lobby_text;
+int pbnet_lobby_state(void) { return lobby_state; }
+int pbnet_lobby_json(char *buf, int cap) { return snprintf(buf, buf != NULL && cap > 0 ? (size_t)cap : 0, "%s", lobby_text); }
+void pbnet_lobby_leave(void) { leave_calls++; lobby_state = PBNET_LOBBY_NONE; }
+
+static char fixture[4096];
+
+/* The fixture with the first `from` replaced by `to`. */
+static const char *edited(const char *from, const char *to)
+{
+    static char out[4096];
+    const char *at = strstr(fixture, from);
+    assert(at != NULL);
+    snprintf(out, sizeof(out), "%.*s%s%s", (int)(at - fixture), fixture, to, at + strlen(from));
+    return out;
+}
+
+/* netplay_match_from_lobby on the started lobby JSON pbnet gives (net/src/lobby_c.rs started_json_fixture). */
+static void lobby_checks(void)
+{
+    NetplayMatch m;
+    u8 local = 0;
+    FILE *f = fopen("tools/netplay/lobby_started.json", "r");
+    size_t n;
+    assert(f != NULL);
+    n = fread(fixture, 1, sizeof(fixture) - 1, f);
+    fclose(f);
+    fixture[n] = '\0';
+
+    assert(netplay_match_from_lobby(fixture, &m, &local) == NULL);
+    assert(local == 1);
+    assert(m.seed == 0xFEDCBA9876543210ULL && m.board == 3 && m.turns == 25 && !m.bonus && m.teams);
+    assert(m.seats[0].character == 0 && m.seats[1].character == 2 && m.seats[2].character == 1 && m.seats[3].character == 3);
+    assert(!m.seats[0].cpu && m.seats[1].cpu && m.seats[2].cpu && m.seats[3].cpu);
+    assert(m.seats[0].difficulty == 1 && m.seats[2].difficulty == 3);
+    assert(m.seats[0].team == 0 && m.seats[1].team == 0 && m.seats[2].team == 1 && m.seats[3].team == 1);
+    assert(m.seats[0].handicap == 0 && m.seats[1].handicap == 2 && m.seats[2].handicap == 9 && m.seats[3].handicap == 1);
+    /* Other machines' seats; white space anywhere; handicaps before seats. */
+    assert(netplay_match_from_lobby(edited("\"seats\":[0]", "\"seats\" : [ 1 , 3 ]"), &m, &local) == NULL && local == 10);
+    assert(netplay_match_from_lobby(edited("\"id\":\"m1\",", "\"id\":\"m1\",\"handicaps\":[4,4,4,4],"), &m, NULL) == NULL);
+    assert(m.seats[2].handicap == 9); /* the later one wins */
+
+    memset(&m, 0xAB, sizeof(m));
+    assert(netplay_match_from_lobby(edited("\"state\":\"started\"", "\"state\":\"open\""), &m, NULL) != NULL);
+    assert(m.board == 0xAB); /* untouched on failure */
+    assert(netplay_match_from_lobby(edited("\"started\":true", "\"started\":false"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("\"room\":{", "\"room\":null,\"x\":{"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("\"seats\":[0]", "\"seats\":[]"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("{\"peer\":\"host\",\"name\":\"A \\\"quoted\\\" name\",\"key\":\"k\",\"character\":0,\"cpu\":false,\"difficulty\":1,\"team\":0}", "null"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("\"character\":3", "\"character\":8"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("\"turns\":25", "\"turns\":51"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("\"seed\":18364758544493064720", "\"seed\":18446744073709551616"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("\"seed\":18364758544493064720", "\"seed\":1.5"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("\"team\":1}", "\"team\":0}"), &m, NULL) != NULL); /* 3 vs 1 */
+    assert(netplay_match_from_lobby(edited("\"gen\":9}", "\"gen\":9"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(edited("\"gen\":9}", "\"gen\":9}x"), &m, NULL) != NULL);
+    assert(netplay_match_from_lobby("{\"state\":\"none\"}", &m, NULL) != NULL);
+    assert(netplay_match_from_lobby(NULL, &m, NULL) != NULL);
+
+    /* The poll: one start per started lobby, none before; a bad room is left. */
+    lobby_text = fixture;
+    lobby_state = PBNET_LOBBY_OPEN;
+    netplay_lobby_poll();
+    assert(start_calls == 0);
+    lobby_state = PBNET_LOBBY_STARTED;
+    netplay_lobby_poll(); netplay_lobby_poll();
+    assert(start_calls == 1 && started.seed == 0xFEDCBA9876543210ULL && leave_calls == 0);
+    lobby_state = PBNET_LOBBY_NONE;
+    netplay_lobby_poll();
+    lobby_state = PBNET_LOBBY_STARTED;
+    netplay_lobby_poll();
+    assert(start_calls == 2);
+    lobby_state = PBNET_LOBBY_CLOSED;
+    netplay_lobby_poll();
+    lobby_text = edited("\"started\":true", "\"started\":false");
+    lobby_state = PBNET_LOBBY_STARTED;
+    netplay_lobby_poll();
+    assert(start_calls == 2 && leave_calls == 1 && lobby_state == PBNET_LOBBY_NONE);
 }
 
 int main(void)
@@ -91,6 +174,7 @@ int main(void)
     assert(netplay_tick_begin());
     netplay_pad_read(got);
     assert(got[0].button == PAD_BUTTON_Y);
+    lobby_checks();
     puts("harness: all checks passed");
     return 0;
 }
