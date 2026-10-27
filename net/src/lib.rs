@@ -3,6 +3,9 @@
 //! Game-agnostic netcode linked into `dol` as a static library. The C ABI is declared by hand in
 //! `include/port/pbnet.h`; every `extern "C"` fn here must have a matching prototype there.
 
+pub mod lockstep;
+pub mod lockstep_c;
+
 use std::ffi::{c_char, CStr};
 
 /// The crate version, NUL-terminated so C can use it directly.
