@@ -187,3 +187,54 @@ int pbnet_save_delete(const char *path)
     (void)path;
     return 0;
 }
+
+/* N10 recovery: no lobby, so nothing to rejoin or reload. */
+void pbnet_recover_set_dir(const char *dir)
+{
+    (void)dir;
+}
+
+int pbnet_rejoin_record(char *buf, int cap)
+{
+    (void)buf;
+    (void)cap;
+    return 0;
+}
+
+void pbnet_rejoin_forget(void) { }
+
+int pbnet_lobby_rejoin(const char *setup)
+{
+    (void)setup;
+    return 0;
+}
+
+int pbnet_recover_json(char *buf, int cap)
+{
+    static const char none[] = "{\"running\":false}";
+    int i;
+    if (buf != NULL && cap > 0) {
+        for (i = 0; i < cap - 1 && none[i] != '\0'; i++) {
+            buf[i] = none[i];
+        }
+        buf[i] = '\0';
+    }
+    return (int)sizeof(none) - 1;
+}
+
+uint32_t pbnet_recover_epoch(void)
+{
+    return 0;
+}
+
+int pbnet_recover_go(uint32_t epoch)
+{
+    (void)epoch;
+    return 1;
+}
+
+int pbnet_recover_cpu(int index)
+{
+    (void)index;
+    return 0;
+}

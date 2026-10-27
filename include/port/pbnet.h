@@ -2,7 +2,8 @@
 
 /*
  * C ABI of the `pbnet` Rust crate (net/). Hand-written: keep in sync with the
- * `extern "C"` fns in net/src/lib.rs, net/src/lockstep_c.rs and net/src/lobby_c.rs.
+ * `extern "C"` fns in net/src/lib.rs, net/src/lockstep_c.rs, net/src/lobby_c.rs, net/src/save.rs and
+ * net/src/recover.rs.
  */
 
 #include <stdint.h>
@@ -133,6 +134,34 @@ int pbnet_save_list(const char *user_dir, char *buf, int cap);
 int pbnet_save_blob(const char *path, uint8_t *buf, int cap);
 /* Deletes a save (a path from pbnet_save_list; nothing outside an online/ dir). 1 if deleted. */
 int pbnet_save_delete(const char *path);
+
+/*
+ * Drops never end a match (net/src/recover.rs, N10). After the start a guest whose connection drops redials the
+ * host and rejoins with its token: the lockstep resumes on the same frame, or (a peer that lost its state, a CPU
+ * stand-in) every peer reloads the room's last checkpoint as a new epoch of the started lobby.
+ *
+ * pbnet_recover_set_dir: the user dir (config, saves); the rejoin token is kept in <dir>/rejoin.txt. Call before
+ *   hosting or joining.
+ * pbnet_rejoin_record: the match this machine can rejoin (JSON {"code","id","token","at"}, snprintf-style), 0 if none.
+ * pbnet_rejoin_forget: forget it. pbnet_lobby_rejoin: rejoin it (setup as pbnet_lobby_join), 1 if dialling.
+ * pbnet_recover_json: {"running","host","epoch","waiting":[{"index","name","seats","quiet_ms"}],"reconnecting",
+ *   "host_left","reloading","message"}, snprintf-style. waiting: peers silent for 3 s (the lockstep holds on its own);
+ *   message: "Waiting for <name>" or, on a guest, "Host left: the match is saved, any player can host Continue".
+ * pbnet_recover_epoch: 0 from the start, one more per reload. When it moves while the lobby is started, start the
+ *   room again (pbnet_lobby_checkpoint has the checkpoint) and call pbnet_recover_go(epoch): until then every
+ *   pbnet_step returns PBNET_WAIT. pbnet_recover_go returns 1 if that epoch's lockstep runs (or nothing was held).
+ * pbnet_recover_cpu (host): the computer plays the seats of line-up index `index` (a waiting peer, 1..3); every peer
+ *   reloads the last checkpoint. The player takes them back when it rejoins. 1 if done.
+ * Host save and quit is pbnet_lobby_leave: every peer already has the last checkpoint's online save.
+ */
+void pbnet_recover_set_dir(const char *dir);
+int pbnet_rejoin_record(char *buf, int cap);
+void pbnet_rejoin_forget(void);
+int pbnet_lobby_rejoin(const char *setup);
+int pbnet_recover_json(char *buf, int cap);
+uint32_t pbnet_recover_epoch(void);
+int pbnet_recover_go(uint32_t epoch);
+int pbnet_recover_cpu(int index);
 
 #ifdef __ANDROID__
 /*

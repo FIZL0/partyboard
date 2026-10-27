@@ -1030,6 +1030,9 @@ const char *netplay_match_from_lobby(const char *json, NetplayMatch *m, u8 *loca
 
 /* The started lobby whose match netplay_lobby_poll started (or gave up on); cleared when it is no longer started. */
 static BOOL lobby_handled;
+/* N10: the epoch of the room it started (pbnet_recover_epoch: one more per reload). */
+static u32 lobby_epoch;
+static u8 lobby_blob[NETPLAY_BLOB_MAX];
 
 void netplay_lobby_poll(void)
 {
@@ -1037,17 +1040,22 @@ void netplay_lobby_poll(void)
     const char *why;
     char *json;
     int len, cap = 0;
+    int blob_size;
     u8 local = 0;
+    u32 epoch;
     s32 i;
 
     if (pbnet_lobby_state() != PBNET_LOBBY_STARTED) {
         lobby_handled = FALSE;
         return;
     }
-    if (lobby_handled) {
+    /* N10: a reload (a rejoin, a CPU stand-in) is a new epoch of the same started lobby: start its room again. */
+    epoch = pbnet_recover_epoch();
+    if (lobby_handled && epoch == lobby_epoch) {
         return;
     }
     lobby_handled = TRUE;
+    lobby_epoch = epoch;
     len = pbnet_lobby_json(NULL, 0);
     json = NULL;
     /* The JSON may grow between the calls (gen moves): retry with the new length. */
@@ -1068,13 +1076,36 @@ void netplay_lobby_poll(void)
                                                  : "the lobby's JSON cannot be read";
     free(json);
     if (why == NULL) {
-        OSReport("netplay: lobby started: seed %016llX, this machine plays seats%s%s%s%s\n",
+        OSReport("netplay: lobby started (epoch %u): seed %016llX, this machine plays seats%s%s%s%s\n", (unsigned)epoch,
             (unsigned long long)m.seed, (local & 1) ? " 1P" : "", (local & 2) ? " 2P" : "", (local & 4) ? " 3P" : "",
             (local & 8) ? " 4P" : "");
-        if (netplay_match_start(&m)) {
+        /* A continue, or a reload after a checkpoint: the board state is the room's checkpoint (N9). */
+        blob_size = pbnet_lobby_checkpoint(lobby_blob, sizeof(lobby_blob));
+        if (blob_size > (int)sizeof(lobby_blob)) {
+            blob_size = 0;
+            why = "the room's checkpoint is too big";
+        }
+        else if (blob_size > 0 ? netplay_match_continue(&m, lobby_blob, (u32)blob_size) : netplay_match_start(&m)) {
+            /* The lockstep of this epoch runs from here (a reload held it until the state is set). */
+            pbnet_recover_go(epoch);
             return;
         }
-        why = "netplay_match_start refused it";
+        else if (epoch != 0) {
+            /* A reload right after a start: the start is still pending until the next tick applies it. */
+            lobby_handled = FALSE;
+            return;
+        }
+        else {
+            why = "netplay_match_start refused it";
+        }
+    }
+    if (epoch != 0) {
+        /*
+         * A reload whose room has no seat for this machine: the computer stands in for it, and the lobby has
+         * already asked the host for the seats back (another reload follows). Never leave a running match.
+         */
+        OSReport("netplay: reload %u: %s; waiting for the host\n", (unsigned)epoch, why);
+        return;
     }
     /* Every other peer waits on this one's pads from frame 0: leave so the lobby says why instead. */
     OSReport("netplay: cannot play the started lobby: %s; leaving it\n", why);

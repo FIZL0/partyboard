@@ -14,10 +14,12 @@
 #include <SDL3/SDL_clipboard.h>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <memory>
 
 namespace partyboard::ui {
 namespace {
@@ -178,11 +180,56 @@ namespace {
 
     const char *const kTeamNames[2] = { "Team A", "Team B" };
 
+    // N10: the rejoin token lives in the user dir (pbnet keeps it in <dir>/rejoin.txt).
+    void set_recover_dir()
+    {
+        pbnet_recover_set_dir(PartyBoard_ConfigPath.string().c_str());
+    }
+
+    // A pbnet snprintf-style JSON getter's text ("" when it gives none).
+    std::string pbnet_text(int (*get)(char *, int))
+    {
+        int len = get(nullptr, 0);
+        if (len <= 0) {
+            return {};
+        }
+        std::string text(static_cast<size_t>(len) + 1, '\0');
+        len = get(text.data(), static_cast<int>(text.size()));
+        text.resize(static_cast<size_t>(std::clamp(len, 0, static_cast<int>(text.size()) - 1)));
+        return text;
+    }
+
+    // The match this device can rejoin (its id), or "" if none.
+    std::string rejoin_match()
+    {
+        const auto j = nlohmann::json::parse(pbnet_text(pbnet_rejoin_record), nullptr, false);
+        return j.is_object() && j.contains("id") && j["id"].is_string() ? j["id"].get<std::string>() : std::string();
+    }
+
+    // The modal the match's hold shows; it marks itself gone when the UI deletes it.
+    class HoldModal : public Modal {
+    public:
+        HoldModal(Props props, std::shared_ptr<bool> alive)
+            : Modal(std::move(props))
+            , mAlive(std::move(alive))
+        {
+            *mAlive = true;
+        }
+        ~HoldModal() override
+        {
+            *mAlive = false;
+        }
+
+    private:
+        std::shared_ptr<bool> mAlive;
+    };
+
 } // namespace
 
 OnlineWindow::OnlineWindow()
     : mProfile(load_profile(profile_path()))
 {
+    set_recover_dir();
     add_tab("Host", [this](Rml::Element *content) {
         auto &left = add_child<Pane>(content, Pane::Type::Controlled);
         auto &right = add_child<Pane>(content, Pane::Type::Uncontrolled);
@@ -206,6 +253,20 @@ OnlineWindow::OnlineWindow()
     add_tab("Join", [this](Rml::Element *content) {
         auto &left = add_child<Pane>(content, Pane::Type::Controlled);
         auto &right = add_child<Pane>(content, Pane::Type::Uncontrolled);
+
+        // N10: a match this device dropped out of (the app closed or crashed mid-match)
+        if (const std::string match = rejoin_match(); !match.empty() && pbnet_lobby_state() == None) {
+            left.add_section("Your Match");
+            help(left, right, left.add_button("Rejoin Match").on_pressed([this] { rejoin(); }),
+                fmt::format("Go back to the online match <b>{}</b> you were playing. Everyone goes back to its last "
+                            "save point (after the last minigame) and plays on from there.",
+                    escape(match)));
+            help(left, right, left.add_button("Forget Match").on_pressed([] {
+                pbnet_rejoin_forget();
+                push_toast({ .title = "Online match", .content = "You won't rejoin it.", .duration = std::chrono::seconds(2) });
+            }),
+                "Don't go back to that match. The host can let the computer play your seat.");
+        }
 
         left.add_section("Join by Code");
         help(left, right,
@@ -368,6 +429,7 @@ void OnlineWindow::open_lobby()
 void OnlineWindow::host()
 {
     save();
+    set_recover_dir();
     const std::string setup = setup_json(mProfile, build_id(), disc_id(), true);
     if (!pbnet_lobby_host(setup.c_str())) {
         show_message(*this, "Can't Host", "The lobby could not be opened. Check the relay setting in the Players tab.");
@@ -379,12 +441,124 @@ void OnlineWindow::host()
 void OnlineWindow::join()
 {
     save();
+    set_recover_dir();
     const std::string setup = setup_json(mProfile, build_id(), disc_id(), false);
     if (mProfile.lastCode.empty() || !pbnet_lobby_join(setup.c_str(), mProfile.lastCode.c_str())) {
         show_message(*this, "Can't Join", "Enter the code the host sent you. Check the relay setting in the Players tab.");
         return;
     }
     open_lobby();
+}
+
+void OnlineWindow::rejoin()
+{
+    save();
+    set_recover_dir();
+    const std::string setup = setup_json(mProfile, build_id(), disc_id(), false);
+    if (!pbnet_lobby_rejoin(setup.c_str())) {
+        show_message(*this, "Can't Rejoin", "That match can't be rejoined any more.");
+        return;
+    }
+    open_lobby();
+}
+
+void update_online_match()
+{
+    static std::shared_ptr<bool> alive = std::make_shared<bool>(false);
+    static HoldModal *shown = nullptr;
+    static std::string shownKey;
+    static std::string dismissedKey;
+    static int tick = 0;
+
+    // A few times a second is enough for a 3 s hold.
+    if (++tick % 10 != 0) {
+        return;
+    }
+    if (!*alive) {
+        shown = nullptr;
+    }
+    std::string message;
+    std::string key;
+    bool host = false;
+    bool hostLeft = false;
+    int waitIndex = -1;
+    std::string waitName;
+    if (pbnet_lobby_state() == Started) {
+        const auto j = nlohmann::json::parse(pbnet_text(pbnet_recover_json), nullptr, false);
+        if (j.is_object() && j.value("running", false)) {
+            message = j.value("message", "");
+            host = j.value("host", false);
+            hostLeft = j.value("host_left", false);
+            if (const auto w = j.find("waiting"); w != j.end() && w->is_array() && !w->empty() && (*w)[0].is_object()) {
+                waitIndex = (*w)[0].value("index", -1);
+                waitName = (*w)[0].value("name", "");
+            }
+            key = fmt::format("{}|{}|{}", message, waitIndex, j.value("epoch", 0));
+        }
+    }
+    if (message.empty()) {
+        dismissedKey.clear();
+    }
+    if (key == shownKey && (shown != nullptr || key == dismissedKey)) {
+        return;
+    }
+    if (shown != nullptr) {
+        shown->pop();
+        shown = nullptr;
+    }
+    shownKey = key;
+    if (message.empty() || key == dismissedKey) {
+        return;
+    }
+
+    const auto keep = [key](Modal &modal) {
+        dismissedKey = key;
+        modal.pop();
+    };
+    std::vector<ModalAction> actions;
+    Rml::String body = escape(message);
+    if (hostLeft) {
+        body += "<br/><br/>Your copy of the match is saved too.";
+        actions.push_back({ .label = "Leave Match", .onPressed = [](Modal &modal) {
+                               modal.pop();
+                               pbnet_rejoin_forget();
+                               pbnet_lobby_leave();
+                           } });
+    }
+    else if (host && waitIndex > 0) {
+        body += "<br/><br/>The match holds until they are back. You can let the computer play for them (they take "
+                "the seat back when they return; everyone goes back to the last save point), or save and quit: "
+                "every player keeps the save, and any of them can host Continue.";
+        actions.push_back({ .label = "Keep Waiting", .onPressed = keep });
+        actions.push_back({ .label = fmt::format("CPU Plays for {}", waitName), .onPressed = [waitIndex](Modal &modal) {
+                               modal.pop();
+                               pbnet_recover_cpu(waitIndex);
+                           } });
+        actions.push_back({ .label = "Save and Quit", .onPressed = [](Modal &modal) {
+                               modal.pop();
+                               pbnet_lobby_leave();
+                           } });
+    }
+    else {
+        body += "<br/><br/>The match holds until they are back. The host can let the computer play for them.";
+        actions.push_back({ .label = "Keep Waiting", .onPressed = keep });
+        actions.push_back({ .label = "Leave Match", .onPressed = [](Modal &modal) {
+                               // the rejoin record stays: Online > Join > Rejoin Match goes back
+                               modal.pop();
+                               pbnet_lobby_leave();
+                           } });
+    }
+    auto modal = std::make_unique<HoldModal>(
+        Modal::Props {
+            .title = hostLeft ? "Host Left" : "Waiting",
+            .bodyRml = body,
+            .actions = std::move(actions),
+            .onDismiss = keep,
+            .icon = "question-mark",
+        },
+        alive);
+    shown = modal.get();
+    push_document(std::move(modal));
 }
 
 LobbyWindow::LobbyWindow()

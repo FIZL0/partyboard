@@ -279,7 +279,11 @@ pub unsafe extern "C" fn pbnet_save_write(
         return 0;
     };
     let seeds = Seeds { match_seed: room.seed, session: s[0], frand: s[1], rand8: s[2], board: s[3] };
-    let r = Save::new(&room, blob, frame, seeds).and_then(|sv| sv.write(Path::new(dir)).map_err(|e| e.to_string()));
+    let r = Save::new(&room, blob, frame, seeds).and_then(|sv| {
+        // N10: the host's reloads send the last checkpoint
+        crate::recover::checkpoint_written(&sv);
+        sv.write(Path::new(dir)).map_err(|e| e.to_string())
+    });
     match r {
         Ok(p) => {
             // SAFETY: the caller's contract on `path` and `cap`.

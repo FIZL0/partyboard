@@ -21,7 +21,8 @@ void netplay_still_drop(void) {}
 static NetplayMatch started; static int start_calls;
 BOOL netplay_match_start(const NetplayMatch *m) { started = *m; start_calls++; return TRUE; }
 const char *netplay_match_invalid(const NetplayMatch *m) { return m->teams && m->seats[0].team == m->seats[1].team && m->seats[0].team == m->seats[2].team ? "teams" : NULL; }
-BOOL netplay_match_continue(const NetplayMatch *m, const void *b, u32 n) { (void)m; (void)b; (void)n; return TRUE; }
+static int continue_calls; static u32 continued_size;
+BOOL netplay_match_continue(const NetplayMatch *m, const void *b, u32 n) { started = *m; (void)b; continue_calls++; continued_size = n; return TRUE; }
 int pbnet_save_blob(const char *p, uint8_t *b, int cap) { (void)p; (void)b; (void)cap; return 0; }
 BOOL netplay_match_parse_debug(const char *s, NetplayMatch *m, u32 *at) { (void)s; (void)m; (void)at; return FALSE; }
 void OSReport(const char *fmt, ...) { va_list a; va_start(a, fmt); vprintf(fmt, a); va_end(a); }
@@ -53,6 +54,11 @@ static int lobby_state, leave_calls; static const char *lobby_text;
 int pbnet_lobby_state(void) { return lobby_state; }
 int pbnet_lobby_json(char *buf, int cap) { return snprintf(buf, buf != NULL && cap > 0 ? (size_t)cap : 0, "%s", lobby_text); }
 void pbnet_lobby_leave(void) { leave_calls++; lobby_state = PBNET_LOBBY_NONE; }
+/* N10: the reload epoch, the room's checkpoint and the lockstep release. */
+static u32 epoch_now, went = 0xFFFFFFFF; static int go_calls, blob_len;
+uint32_t pbnet_recover_epoch(void) { return epoch_now; }
+int pbnet_recover_go(uint32_t e) { go_calls++; went = e; return 1; }
+int pbnet_lobby_checkpoint(uint8_t *buf, int cap) { if (buf != NULL) memset(buf, 7, (size_t)(blob_len < cap ? blob_len : cap)); return blob_len; }
 
 static char fixture[4096];
 
@@ -127,6 +133,32 @@ static void lobby_checks(void)
     lobby_state = PBNET_LOBBY_STARTED;
     netplay_lobby_poll();
     assert(start_calls == 2 && leave_calls == 1 && lobby_state == PBNET_LOBBY_NONE);
+
+    /* N10: every start releases its epoch's lockstep; a new epoch (a reload) starts the room again, from its
+     * checkpoint when it has one; a reload's room without a seat for this machine is waited out, never left. */
+    netplay_lobby_poll(); /* the left lobby (NONE) */
+    lobby_text = fixture;
+    lobby_state = PBNET_LOBBY_STARTED;
+    netplay_lobby_poll();
+    assert(start_calls == 3 && go_calls == 3 && went == 0); /* the two starts above released theirs too */
+    netplay_lobby_poll();
+    assert(start_calls == 3 && go_calls == 3);
+    epoch_now = 1;
+    blob_len = 0x19C;
+    netplay_lobby_poll();
+    assert(start_calls == 3 && continue_calls == 1 && continued_size == 0x19C && go_calls == 4 && went == 1);
+    netplay_lobby_poll();
+    assert(continue_calls == 1 && go_calls == 4);
+    epoch_now = 2;
+    lobby_text = edited("\"seats\":[0]", "\"seats\":[]");
+    netplay_lobby_poll(); netplay_lobby_poll();
+    assert(continue_calls == 1 && go_calls == 4 && leave_calls == 1 && lobby_state == PBNET_LOBBY_STARTED);
+    epoch_now = 3;
+    lobby_text = fixture;
+    netplay_lobby_poll();
+    assert(continue_calls == 2 && go_calls == 5 && went == 3);
+    blob_len = 0;
+    epoch_now = 0;
 }
 
 int main(void)
