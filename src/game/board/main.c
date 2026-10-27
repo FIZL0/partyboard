@@ -2236,3 +2236,23 @@ void BoardDataAsyncWait(s32 status)
         HuPrcVSleep();
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before its objects end themselves (BoardIsKill), so these still
+ * name the old board's freed objects; with filterObj set, BoardFilterFadeInit would wait for it forever. Set back to
+ * their initial values at the match's overlay start (netplay_match.c). */
+void BoardMainNetplayReset(void)
+{
+    last5GfxObj = NULL;
+    confettiObj = NULL;
+    filterObj = NULL;
+    tauntObj = NULL;
+    cameraObj = NULL;
+    /* and the board's own (BoardKill and DestroyBoard end them), and the old board overlay's hooks */
+    boardMainObj = NULL;
+    boardObjMan = NULL;
+    boardMainProc = NULL;
+    createFunc = destroyFunc = NULL;
+    boardLightSetHook = boardLightResetHook = NULL;
+}
+#endif

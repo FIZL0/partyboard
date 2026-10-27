@@ -829,3 +829,18 @@ static void HideNextHost(s32 arg0)
 
     temp_r31->unk01 = arg0;
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the star's objects end themselves, so these still name the
+ * old board's freed models, particles and objects. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardStarNetplayReset(void)
+{
+    showNextObj = NULL;
+    starEffAnim = NULL;
+    giveStarObj = NULL;
+    starProc = NULL;
+    starParman = -1;
+    hostMdl = -1;
+}
+#endif

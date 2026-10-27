@@ -553,3 +553,16 @@ static s32 GetComInput(CharWheelWork *arg0) {
         return 0;
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the wheel's object ends itself, so these still name the
+ * old board's freed object, sprites and sound. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardCharWheelNetplayReset(void)
+{
+    charWheelObj = NULL;
+    wheelPos = -1;
+    wheelSprGrp = -1;
+    wheelFXStat = -1;
+}
+#endif

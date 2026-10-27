@@ -478,3 +478,14 @@ s16 BoardWinIDGet(void)
 {
     return windowID;
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before BoardWinKillAll (DestroyBoard) runs, so these still name
+ * the old board's freed window and process; with winProc set, no window process would start on the next board. Set back
+ * to their initial values at the match's overlay start (netplay_match.c). */
+void BoardWinNetplayReset(void)
+{
+    winProc = NULL;
+    windowID = -1;
+}
+#endif

@@ -1820,3 +1820,22 @@ static void WaitMiniBowserMotion(void)
         HuPrcVSleep();
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the Bowser event's objects end themselves, so these still
+ * name the old board's freed models, particles and objects. Set back to their initial values at the match's overlay
+ * start (netplay_match.c). */
+void BoardBowserNetplayReset(void)
+{
+    fireParMan = 0;
+    fireAnim = NULL;
+    suitGiveObj = NULL;
+    miniBowserBalloonObj = NULL;
+    bowserEventObj = NULL;
+    miniBowserObj = NULL;
+    bowserObj = NULL;
+    bowserProc = NULL;
+    jumpMot = scareMot = -1;
+    suitItemMdl = bowserMdl = -1;
+}
+#endif

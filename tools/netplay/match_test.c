@@ -144,6 +144,39 @@ void BoardMGSetupPlayClear(void) { play_clears++; }
 static s32 roll_resets, mg_points;
 void BoardRollNetplayReset(void) { roll_resets++; }
 void netplay_minigame_point(void) { mg_points++; }
+/* N66: the other board statics go with the dice: every file's reset, each once per start (bit i for name i). */
+static u32 board_resets;
+#define BOARD_RESET(i, name) void name(void) { board_resets |= 1u << (i); }
+BOARD_RESET(0, BoardBasicSpaceNetplayReset)
+BOARD_RESET(1, BoardBattleNetplayReset)
+BOARD_RESET(2, BoardBlockNetplayReset)
+BOARD_RESET(3, BoardBooNetplayReset)
+BOARD_RESET(4, BoardBooHouseNetplayReset)
+BOARD_RESET(5, BoardBowserNetplayReset)
+BOARD_RESET(6, BoardCharWheelNetplayReset)
+BOARD_RESET(7, BoardComNetplayReset)
+BOARD_RESET(8, BoardFortuneNetplayReset)
+BOARD_RESET(9, BoardItemNetplayReset)
+BOARD_RESET(10, BoardLast5NetplayReset)
+BOARD_RESET(11, BoardLotteryNetplayReset)
+BOARD_RESET(12, BoardMainNetplayReset)
+BOARD_RESET(13, BoardMGSetupNetplayReset)
+BOARD_RESET(14, BoardModelNetplayReset)
+BOARD_RESET(15, BoardMushroomNetplayReset)
+BOARD_RESET(16, BoardPauseNetplayReset)
+BOARD_RESET(17, BoardPlayerNetplayReset)
+BOARD_RESET(18, BoardShopNetplayReset)
+BOARD_RESET(19, BoardSpaceNetplayReset)
+BOARD_RESET(20, BoardStarNetplayReset)
+BOARD_RESET(21, BoardStartNetplayReset)
+BOARD_RESET(22, BoardUiNetplayReset)
+BOARD_RESET(23, BoardViewNetplayReset)
+BOARD_RESET(24, BoardWarpNetplayReset)
+BOARD_RESET(25, BoardWinNetplayReset)
+#define BOARD_RESETS_ALL ((1u << 26) - 1)
+/* N66: an item's root process is killed with the board's processes, before omOvlCallEx. */
+static OMOVL item_kill_before = -2;
+s32 BoardItemNetplayKill(void) { item_kill_before = called; return 0; }
 /* N57: the leftovers of an old board (particle work, directory reads) go at the same start. */
 static s32 effect_resets, dir_close_alls;
 void CharEffectNetplayReset(void) { effect_resets++; }
@@ -598,6 +631,7 @@ int main(void)
 
             proc = NULL;
             roll_resets = mg_points = 0;
+            board_resets = 0;
             assert(netplay_match_continue(&c, mg, mg_size));
             assert(netplay_checkpoint_last(back, sizeof(back)) == size && memcmp(back, blob, size) == 0);
             netplay_match_tick();
@@ -614,9 +648,10 @@ int main(void)
             GWSystem.turn = 1;
             GWPlayerCfg[0].group = 0;
             netplay_ovl_start(DLL_w01dll + 3);
-            assert(GWSystem.turn == 1 && roll_resets == 0);
+            assert(GWSystem.turn == 1 && roll_resets == 0 && board_resets == 0);
             netplay_ovl_start(DLL_instdll);
             assert(GWSystem.turn == 7 && GWPlayerCfg[0].group == 1 && roll_resets == 1 && mg_points == 0);
+            assert(board_resets == BOARD_RESETS_ALL);
             /* The minigame, the results, the board: the next round's instDll takes a point. */
             netplay_ovl_start(DLL_m401dll);
             netplay_ovl_start(DLL_resultdll);
@@ -732,6 +767,7 @@ int main(void)
         netplay_match_tick();
         proc();
         assert(dtor_root == &objman && dtor_called_before == DLL_NONE && called == DLL_w01dll + m.board);
+        assert(item_kill_before == DLL_NONE);
         dtor_root = NULL;
         boardObjMan = NULL;
         assert(netplay_match_start(&m));

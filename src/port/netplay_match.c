@@ -58,6 +58,33 @@ SHARED_SYM extern GameStat GWGameStatDefault;
 SHARED_SYM extern s32 saveExecF;
 void BoardMGSetupPlayClear(void);
 void BoardRollNetplayReset(void);
+void BoardBasicSpaceNetplayReset(void);
+void BoardBattleNetplayReset(void);
+void BoardBlockNetplayReset(void);
+void BoardBooNetplayReset(void);
+void BoardBooHouseNetplayReset(void);
+void BoardBowserNetplayReset(void);
+void BoardCharWheelNetplayReset(void);
+void BoardComNetplayReset(void);
+void BoardFortuneNetplayReset(void);
+void BoardItemNetplayReset(void);
+void BoardLast5NetplayReset(void);
+void BoardLotteryNetplayReset(void);
+void BoardMainNetplayReset(void);
+void BoardMGSetupNetplayReset(void);
+void BoardModelNetplayReset(void);
+void BoardMushroomNetplayReset(void);
+void BoardPauseNetplayReset(void);
+void BoardPlayerNetplayReset(void);
+void BoardShopNetplayReset(void);
+void BoardSpaceNetplayReset(void);
+void BoardStarNetplayReset(void);
+void BoardStartNetplayReset(void);
+void BoardUiNetplayReset(void);
+void BoardViewNetplayReset(void);
+void BoardWarpNetplayReset(void);
+void BoardWinNetplayReset(void);
+s32 BoardItemNetplayKill(void);
 void CharEffectNetplayReset(void);
 s32 HuDataNetplayCloseAll(void);
 SHARED_SYM extern u32 GlobalCounter;
@@ -378,6 +405,11 @@ static void MatchStartProc(void)
     if (omcurovl >= DLL_w01dll && omcurovl <= DLL_w06dll && boardObjMan != NULL) {
         OSReport("netplay: match start: ran %d board process destructors\n", (int)HuPrcChildDtorRun(boardObjMan));
     }
+    /* N66: and an item's root process (ItemRotProc), which only its item ends. */
+    killed = BoardItemNetplayKill();
+    if (killed != 0) {
+        OSReport("netplay: match start: killed %d item processes\n", (int)killed);
+    }
     /* bootDll sets up the characters, windows and minigame messages once, after its first wipe-in (frame ~30, or
      * after the language choice on PAL). A match started before that (N41: --match 0@2 crashed in the board's
      * HuWinInit, no window data in ARAM) does it here, as bootDll's BootInitForSkippedSequence does. */
@@ -531,6 +563,43 @@ static u64 heap_walk(BOOL scrub, BOOL report)
     return h;
 }
 
+/*
+ * N66: the old board's statics that name its models, sprites, windows, objects and processes. The board frees those
+ * itself, often a frame or more after its kill (an object's func that sees BoardIsKill or its kill flag, DestroyBoard's
+ * kills), but MatchStartProc replaces it before that frame: they then name things omOvlKill has freed. A fresh peer has
+ * their initial values, and so does every peer after this.
+ */
+static void board_statics_reset(void)
+{
+    BoardRollNetplayReset();
+    BoardBasicSpaceNetplayReset();
+    BoardBattleNetplayReset();
+    BoardBlockNetplayReset();
+    BoardBooNetplayReset();
+    BoardBooHouseNetplayReset();
+    BoardBowserNetplayReset();
+    BoardCharWheelNetplayReset();
+    BoardComNetplayReset();
+    BoardFortuneNetplayReset();
+    BoardItemNetplayReset();
+    BoardLast5NetplayReset();
+    BoardLotteryNetplayReset();
+    BoardMainNetplayReset();
+    BoardMGSetupNetplayReset();
+    BoardModelNetplayReset();
+    BoardMushroomNetplayReset();
+    BoardPauseNetplayReset();
+    BoardPlayerNetplayReset();
+    BoardShopNetplayReset();
+    BoardSpaceNetplayReset();
+    BoardStarNetplayReset();
+    BoardStartNetplayReset();
+    BoardUiNetplayReset();
+    BoardViewNetplayReset();
+    BoardWarpNetplayReset();
+    BoardWinNetplayReset();
+}
+
 /* A block whose allocating code is not loaded any more: the old overlay's own (its code is gone before the next one
  * loads). 0xCDCDCDCD and 0xA5A5A5A5 are memory.c's and process.c's marks, not code. */
 static BOOL dead_code_block(uintptr_t retaddr, void *user)
@@ -651,8 +720,8 @@ void netplay_ovl_start(s32 ovl)
     } else {
         party_config(&match.m);
     }
-    /* The old board's dice (N52: a resync from a turn point crashed at the next roll). */
-    BoardRollNetplayReset();
+    /* The old board's dice (N52: a resync from a turn point crashed at the next roll) and the rest (N66). */
+    board_statics_reset();
     leftovers_free();
     netplay_reseed();
     OSReport("netplay: board overlay %d starts at frame %u, turn %d/%d, heaps %016llX\n", ovl, netplay_frame(),

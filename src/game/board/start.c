@@ -903,3 +903,22 @@ static void OrderPlayers(void) {
     HuMemDirectFree(playerCfg);
     HuMemDirectFree(state);
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the board intro's objects end themselves, so these still
+ * name the old board's freed sprites, windows, objects and process. Set back to their initial values at the match's
+ * overlay start (netplay_match.c). */
+void BoardStartNetplayReset(void)
+{
+    s32 i;
+    hostMdl = 0;
+    startProc = NULL;
+    logoSprGrp = logoSpr = -1;
+    camFocus = -1;
+    tapWin = -1;
+    streamStatus = -1;
+    for (i = 0; i < 4; i++) {
+        playerStartObj[i] = NULL;
+    }
+}
+#endif

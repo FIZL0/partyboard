@@ -902,3 +902,22 @@ void BoardBooHouseTutorialExec(void)
     }
     BoardModelVisibilitySet(BoardBooHouseHostGet(), 0);
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before BoardBooHouseKill (DestroyBoard) runs, so these still name
+ * the old board's freed models and process. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardBooHouseNetplayReset(void)
+{
+    s32 i;
+    for (i = 0; i < 6; i++) {
+        houseMdl[i] = 0;
+    }
+    houseProc = NULL;
+    houseShowMot = houseHideMot = -1;
+    ballMdl = booMdl = smokeMdl = hostMdl = -1;
+    for (i = 0; i < 3; i++) {
+        hostMot[i] = -1;
+    }
+}
+#endif

@@ -2789,3 +2789,31 @@ static void RestoreItemBowser(void)
         HuPrcVSleep();
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the item ends, so these still name the old board's freed
+ * models, particles and process. Set back to their initial values at the match's overlay start (netplay_match.c). */
+void BoardItemNetplayReset(void)
+{
+    suitMdl = 0;
+    booBallMdl = 0;
+    genieParticleAnim = NULL;
+    itemProc = NULL;
+}
+#endif
+
+#ifdef TARGET_PC
+static BOOL ItemRotProcCheck(const Process *process, void *user)
+{
+    (void)user;
+    return process->func == ItemRotProc;
+}
+
+/* Netplay (N66): ItemRotProc (hammer, ...) is a root process its item kills when done, not a board child. Left by a
+ * reload mid-item it would run on for good, on its killed item's stack, moving a model of the next board. Killed with
+ * the board's processes when a match starts (MatchStartProc). */
+s32 BoardItemNetplayKill(void)
+{
+    return HuPrcKillIf(ItemRotProcCheck, NULL);
+}
+#endif

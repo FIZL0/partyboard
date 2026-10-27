@@ -1496,3 +1496,19 @@ static void UpdatePlayerCoins(void) {
     }
     BoardPlayerCoinsAdd(stealTarget, -stealValue);
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the Boo's objects end themselves (booKillF), so these
+ * still name the old board's freed objects. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardBooNetplayReset(void)
+{
+    booKillF = 0;
+    ballTakeCoinObj = NULL;
+    ballPlayerObj = NULL;
+    ballBooObj = NULL;
+    ballCameraObj = NULL;
+    ballObj = NULL;
+    booEventObj = NULL;
+}
+#endif

@@ -1211,3 +1211,23 @@ void BoardShopTutorialExec(s32 arg0)
         itemMdl = -1;
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before BoardShopKill (DestroyBoard) and the shop's objects run,
+ * so these still name the old board's freed models, objects and process. Set back to their initial values at the
+ * match's overlay start (netplay_match.c). */
+void BoardShopNetplayReset(void)
+{
+    shopMdlIdx[0][0] = shopMdlIdx[1][0] = 0;
+    shopMdlPtr = NULL;
+    itemChoiceObj = NULL;
+    itemGiveObj = NULL;
+    shopWinObj = NULL;
+    shopProc = NULL;
+    itemMdl = -1;
+    itemChoice = -1;
+    hostMdl = -1;
+    shopMot[0] = shopMot[1] = shopMot[2] = -1;
+    itemCurChoice = -1;
+}
+#endif

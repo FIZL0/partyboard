@@ -2011,3 +2011,29 @@ static void KillPickerWindow(UnkUiWork01 *arg0)
         arg0->unk06 = -1;
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the status, item and turn objects end themselves, so these
+ * still name the old board's freed models, sprites, objects and processes. Set back to their initial values at the
+ * match's overlay start (netplay_match.c). */
+void BoardUiNetplayReset(void)
+{
+    s32 i;
+    s32 j;
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < ARRAY_COUNT(GWPlayer->items); j++) {
+            itemMdlId[i][j] = 0;
+        }
+    }
+    memset(uiStatus, 0, sizeof(uiStatus));
+    yourTurnSpr = 0;
+    itemPickObj = NULL;
+    itemUseProc = NULL;
+    yourTurnObj = NULL;
+    pickerObj = NULL;
+    itemWindowObj = NULL;
+    statusProc = NULL;
+    itemPickupMdlId = -1;
+    yourTurnSprGrp = -1;
+}
+#endif

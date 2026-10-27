@@ -1326,3 +1326,14 @@ void BoardMGSetupTutorialExec(void) {
     BoardFilterFadeOut(30);
     HuPrcSleep(30);
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the minigame setup's object ends itself, so these still
+ * name the old board's freed object and process. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardMGSetupNetplayReset(void)
+{
+    mgSetupObj = NULL;
+    mgSetupProc = NULL;
+}
+#endif
