@@ -448,14 +448,34 @@ void netplay_frame_end(void)
 
 #ifdef PB_NETPLAY_WRAP
 /*
- * Linker wraps (cmake/netplay.cmake, ELF only): every OSGetTime/OSGetTick/PADRead call in dol and the
- * RELs lands here. Offline they pass straight through to aurora.
+ * Linker wraps or preprocessor renames (cmake/netplay.cmake): every OSGetTime/OSGetTick/PADRead call in
+ * dol and the RELs lands here. Offline they pass straight through to aurora.
  */
+#ifdef PB_NETPLAY_DEFINE
+/* The calls were renamed by -DOSGetTime=__wrap_OSGetTime etc.; aurora's own functions keep their names. */
+#undef OSGetTime
+#undef OSGetTick
+#undef PADRead
+OSTime OSGetTime(void);
+OSTick OSGetTick(void);
+u32 PADRead(PADStatus *status);
+#define __real_OSGetTime OSGetTime
+#define __real_OSGetTick OSGetTick
+#define __real_PADRead PADRead
+#else
 OSTime __real_OSGetTime(void);
 OSTick __real_OSGetTick(void);
 u32 __real_PADRead(PADStatus *status);
+#endif
 
-OSTime __wrap_OSGetTime(void)
+/* The RELs import __wrap_OSGetTime/OSGetTick from dol; on Windows dol.def does not list them. */
+#ifdef _WIN32
+#define NETPLAY_WRAP_EXPORT __declspec(dllexport)
+#else
+#define NETPLAY_WRAP_EXPORT
+#endif
+
+NETPLAY_WRAP_EXPORT OSTime __wrap_OSGetTime(void)
 {
     if (active) {
         return netplay_time();
@@ -463,7 +483,7 @@ OSTime __wrap_OSGetTime(void)
     return __real_OSGetTime();
 }
 
-OSTick __wrap_OSGetTick(void)
+NETPLAY_WRAP_EXPORT OSTick __wrap_OSGetTick(void)
 {
     if (active) {
         return (OSTick)(netplay_time() & 0xFFFFFFFF);
@@ -471,7 +491,7 @@ OSTick __wrap_OSGetTick(void)
     return __real_OSGetTick();
 }
 
-u32 __wrap_PADRead(PADStatus *status)
+NETPLAY_WRAP_EXPORT u32 __wrap_PADRead(PADStatus *status)
 {
     if (active && script.loaded) {
         script_pads(status);
