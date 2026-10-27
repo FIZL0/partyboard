@@ -172,7 +172,11 @@ void Hu3DAnimKill(HU3DANIMID animId)
     }
     texAnimP->modelId = HU3D_MODELID_NONE;
     if (--texAnimP->anim->useNum <= 0) {
+#ifdef BYTESWAPPING
+        HuSprAnimFree(texAnimP->anim);
+#else
         HuMemDirectFree(texAnimP->anim);
+#endif
     }
 }
 

@@ -51,7 +51,7 @@ void HuMemDCFlush(HeapID heap)
 void *HuMemDirectMalloc(HeapID heap, size_t size)
 {
 #ifdef TARGET_PC
-    u32 retaddr = 0;
+    uintptr_t retaddr = HU_MEM_CALLER();
 #else
     register u32 retaddr;
     asm {
@@ -65,7 +65,7 @@ void *HuMemDirectMalloc(HeapID heap, size_t size)
 void *HuMemDirectMallocNum(HeapID heap, size_t size, uintptr_t num)
 {
 #ifdef TARGET_PC
-    u32 retaddr = 0;
+    uintptr_t retaddr = HU_MEM_CALLER();
 #else
     register u32 retaddr;
     asm {
@@ -79,7 +79,7 @@ void *HuMemDirectMallocNum(HeapID heap, size_t size, uintptr_t num)
 void HuMemDirectFree(void *ptr)
 {
 #ifdef TARGET_PC
-    u32 retaddr = 0;
+    uintptr_t retaddr = HU_MEM_CALLER();
 #else
     register u32 retaddr;
     asm {
@@ -92,7 +92,7 @@ void HuMemDirectFree(void *ptr)
 void HuMemDirectFreeNum(HeapID heap, uintptr_t num)
 {
 #ifdef TARGET_PC
-    u32 retaddr = 0;
+    uintptr_t retaddr = HU_MEM_CALLER();
 #else
     register u32 retaddr;
     asm {
@@ -121,3 +121,44 @@ void *HuMemHeapPtrGet(HeapID heap)
 {
     return HeapTbl[heap];
 }
+
+#ifdef TARGET_PC
+typedef struct {
+    void *data;
+    BOOL used;
+    uintptr_t num;
+} NumFind;
+
+static void NumFindBlock(void *user, uintptr_t offset, s32 size, BOOL used, uintptr_t num, void *data, size_t data_size)
+{
+    NumFind *find = user;
+    if (used && data == find->data) {
+        find->used = TRUE;
+        find->num = num;
+    }
+}
+
+static NumFind NumFindGet(void *ptr)
+{
+    NumFind find = { ptr, FALSE, (uintptr_t)-256 };
+    s32 i;
+    for (i = 0; i < HEAP_MAX; i++) {
+        if (HeapTbl[i] != NULL && (uintptr_t)ptr >= (uintptr_t)HeapTbl[i]
+            && (uintptr_t)ptr - (uintptr_t)HeapTbl[i] < HeapSizeTbl[i]) {
+            HuMemHeapWalk(HeapTbl[i], NumFindBlock, &find);
+            break;
+        }
+    }
+    return find;
+}
+
+uintptr_t HuMemDirectNumGet(void *ptr)
+{
+    return NumFindGet(ptr).num;
+}
+
+BOOL HuMemDirectUsedCheck(void *ptr)
+{
+    return NumFindGet(ptr).used;
+}
+#endif

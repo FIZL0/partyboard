@@ -58,6 +58,8 @@ SHARED_SYM extern GameStat GWGameStatDefault;
 SHARED_SYM extern s32 saveExecF;
 void BoardMGSetupPlayClear(void);
 void BoardRollNetplayReset(void);
+void CharEffectNetplayReset(void);
+s32 HuDataNetplayCloseAll(void);
 SHARED_SYM extern u32 GlobalCounter;
 SHARED_SYM extern s32 SystemInitF;
 void HuSysVWaitSet(s16 vcount);
@@ -529,6 +531,49 @@ static u64 heap_walk(BOOL scrub, BOOL report)
     return h;
 }
 
+/* A block whose allocating code is not loaded any more: the old overlay's own (its code is gone before the next one
+ * loads). 0xCDCDCDCD and 0xA5A5A5A5 are memory.c's and process.c's marks, not code. */
+static BOOL dead_code_block(uintptr_t retaddr, void *user)
+{
+    (void)user;
+    return retaddr != 0 && retaddr != 0xCDCDCDCD && retaddr != 0xA5A5A5A5
+        && code_module((void (*)(void))retaddr) == NULL;
+}
+
+/*
+ * N57: what a peer that was mid-board or mid-minigame keeps over a reload and a fresh peer has not: chrman's particle
+ * work (SYSTEM), the old board's directory reads (DVD: DestroyBoard closes them, but a killed board never runs it), its
+ * data in ARAM (the board between minigames; read back into DVD) and the blocks of a minigame left mid-play. Done here,
+ * where nothing of the old overlay runs any more (MatchStartProc runs before its processes' teardown) and the new one
+ * is not loaded yet, so every peer allocates them again alike.
+ */
+static void leftovers_free(void)
+{
+    s32 busy;
+    s32 heap;
+
+    CharEffectNetplayReset();
+    busy = HuDataNetplayCloseAll();
+    if (busy != 0) {
+        OSReport("netplay: %d directory reads still running at the overlay start\n", (int)busy);
+    }
+    if (HuARDirCheck(DATADIR_BOARD)) {
+        HuARDirFree(DATADIR_BOARD);
+    }
+    /* What the old overlay allocated and would have freed at its own end (N57: m427's screen copies, m440's objects,
+     * m415's anims). Only where this platform can tell code modules apart. */
+    if (code_module((void (*)(void))netplay_match_tick) != NULL) {
+        for (heap = 0; heap < HEAP_MAX; heap++) {
+            if (HuMemHeapPtrGet((HeapID)heap) != NULL) {
+                s32 freed = HuMemMemoryFreeIf(HuMemHeapPtrGet((HeapID)heap), dead_code_block, NULL);
+                if (freed != 0) {
+                    OSReport("netplay: heap %d: freed %d blocks of an overlay that is gone\n", (int)heap, (int)freed);
+                }
+            }
+        }
+    }
+}
+
 u64 netplay_heap_hash(void)
 {
     return heap_walk(FALSE, FALSE);
@@ -608,6 +653,7 @@ void netplay_ovl_start(s32 ovl)
     }
     /* The old board's dice (N52: a resync from a turn point crashed at the next roll). */
     BoardRollNetplayReset();
+    leftovers_free();
     netplay_reseed();
     OSReport("netplay: board overlay %d starts at frame %u, turn %d/%d, heaps %016llX\n", ovl, netplay_frame(),
         GWSystem.turn, GWSystem.max_turn, (unsigned long long)heap_walk(TRUE, TRUE));

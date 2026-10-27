@@ -226,6 +226,7 @@ ANIMDATA *HuSprAnimRead(void *data)
     ANIMDATA *anim = data;
 #ifdef BYTESWAPPING
     s16 j;
+    uintptr_t num;
     if (anim->valid == ANIM_DATA_ALLOCATION_VALID) {
         anim->useNum++;
         return anim;
@@ -236,7 +237,10 @@ ANIMDATA *HuSprAnimRead(void *data)
         anim->useNum++;
         return anim;
     }
-    anim = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMDATA));
+    /* On GC the anim is the file block and goes when its num is freed (omOvlKill: an overlay's anims a particle or
+     * the overlay itself never killed). The converted one goes with it (N57: a minigame left mid-play kept them). */
+    num = HuMemDirectNumGet(data);
+    anim = HuMemDirectMallocNum(HEAP_DATA, sizeof(ANIMDATA), num);
     byteswap_animdata(data, anim);
     anim->valid = ANIM_DATA_ALLOCATION_VALID;
     anim->raw = data;
@@ -248,7 +252,7 @@ ANIMDATA *HuSprAnimRead(void *data)
 #endif
     bank = (void *)((uintptr_t)anim->bank+(uintptr_t)data);
 #ifdef BYTESWAPPING
-    bank = HuMemDirectMalloc(HEAP_DATA, anim->bankNum * sizeof(ANIMBANK));
+    bank = HuMemDirectMallocNum(HEAP_DATA, anim->bankNum * sizeof(ANIMBANK), num);
     for(i=0; i<anim->bankNum; i++) {
         byteswap_animbankdata(&((AnimBankData32b*)((uintptr_t)anim->bank+(uintptr_t)data))[i], &bank[i]);
     }
@@ -256,7 +260,7 @@ ANIMDATA *HuSprAnimRead(void *data)
     anim->bank = bank;
     pat = (void *)((uintptr_t)anim->pat+(uintptr_t)data);
 #ifdef BYTESWAPPING
-    pat = HuMemDirectMalloc(HEAP_DATA, anim->patNum * sizeof(ANIMPAT));
+    pat = HuMemDirectMallocNum(HEAP_DATA, anim->patNum * sizeof(ANIMPAT), num);
     for(i=0; i<anim->patNum; i++) {
         byteswap_animpatdata(&((AnimPatData32b*)((uintptr_t)anim->pat+(uintptr_t)data))[i], &pat[i]);
     }
@@ -264,7 +268,7 @@ ANIMDATA *HuSprAnimRead(void *data)
     anim->pat = pat;
     bmp = (void *)((uintptr_t)anim->bmp+(uintptr_t)data);
 #ifdef BYTESWAPPING
-    bmp = HuMemDirectMalloc(HEAP_DATA, anim->bmpNum * sizeof(ANIMBMP));
+    bmp = HuMemDirectMallocNum(HEAP_DATA, anim->bmpNum * sizeof(ANIMBMP), num);
     for(i=0; i<anim->bmpNum; i++) {
         byteswap_animbmpdata(&((AnimBmpData32b*)((uintptr_t)anim->bmp+(uintptr_t)data))[i], &bmp[i]);
 #ifdef OPTIMIZED_TEXTURE_LOADING
@@ -487,6 +491,11 @@ void HuSprAnimKill(ANIMDATA *anim)
         }
 #endif
 #ifdef BYTESWAPPING
+        if (!anim->raw) {
+            /* HuSprAnimMake's: its frame and layer are blocks of their own (N57: every window leaked both) */
+            HuMemDirectFree(anim->bank->frame);
+            HuMemDirectFree(anim->pat->layer);
+        }
         HuMemDirectFree(anim->bank);
         HuMemDirectFree(anim->pat);
         HuMemDirectFree(anim->bmp);
@@ -497,6 +506,29 @@ void HuSprAnimKill(ANIMDATA *anim)
         HuMemDirectFree(anim);
     }
 }
+
+#ifdef BYTESWAPPING
+/* Hu3DAnimKill's free of an anim. On GC that is one block (the file block, or HuSprAnimMake's) and its bitmap data
+ * stays; here the converted anim's own blocks go with it (N57: m411 left mid-play kept five blocks per anim). An anim
+ * HuSprAnimKill already freed (m411's own end) is only reported, as before. */
+void HuSprAnimFree(ANIMDATA *anim)
+{
+    if (!HuMemDirectUsedCheck(anim)) {
+        HuMemDirectFree(anim);
+        return;
+    }
+    if (anim->raw) {
+        HuMemDirectFree(anim->raw);
+    } else {
+        HuMemDirectFree(anim->bank->frame);
+        HuMemDirectFree(anim->pat->layer);
+    }
+    HuMemDirectFree(anim->bank);
+    HuMemDirectFree(anim->pat);
+    HuMemDirectFree(anim->bmp);
+    HuMemDirectFree(anim);
+}
+#endif
 
 void HuSprAttrSet(s16 group, s16 member, s32 attr)
 {
@@ -713,6 +745,16 @@ ANIMDATA *HuSprAnimMake(s16 sizeX, s16 sizeY, s16 dataFmt)
     anim->bmp = bmp = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMBMP));
     anim->valid = ANIM_DATA_ALLOCATION_VALID;
     anim->raw = NULL;
+    {
+        /* the anim belongs to whoever made it (N57: a minigame's, left mid-play, is freed with its code) */
+        uintptr_t caller = HU_MEM_CALLER();
+        HuMemMemoryCallerSet(anim, caller);
+        HuMemMemoryCallerSet(bank, caller);
+        HuMemMemoryCallerSet(frame, caller);
+        HuMemMemoryCallerSet(pat, caller);
+        HuMemMemoryCallerSet(layer, caller);
+        HuMemMemoryCallerSet(bmp, caller);
+    }
 #else
     anim = new_anim = HuMemDirectMalloc(HEAP_DATA, sizeof(ANIMDATA)+sizeof(ANIMBANK)+sizeof(ANIMFRAME)
                                             +sizeof(ANIMPAT)+sizeof(ANIMLAYER)+sizeof(ANIMBMP));

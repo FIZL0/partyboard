@@ -1,0 +1,194 @@
+--- a/src/game/memory.c
++++ b/src/game/memory.c
+@@ -3,6 +3,7 @@
+ 
+ #ifdef SKIP_HU_ALLOC
+ #include <stdlib.h>
++#include <string.h>
+ #endif
+ 
+ #if INTPTR_MAX == INT32_MAX
+@@ -28,6 +29,31 @@
+ };
+ 
+ static void *HuMemMemoryAlloc2(void *heap_ptr, size_t size, uintptr_t num, uintptr_t retaddr);
++/* N57 TEMP */
++#include <execinfo.h>
++#include <stdlib.h>
++#include <string.h>
++#define N57_SLOTS (1u << 20)
++#define N57_DEPTH 16
++static struct { void *key; void *bt[N57_DEPTH]; } *n57_tab;
++static void n57_rec(void *data)
++{
++    uintptr_t h;
++    if (n57_tab == NULL) n57_tab = calloc(N57_SLOTS, sizeof(*n57_tab));
++    h = ((uintptr_t)data >> 5) & (N57_SLOTS - 1);
++    while (n57_tab[h].key != NULL && n57_tab[h].key != data) h = (h + 1) & (N57_SLOTS - 1);
++    n57_tab[h].key = data;
++    memset(n57_tab[h].bt, 0, sizeof(n57_tab[h].bt));
++    backtrace(n57_tab[h].bt, N57_DEPTH);
++}
++void **n57_bt(void *data)
++{
++    uintptr_t h;
++    if (n57_tab == NULL) return NULL;
++    h = ((uintptr_t)data >> 5) & (N57_SLOTS - 1);
++    while (n57_tab[h].key != NULL) { if (n57_tab[h].key == data) return n57_tab[h].bt; h = (h + 1) & (N57_SLOTS - 1); }
++    return NULL;
++}
+ 
+ void *HuMemHeapInit(void *ptr, size_t size)
+ {
+@@ -81,6 +107,7 @@
+             block->magic = 165;
+             block->num = num;
+             block->retaddr = retaddr;
++            n57_rec(BLOCK_GET_DATA(block));
+             return BLOCK_GET_DATA(block);
+         }
+         block = block->next;
+--- a/src/port/netplay_match.c
++++ b/src/port/netplay_match.c
+@@ -437,6 +437,8 @@
+     BOOL scrub;
+ } HeapWalk;
+ 
++static int n57_force; /* N57 TEMP */
++
+ static void fnv_word(u64 *h, u64 v)
+ {
+     s32 i;
+@@ -473,6 +475,17 @@
+         fnv_word(&w->h, heap_num(num));
+         w->used_blocks++;
+         w->used_bytes += (size_t)size;
++        if ((w->scrub || n57_force) && getenv("N57_DUMP")) { /* N57 TEMP */
++            extern void **n57_bt(void *);
++            void **bt = n57_bt(data);
++            Dl_info di;
++            s32 k;
++            fprintf(stderr, "n57: heap %d off %lx size %x num %llx:", w->heap, (unsigned long)offset, size, (unsigned long long)heap_num(num));
++            for (k = 0; bt && k < 16 && bt[k]; k++) {
++                if (dladdr(bt[k], &di) && di.dli_fname) fprintf(stderr, " %s+%lx", strrchr(di.dli_fname, '/') ? strrchr(di.dli_fname, '/') + 1 : di.dli_fname, (unsigned long)((uintptr_t)bt[k] - (uintptr_t)di.dli_fbase));
++            }
++            fprintf(stderr, "\n");
++        }
+     } else if (w->scrub) {
+         memset(data, 0, data_size);
+         w->scrubbed += data_size;
+@@ -553,6 +566,18 @@
+     }
+ }
+ 
++void n57_leftovers(void) /* N57 TEMP */
++{
++    leftovers_free();
++}
++
++void n57_dump_heaps(void) /* N57 TEMP */
++{
++    n57_force = 1;
++    heap_walk(FALSE, FALSE);
++    n57_force = 0;
++}
++
+ u64 netplay_heap_hash(void)
+ {
+     return heap_walk(FALSE, FALSE);
+--- a/src/port/netplay.c
++++ b/src/port/netplay.c
+@@ -1,3 +1,4 @@
++#define _GNU_SOURCE 1 /* N57 TEMP */
+ /*
+  * Netplay, C side: deterministic time and seeds, the state hash, and the --script/--hash-log debug
+  * mode used to check that two runs of the same input stay identical. See plan/NET.md.
+@@ -678,6 +679,37 @@
+     }
+ }
+ 
++/* N57 TEMP: N57_RESTART=<ovl>:<frames>:<times> restarts that overlay that many frames in, as a reload kills it */
++#include "game/process.h"
++#include "game/memory.h"
++static BOOL n57_foreign(const Process *p, void *dol)
++{
++    Dl_info a, b;
++    const void *f = (p->func && dladdr((void *)(uintptr_t)p->func, &a)) ? a.dli_fbase : NULL;
++    const void *d = (p->dtor && dladdr((void *)(uintptr_t)p->dtor, &b)) ? b.dli_fbase : NULL;
++    return (f != NULL && f != dol) || (d != NULL && d != dol);
++}
++static void n57_restart_proc(void)
++{
++    Dl_info me;
++    dladdr((void *)(uintptr_t)netplay_tick_begin, &me);
++    OSReport("n57: restart: killed %d\n", (int)HuPrcKillIf(n57_foreign, me.dli_fbase));
++    omOvlGotoEx(omcurovl, 1, 0, 0);
++    HuPrcEnd();
++}
++static void n57_restart(void)
++{
++    static int ovl = -2, frames, times, last = -1, n, done;
++    const char *e = getenv("N57_RESTART");
++    if (e == NULL) return;
++    if (ovl == -2) sscanf(e, "%d:%d:%d", &ovl, &frames, &times);
++    if ((int)omcurovl != last) { last = omcurovl; n = 0; }
++    if ((int)omcurovl == ovl && ++n == frames && done < times) {
++        done++;
++        HuPrcCreate(n57_restart_proc, 0xFFFF, 0x2000, 0);
++    }
++}
++
+ BOOL netplay_tick_begin(void)
+ {
+     PADStatus local[4];
+@@ -689,6 +721,7 @@
+ 
+     /* A started match sets its state first: frame 0's hash and pads see it on every peer. */
+     netplay_match_tick();
++    n57_restart();
+     if (script.loaded || !pbnet_lockstep_active()) {
+         return TRUE;
+     }
+--- a/src/game/objmain.c
++++ b/src/game/objmain.c
+@@ -1,3 +1,4 @@
++#include <stdlib.h> /* N57 TEMP */
+ #include "game/audio.h"
+ #include "game/chrman.h"
+ #include "game/esprite.h"
+@@ -92,6 +93,9 @@
+                 HuMemHeapDump(HuMemHeapPtrGet(HEAP_DVD), -1);
+                 OSReport("objman>Used Memory Size:%08x\n", HuMemUsedMallocSizeGet(HEAP_SYSTEM));
+                 OSReport("objman>Used Memory Cnt:%d\n", HuMemUsedMallocBlockGet(HEAP_SYSTEM));
++                if (getenv("N57_LEFTOVERS")) { extern void n57_leftovers(void); n57_leftovers(); } /* N57 TEMP */
++                OSReport("n57: ovl %d start: SYSTEM %d %x DATA %d %x DVD %d %x\n", omnextovl, (int)HuMemUsedMallocBlockGet(HEAP_SYSTEM), (int)HuMemUsedMallocSizeGet(HEAP_SYSTEM), (int)HuMemUsedMallocBlockGet(HEAP_DATA), (int)HuMemUsedMallocSizeGet(HEAP_DATA), (int)HuMemUsedMallocBlockGet(HEAP_DVD), (int)HuMemUsedMallocSizeGet(HEAP_DVD)); /* N57 TEMP */
++                { extern void n57_dump_heaps(void); n57_dump_heaps(); }
+ #ifdef TARGET_PC
+                 if (netplay_active()) {
+                     netplay_ovl_start(omnextovl);
+--- a/src/REL/bootDll/main.c
++++ b/src/REL/bootDll/main.c
+@@ -16,6 +16,8 @@
+ #include "game/window.h"
+ #include "game/wipe.h"
+ #include "math.h"
++#include <stdlib.h>
++#include "game/objsub.h"
+ 
+ #include "data_num/title.h"
+ 
+@@ -160,6 +162,14 @@
+              GWPlayerCfg[i].pad_idx = i;
+          }
+          BootInitForSkippedSequence();
++         if (getenv("N57_MG")) { /* N57 TEMP */
++             for (i = 0; i < 4; i++) {
++                 GWPlayerCfg[i].character = i; GWPlayerCfg[i].iscom = 1; GWPlayerCfg[i].diff = 0; GWPlayerCfg[i].group = 0;
++             }
++             GWSystem.mg_next = omMgIndexGet(atoi(getenv("N57_MG")));
++             omOvlCallEx(atoi(getenv("N57_MG")), 1, 0, 0);
++             HuPrcEnd();
++         }
+          omOvlCallEx(DLL_modeseldll, 1, MODESEL_EVENT_SKIP_BOOT, 0);
+          for (i = 0; i < 4; i++) {
+              GWPlayerCfg[i].character = -1;

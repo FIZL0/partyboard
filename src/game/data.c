@@ -569,6 +569,27 @@ void HuDataDirCloseNum(s32 num)
     }
 }
 
+#ifdef TARGET_PC
+/* Netplay (N57): closes every directory whose read is done (an old board's async reads outlive its overlay); returns
+ * how many are still being read (closing those panics). */
+s32 HuDataNetplayCloseAll(void)
+{
+    s32 i;
+    s32 busy = 0;
+    for(i=0; i<DATA_MAX_READSTAT; i++) {
+        if(ReadDataStat[i].dirId == HU_DATANUM_NONE) {
+            continue;
+        }
+        if(ReadDataStat[i].status == 1) {
+            busy++;
+        } else {
+            HuDataDirClose(ReadDataStat[i].dirId << 16);
+        }
+    }
+    return busy;
+}
+#endif
+
 static s32 HuDataDVDdirDirectOpen(s32 dataNum, DVDFileInfo *fileInfo)
 {
 	s32 dir = dataNum >> 16;
