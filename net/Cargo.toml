@@ -1,0 +1,17 @@
+[package]
+name = "pbnet"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Party Board online play: transport, lobby, lockstep (C ABI in include/port/pbnet.h)"
+
+[lib]
+# staticlib: linked into `dol` by CMake. rlib: lets `cargo test` build the crate's own tests.
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+
+[profile.release]
+# Never unwind across the C ABI.
+panic = "abort"
+debug = 1

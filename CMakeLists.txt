@@ -146,6 +146,8 @@ set_target_properties(dol PROPERTIES C_VISIBILITY_PRESET default CXX_VISIBILITY_
 target_compile_definitions(dol PRIVATE TARGET_PC NON_MATCHING OPTIMIZED_TEXTURE_LOADING BYTESWAPPING TARGET_DOL VERSION=${VERSION} MUSY_VERSION_MAJOR=1 MUSY_VERSION_MINOR=5 MUSY_VERSION_PATCH=4)
 target_include_directories(dol PRIVATE include extern extern/aurora/include extern/aurora/include/dolphin ${CMAKE_BINARY_DIR})
 target_link_libraries(dol PUBLIC aurora::core aurora::card aurora::dvd aurora::gx aurora::mtx aurora::os aurora::si aurora::vi aurora::pad musyx absl::flat_hash_map nlohmann_json::nlohmann_json fmt::fmt rmlui_debugger)
+include(cmake/pbnet.cmake)
+target_link_libraries(dol PRIVATE pbnet::pbnet)
 # TODO it doesn't work on Linux yet
 if (WIN32)
     if(USE_ASAN)

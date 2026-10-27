@@ -23,6 +23,7 @@
 #include <port/main.h>
 #include <port/settings.h>
 #include <port/port_version.h>
+#include <port/pbnet.h>
 
 #include <aurora/dvd.h>
 #include <aurora/lib/logging.hpp>
@@ -415,6 +416,8 @@ extern "C" int port_main(int argc, char* argv[]) {
 #ifdef PARTY_BOARD_DISCORD
     partyboard::discord::initialize();
 #endif
+
+    PartyBoardMainLog.info("pbnet {}", pbnet_version());
 
     char windowTitle[100];
     snprintf(windowTitle, sizeof(windowTitle), "PartyBoard %s", PARTY_BOARD_WC_DESCRIBE);
