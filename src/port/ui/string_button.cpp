@@ -2,6 +2,8 @@
 
 #include "string_button.hpp"
 
+#include <RmlUi/Core/Core.h>
+#include <RmlUi/Core/SystemInterface.h>
 #include <aurora/rmlui.hpp>
 
 namespace partyboard::ui {
@@ -131,6 +133,11 @@ void BaseStringButton::stop_editing(bool commit, bool refocusRoot)
     mInputListeners.clear();
     mRoot->RemoveChild(mInputElem);
     mInputElem = nullptr;
+    // RmlUi's text widget never deactivates the keyboard itself (its keyboard_showed flag is never set),
+    // so without this the phone keyboard stays up after Enter or a tap elsewhere.
+    if (auto *system = Rml::GetSystemInterface()) {
+        system->DeactivateKeyboard();
+    }
 
     // Restore value element
     mValueElem->SetProperty(Rml::PropertyId::Visibility, Rml::Style::Visibility::Visible);

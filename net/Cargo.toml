@@ -32,6 +32,8 @@ serde_json = "1"
 rustls-platform-verifier = "0.7"
 jni22 = { package = "jni", version = "0.22", default-features = false }
 webpki-roots = "1"
+# N36: iroh's interface scan (netdev) needs the VM and activity from here; see android.rs `init_ndk_context`.
+ndk-context = "0.1"
 
 # N12: iOS. iroh -> netwatch -> netdev 0.46's darwin code uses `libc::in6_ifreq`, which libc 0.2.190 and later define
 # for macOS only, so the crate stops compiling for aarch64-apple-ios (research/journal/2026-10-27-n12-mobile).
