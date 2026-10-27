@@ -20,6 +20,7 @@
 #ifdef TARGET_PC
 #include <assert.h>
 #include "port/port_version.h"
+#include "port/button_icons.h"
 #endif
 
 typedef struct {
@@ -957,11 +958,21 @@ static s16 HuWinSpcFontEntry(WindowData *window, s16 entry, s16 x, s16 y)
     s16 sprite;
     s16 i;
     ANIMDATA *anim;
+#ifdef TARGET_PC
+    s16 bank;
+#endif
 
     for (i = 10; i < 30; i++) {
         if (window->sprite_id[i] == -1) {
             anim = *spcFontTbl[entry].anim;
+#ifdef TARGET_PC
+            // N49: the buttons of the controller this window's player uses
+            bank = spcFontTbl[entry].bank;
+            pb_button_icon_for_window(entry, window->active_pad & ~window->player_disable, &anim, &bank);
+            window->sprite_id[i] = sprite = HuSprCreate(anim, window->prio - 1, bank);
+#else
             window->sprite_id[i] = sprite = HuSprCreate(anim, window->prio - 1, spcFontTbl[entry].bank);
+#endif
             HuSprGrpMemberSet(window->group, i, sprite);
             HuSprPosSet(window->group, i, x + spcFontTbl[entry].center_x - window->w / 2, y + spcFontTbl[entry].center_y - window->h / 2);
             break;

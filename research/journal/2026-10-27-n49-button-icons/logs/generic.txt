@@ -1,0 +1,19 @@
+button_icons: ovl 74 icon 0 port 0 -> Generic glyph 17
+button_icons: ovl 74 icon 2 port 0 -> Generic glyph 0
+button_icons: ovl 74 icon 3 port 0 -> Generic glyph 1
+button_icons: ovl 70 icon 0 port 0 -> Generic glyph 17
+button_icons: ovl 70 icon 2 port 0 -> Generic glyph 0
+button_icons: ovl 70 icon 3 port 0 -> Generic glyph 1
+button_icons: ovl 89 icon 2 port 0 -> Generic glyph 0
+button_icons: ovl 89 icon 11 port 0 -> Generic glyph 10
+button_icons: ovl 89 icon 6 port 0 -> Generic glyph 16
+button_icons: ovl 89 icon 0 port 0 -> Generic glyph 17
+button_icons: ovl 3 icon 12 port 0 -> Generic glyph 6
+button_icons: ovl 3 icon 11 port 0 -> Generic glyph 10
+button_icons: ovl 3 icon 6 port 0 -> Generic glyph 16
+button_icons: ovl 84 icon 2 port 0 -> Generic glyph 0
+button_icons: ovl 89 icon 2 port 0 -> Generic glyph 0
+button_icons: ovl 89 icon 11 port 0 -> Generic glyph 10
+button_icons: ovl 89 icon 6 port 0 -> Generic glyph 16
+button_icons: ovl 89 icon 0 port 0 -> Generic glyph 17
+netplay: script ended at frame 17400, hash 004C982C415C8583

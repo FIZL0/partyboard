@@ -93,6 +93,7 @@ struct UserSettings {
 
         // Input
         ConfigVar<bool> allowBackgroundInput;
+        ConfigVar<int> buttonIcons; // N49: PB_ICONS_* (port/button_icons.h)
 
         // Cheats
         ConfigVar<bool> infiniteHearts;

@@ -80,6 +80,7 @@ set(GAME_FILES
 set(PORT_FILES
         src/port/achievements.cpp
         src/port/audio.c
+        src/port/button_icons.cpp
         src/port/byteswap.cpp
         src/port/config.cpp
         src/port/dolassets.cpp

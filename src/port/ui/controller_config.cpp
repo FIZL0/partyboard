@@ -6,6 +6,7 @@
 #include "button.hpp"
 #include "number_button.hpp"
 #include "pane.hpp"
+#include "port/button_icons.h"
 
 
 #include <SDL3/SDL_gamepad.h>
@@ -382,6 +383,16 @@ void ControllerConfigWindow::build_port_tab(Rml::Element *content, int port)
     addPageButton(Page::Triggers, "Triggers", [] { return Rml::String(">"); }, [] { return false; });
     addPageButton(Page::Sticks, "Sticks", [] { return Rml::String(">"); }, [] { return false; });
     addPageButton(Page::Rumble, "Rumble", [] { return Rml::String(">"); }, [port] { return !PADSupportsRumbleIntensity(static_cast<u32>(port)); });
+    // N49: the button icons this port's prompts show (Settings > Input > Button Icons picks the rule)
+    leftPane.register_control(leftPane.add_select_button({
+                                  .key = "Button Icons",
+                                  .getValue = [port] { return Rml::String(pb_button_icons_family_name(pb_button_icons_family(port))); },
+                              }),
+        rightPane, [](Pane &pane) {
+            pane.clear();
+            pane.add_text("The controller buttons the game's prompts show for this port, by its controller's type and "
+                          "the bindings above. Change the rule in Settings > Input > Button Icons.");
+        });
 
     leftPane.add_section("Options");
     leftPane.register_control(leftPane.add_child<BoolButton>(BoolButton::Props {

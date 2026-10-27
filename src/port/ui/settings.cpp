@@ -6,6 +6,7 @@
 #include "bool_button.hpp"
 #include "controller_config.hpp"
 #include "port/config.hpp"
+#include "port/button_icons.h"
 #include "../imgui/ImGuiEngine.hpp"
 #include "../file_select.hpp"
 #include "graphics_tuner.hpp"
@@ -16,6 +17,7 @@
 #include "ui.hpp"
 
 #include <algorithm>
+#include <fmt/format.h>
 #include <aurora/aurora.h>
 #include <game/disp.h>
 #include <gx/GXAurora.h>
@@ -35,6 +37,16 @@ namespace {
     constexpr std::array kCardFileTypes = {
         "Card Image",
         "GCI Folder",
+    };
+
+    // N49: indexed by PB_ICONS_* (port/button_icons.h)
+    constexpr std::array kButtonIconNames = {
+        "Auto",
+        "PlayStation",
+        "Xbox",
+        "Switch",
+        "Generic",
+        "GameCube",
     };
 
     constexpr std::array kFpsOverlayCornerNames = {
@@ -529,6 +541,38 @@ SettingsWindow::SettingsWindow(bool prelaunch)
                 .key = "Allow Background Input",
                 .helpText = "Allow controller input even when the game window is not focused.",
                 .onChange = [](bool value) { aurora_set_background_input(value); },
+            });
+        leftPane.register_control(leftPane.add_select_button({
+                                      .key = "Button Icons",
+                                      .getValue =
+                                          [] {
+                                              const int idx = getSettings().game.buttonIcons.getValue();
+                                              return Rml::String { kButtonIconNames[idx >= 0 && idx < PB_ICONS_SETTING_COUNT ? idx : 0] };
+                                          },
+                                      .isModified =
+                                          [] {
+                                              const auto &icons = getSettings().game.buttonIcons;
+                                              return icons.getValue() != icons.getDefaultValue();
+                                          },
+                                  }),
+            rightPane, [](Pane &pane) {
+                for (int i = 0; i < static_cast<int>(kButtonIconNames.size()); ++i) {
+                    pane.add_button({
+                                        .text = kButtonIconNames[i],
+                                        .isSelected = [i] { return getSettings().game.buttonIcons.getValue() == i; },
+                                    })
+                        .on_pressed([i] {
+                            getSettings().game.buttonIcons.setValue(i);
+                            config::Save();
+                        });
+                }
+                pane.add_rml("<br/>The controller buttons the game's prompts show. Auto: each player's own controller "
+                             "(PlayStation, Xbox, Switch, Steam Deck, else Xbox). Generic shows the buttons by position. "
+                             "GameCube keeps the original icons.");
+                for (int port = 0; port < 4; ++port) {
+                    pane.add_rml(fmt::format("<br/>Port {}: {}", port + 1,
+                        pb_button_icons_family_name(pb_button_icons_family(port))));
+                }
             });
 
         leftPane.add_section("Tools");
