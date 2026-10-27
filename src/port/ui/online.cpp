@@ -766,10 +766,12 @@ void update_online_match()
     int waitIndex = -1;
     std::string waitName;
     std::string resync;
+    int heldS = 0;
     if (pbnet_lobby_state() == Started) {
         const auto j = nlohmann::json::parse(pbnet_text(pbnet_recover_json), nullptr, false);
         if (j.is_object() && j.value("running", false)) {
             resync = j.value("resync", "");
+            heldS = j.value("held_s", 0);
             message = j.value("message", "");
             host = j.value("host", false);
             hostLeft = j.value("host_left", false);
@@ -780,9 +782,10 @@ void update_online_match()
             key = fmt::format("{}|{}|{}", message, waitIndex, j.value("epoch", 0));
         }
     }
-    // N46: a desync is mended without asking anyone: a short notice, play goes on.
+    // N46: a desync is mended without asking anyone: a short notice, play goes on. N44: when going back did not mend
+    // it, the notice stays up while the game holds before the next try.
     if (!resync.empty() && resync != resyncShown) {
-        push_toast({ .title = "Online match", .content = resync, .duration = std::chrono::seconds(3) });
+        push_toast({ .title = "Online match", .content = resync, .duration = std::chrono::seconds(3 + std::max(heldS, 0)) });
     }
     resyncShown = resync;
     if (message.empty()) {

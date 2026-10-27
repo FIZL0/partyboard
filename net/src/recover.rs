@@ -325,8 +325,11 @@ pub struct Status {
     pub reloading: bool,
     /// What to tell the player, if anything.
     pub message: String,
-    /// N46: a desync is being mended: "Resyncing with <host>..." (a short notice, play goes on), else empty.
+    /// N46, N44: a desync is being mended: "Out of sync, going back to the last save point..." (a short notice, play
+    /// goes on), or [`crate::desync::held_text`] while the game holds before the next try; else empty.
     pub resync: String,
+    /// N44: the game holds this many seconds before the next resync (the last one did not mend it), else 0.
+    pub held_s: u32,
     /// N46, host: resyncs asked so far in this lobby (a new one is a new notice).
     pub resyncs: u32,
 }

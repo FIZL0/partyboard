@@ -60,7 +60,8 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
 - Resync (N46): never runs on desynced, never refused. Resync points at every player's turn start (`MainFunc` ->
   `netplay_turn_checkpoint`, `src/port/netplay_resync.c` -> `pbnet_resync_point`, memory only); a turn point resumes
   that turn (`BoardStartCheck` answers yes while the board is created, `netplay_turn_resuming`). Repeats from one point
-  hold 2/4/8/16 s first (`desync::Resync::delay`, `pbnet_resync_poll`). "Resyncing with <host>..." toast. Debug:
+  hold 2/4/8/16 s first (`desync::Resync::delay`, `pbnet_resync_poll`). Toast "Out of sync, going back to the last save point..." (N44); a hold
+  tells every peer (`Msg::Held`, `Status::held_s`) "Still out of sync ... Trying again in N seconds". Debug:
   `--desync-at <frame>`. Whole-state transfer was spiked and is not possible yet. Findings:
   `research/journal/2026-10-27-n46-desync-resync`.
 - Autosave every turn (N47): the turn hook also writes the online save (`netplay_checkpoint`) on every peer, so

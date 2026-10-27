@@ -8,12 +8,13 @@
 //!   ([`crate::recover`]: the point goes in the room, every peer restarts from it). A resync point is the host's
 //!   board state at the start of every player's turn ([`pbnet_resync_point`]) or after a minigame (the online save,
 //!   N9), whichever came last. Only the host decides: it compares its hashes with every peer's, and two peers that
-//!   differ can't both agree with it, so it sees every mismatch itself. A guest writes its log, shows "Resyncing
-//!   with <host>..." ([`resync_text`]) and waits for the host's reload.
+//!   differ can't both agree with it, so it sees every mismatch itself. A guest writes its log, shows "Out of
+//!   sync, going back to the last save point..." ([`RESYNC_TEXT`], N44) and waits for the host's reload.
 //! - **Never runs on desynced, rate-limited**: every desync ends in a resync. One that comes back from the same point
 //!   (a deterministic bug a reload can't fix) waits [`Resync::delay`] first, doubling from [`BACKOFF_FIRST`] up to
-//!   [`BACKOFF_MAX`]; the host's game holds meanwhile (so every peer's does: they lack its pads), and
-//!   [`pbnet_resync_poll`] fires the reload when the wait is over.
+//!   [`BACKOFF_MAX`]; the host's game holds meanwhile (so every peer's does: they lack its pads), tells every peer
+//!   how long ([`crate::lobby::Msg::Held`], shown as [`held_text`], N44), and [`pbnet_resync_poll`] fires the reload
+//!   when the wait is over.
 //!
 //! Whole-state transfer (the host's state at the current frame, as opentennis does) was spiked and is not possible
 //! here yet: research/journal/2026-10-27-n46-desync-resync.
@@ -23,7 +24,7 @@ use std::time::{Duration, SystemTime};
 
 use serde::Serialize;
 
-use crate::lobby::{Checkpoint, Room};
+use crate::lobby::Checkpoint;
 use crate::lockstep::{Desync, InputLog};
 
 /// The wait before the second resync from one point; each further one doubles it.
@@ -60,11 +61,14 @@ impl Resync {
     }
 }
 
-/// What the players see during a resync: "Resyncing with <the host's seat names>...".
-pub fn resync_text(room: &Room, host: &str) -> String {
-    let seats = room.seats_of(host);
-    let name = seats.iter().filter_map(|&s| room.seats[s].as_ref()).map(|s| s.name.as_str()).collect::<Vec<_>>().join(", ");
-    if name.is_empty() { "Resyncing...".into() } else { format!("Resyncing with {name}...") }
+/// What the players see while a desync reload runs (N44).
+pub const RESYNC_TEXT: &str = "Out of sync, going back to the last save point...";
+
+/// What the players see when going back to a save point did not mend a desync (the same point desynced again): the
+/// game holds `secs` seconds before it tries again (N44; the reloads never run out since N46, they back off).
+pub fn held_text(secs: u32) -> String {
+    let unit = if secs == 1 { "second" } else { "seconds" };
+    format!("Still out of sync after going back to the last save point. Trying again in {secs} {unit}...")
 }
 
 /// A resync point: the board blob of the start of a turn as a [`Checkpoint`].
@@ -131,7 +135,7 @@ impl Report {
 /// `<user dir>/desync-*.json` (the current directory if `pbnet_recover_set_dir` set none). On the host every one asks
 /// every peer to resync from the last resync point (`pbnet_recover_epoch` moves; `netplay_lobby_poll` starts it as any
 /// reload), unless one is under way; one more from the same point holds the game first and goes from
-/// `pbnet_resync_poll`. A guest shows "Resyncing with <host>..." and waits for the host. Returns 1 if a resync was
+/// `pbnet_resync_poll`. A guest shows "Out of sync, going back to the last save point..." and waits for the host. Returns 1 if a resync was
 /// asked now, else 0 (a guest, no lobby, one under way or held back).
 ///
 /// # Safety
@@ -215,13 +219,10 @@ mod tests {
     }
 
     #[test]
-    fn the_resync_text_names_the_hosts_seats() {
-        use crate::lobby::{Host, Ident, Msg, Player};
-        let ident = Ident { build: "b".into(), disc: "GMPE01-01".into() };
-        let mut h = Host::new("m".into(), ident.clone(), &[Player { name: "Ann".into(), key: "k".into() }]);
-        assert_eq!(resync_text(h.room(), crate::lobby::HOST), "Resyncing with Ann...");
-        h.on("g", Msg::Hello { ident, players: vec![Player { name: "Bo".into(), key: "k2".into() }] });
-        assert_eq!(resync_text(h.room(), "nobody"), "Resyncing...");
+    fn the_texts_say_what_happens() {
+        assert_eq!(RESYNC_TEXT, "Out of sync, going back to the last save point...");
+        assert_eq!(held_text(2), "Still out of sync after going back to the last save point. Trying again in 2 seconds...");
+        assert!(held_text(1).ends_with("in 1 second..."));
         assert_eq!(point(&[1, 0xab], 3, 20), Checkpoint { blob: "01ab".into(), turn: 3, max_turn: 20, time: point(&[], 0, 0).time });
     }
 
