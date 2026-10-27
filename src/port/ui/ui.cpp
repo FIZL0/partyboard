@@ -16,6 +16,7 @@
 #include "aurora/lib/window.hpp"
 #include "input.hpp"
 #include "prelaunch.hpp"
+#include "touch_pad.hpp"
 #include "window.hpp"
 
 #include <port/settings.h>
@@ -176,6 +177,7 @@ void handle_event(const SDL_Event &event) noexcept
         }
         sConnectedGamepads.erase(event.gdevice.which);
     }
+    touch_pad::handle_event(event);
     input::handle_event(event);
 }
 

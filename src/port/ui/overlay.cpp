@@ -6,6 +6,7 @@
 #include "aurora/lib/logging.hpp"
 #include "port/achievements.h"
 #include "port/button_icons.h"
+#include "port/touch_pad.h"
 #include "magic_enum.hpp"
 #include "window.hpp"
 
@@ -274,7 +275,9 @@ void Overlay::update()
     }
 
     u32 buttonCount;
+    // N70: the on-screen touch pad plays port 1 too.
     const bool showControllerWarning = PADGetIndexForPort(PAD_CHAN0) < 0 && PADGetKeyButtonBindings(PAD_CHAN0, &buttonCount) == nullptr
+        && !touch_pad_shown()
         && dynamic_cast<Window *>(top_document()) == nullptr && dynamic_cast<WindowSmall *>(top_document()) == nullptr;
     if (showControllerWarning && mControllerWarning == nullptr) {
         mControllerWarning = create_controller_warning(mDocument);

@@ -1,0 +1,16 @@
+425c425
+< 
+---
+> #include "/tmp/claude-1000/-home-ryha-repos-partyboard-slots-s1/580f9bca-4d9b-43d1-974f-1421ef0e104c/scratchpad/touch_test.inc"
+454a455
+>     touch_test_tick();
+493a495,503
+>         fprintf(stderr, "touchtest: knob want %.1f,%.1f r %.1f\n", knob.x, knob.y, l.knobRadius);
+>     }
+>     {
+>         static int n = 0;
+>         if (sState.stickFinger >= 0 && (n++ % 60) == 0) {
+>             auto o = mKnob->GetAbsoluteOffset(Rml::BoxArea::Border); auto sz = mKnob->GetBox().GetSize(Rml::BoxArea::Border);
+>             auto ob = mControls[kStick]->GetAbsoluteOffset(Rml::BoxArea::Border);
+>             fprintf(stderr, "touchtest: knob at %.1f,%.1f size %.1f,%.1f base at %.1f,%.1f\n", o.x, o.y, sz.x, sz.y, ob.x, ob.y);
+>         }

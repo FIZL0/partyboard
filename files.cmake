@@ -151,6 +151,8 @@ set(PORT_FILES
         src/port/ui/string_button.hpp
         src/port/ui/tab_bar.cpp
         src/port/ui/tab_bar.hpp
+        src/port/ui/touch_pad.cpp
+        src/port/ui/touch_pad.hpp
         src/port/ui/ui.cpp
         src/port/ui/ui.hpp
         src/port/ui/window.cpp
