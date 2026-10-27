@@ -369,6 +369,13 @@ static void MatchStartProc(void)
      * (priority 0) unloads the DLL, so their destructors still find their code. */
     killed = HuPrcKillIf(overlay_process, (void *)code_module((void (*)(void))netplay_match_tick));
     OSReport("netplay: match start: killed %d menu processes\n", (int)killed);
+    /* N62: a reload while the board runs. The board's processes (dol code, under boardObjMan) are only killed by
+     * omOvlKill, after it has freed the 3D models, windows and sprites, and their destructors then ran on freed models
+     * (DestroyShop with a player in the shop: SIGSEGV in Hu3DModelHookReset). They run here, while it all exists, as on
+     * the board's own exit (BoardKill, then KillBoardFunc waits for them before omOvlCallEx). */
+    if (omcurovl >= DLL_w01dll && omcurovl <= DLL_w06dll && boardObjMan != NULL) {
+        OSReport("netplay: match start: ran %d board process destructors\n", (int)HuPrcChildDtorRun(boardObjMan));
+    }
     /* bootDll sets up the characters, windows and minigame messages once, after its first wipe-in (frame ~30, or
      * after the language choice on PAL). A match started before that (N41: --match 0@2 crashed in the board's
      * HuWinInit, no window data in ARAM) does it here, as bootDll's BootInitForSkippedSequence does. */

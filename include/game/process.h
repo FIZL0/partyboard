@@ -68,6 +68,7 @@ void HuPrcAllPause(s32 flag);
 void HuPrcAllUPause(s32 flag);
 #ifdef TARGET_PC
 s32 HuPrcKillIf(BOOL (*pred)(const Process *process, void *user), void *user);
+s32 HuPrcChildDtorRun(Process *root);
 #endif
 
 #endif
