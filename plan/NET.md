@@ -40,6 +40,11 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
 - Match end: a menu overlay (modeseldll) starting after the board marks it over (`netplay_ovl_start`); at that frame's
   `netplay_frame_end` `pbnet_lockstep_finish` (drains what peers still need), `netplay_end`, `pbnet_lobby_back` (room open
   again, new match id) and the UI shows the lobby. Findings: `research/journal/2026-10-27-n25-match-end`.
+- Match left mid-way (N34): the started lobby leaves `PBNET_LOBBY_STARTED` while its match runs (`pbnet_lobby_leave`:
+  leave, host's save and quit, a guest's "Leave Match" after the host left; or it closed): `netplay_lobby_poll`
+  stops the lockstep, `netplay_end`, `netplay_match_leave`. Each peer then goes back to modeseldll by itself: the
+  board through its own exit (`omSysExitReq` + flag (1,27)), any other overlay through a top-priority process
+  (`MatchLeaveProc`). Debug: `--leave-at <frame>`. Findings: `research/journal/2026-10-27-n34-match-leave`.
 - Online saves / continue: `netplay_checkpoint` (`src/port/netplay_save.c`, hooked in `resultDll` where `SaveExec`
   would write the card) -> `pbnet_save_write` (`net/src/save.rs`) -> `<user dir>/online/<match id>.json`; continue is
   `Host::resume` (`net/src/lobby.rs`, setup `"resume"`) + `netplay_match_continue`. Findings:

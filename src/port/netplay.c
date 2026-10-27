@@ -238,6 +238,8 @@ static u32 debug_match_at;
 /* --desync-at: the frame (of a lockstep session) at which this peer flips its frand seed once, to test a resync (N46). */
 static u32 debug_desync_at;
 static BOOL debug_desync_done;
+/* --leave-at: the frame at which a running match is left as if its lobby had gone (N34). */
+static u32 debug_leave_at;
 /* --continue: the online save's checkpoint the --match continues from (N9). */
 static u8 debug_continue[NETPLAY_BLOB_MAX];
 static u32 debug_continue_size;
@@ -443,6 +445,8 @@ BOOL netplay_debug_init(int argc, char *argv[])
                 OSReport("netplay: --match wants <board 0..5>@<frame>, e.g. 0@900\n");
                 return FALSE;
             }
+        } else if (strcmp(argv[i], "--leave-at") == 0 && i + 1 < argc) {
+            debug_leave_at = (u32)strtoul(argv[++i], NULL, 0);
         } else if (strcmp(argv[i], "--desync-at") == 0 && i + 1 < argc) {
             debug_desync_at = (u32)strtoul(argv[++i], NULL, 0);
         } else if (strcmp(argv[i], "--continue") == 0 && i + 1 < argc) {
@@ -515,6 +519,24 @@ static void match_finish(void)
     }
 }
 
+/*
+ * N34: the started lobby is gone while its match runs (this peer left, the host saved and quit, the connection
+ * closed). No frame is common to the peers any more: each stops its lockstep, ends its session (netplay_end gives the
+ * player's GWGameStat back) and goes back to modeseldll on its own. A --script run keeps its session.
+ */
+static void match_left(const char *why)
+{
+    if (script.loaded) {
+        OSReport("netplay: match left at frame %u (%s; scripted run, the session goes on)\n", frame, why);
+        netplay_match_end();
+    } else {
+        OSReport("netplay: match left at frame %u (%s): session ends\n", frame, why);
+        pbnet_lockstep_stop();
+        netplay_end();
+    }
+    netplay_match_leave();
+}
+
 BOOL netplay_lobby_returned(void)
 {
     BOOL r = lobby_returned;
@@ -536,6 +558,9 @@ void netplay_frame_end(void)
     }
     if (netplay_match_over()) {
         match_finish();
+    }
+    if (debug_leave_at != 0 && frame == debug_leave_at && netplay_match_running()) {
+        match_left("--leave-at");
     }
     if (debug_match_at != 0 && frame == debug_match_at && debug_continue_size != 0) {
         netplay_match_continue(&debug_match, debug_continue, debug_continue_size);
@@ -1101,9 +1126,15 @@ void netplay_lobby_poll(void)
     int blob_size;
     u8 local = 0;
     u32 epoch;
+    int state;
     s32 i;
 
-    if (pbnet_lobby_state() != PBNET_LOBBY_STARTED) {
+    netplay_match_leave_poll();
+    state = pbnet_lobby_state();
+    if (state != PBNET_LOBBY_STARTED) {
+        if (lobby_handled && netplay_match_running()) {
+            match_left(state == PBNET_LOBBY_CLOSED ? "the lobby closed" : "the lobby was left");
+        }
         lobby_handled = FALSE;
         return;
     }
