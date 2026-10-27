@@ -503,6 +503,19 @@ void netplay_ovl_start(s32 ovl)
     }
     match.scrub = FALSE;
     match.board = TRUE;
+    /*
+     * N38: a reload (rejoin, CPU stand-in, resync) can come while a board or minigame runs. The menu-process kill of
+     * MatchStartProc leaves the board's own processes (dol code) running in frame 0, and their teardown writes
+     * GWSystem/GWPlayer (flags, player_curr) on that peer only: a peer that came from a menu had none. The old overlay
+     * is gone now, so the state is set again, the same on every peer.
+     */
+    game_stat_canned();
+    if (match.resume) {
+        resume_config(&match.m);
+    } else {
+        party_config(&match.m);
+    }
+    netplay_reseed();
     OSReport("netplay: board overlay %d starts at frame %u, turn %d/%d, heaps %016llX\n", ovl, netplay_frame(),
         GWSystem.turn, GWSystem.max_turn, (unsigned long long)heap_walk(TRUE, TRUE));
 }

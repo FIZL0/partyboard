@@ -837,6 +837,9 @@ void update_online_match()
                                pbnet_lobby_leave();
                            } });
     }
+    // N38: a flag per modal. The one this replaces is deleted later in this loop; with a shared flag its destructor
+    // marked the new modal gone, which then stayed up (a "Host left" over the running match after a reconnect).
+    alive = std::make_shared<bool>(false);
     auto modal = std::make_unique<HoldModal>(
         Modal::Props {
             .title = hostLeft ? "Host Left" : "Waiting",

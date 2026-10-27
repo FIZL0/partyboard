@@ -312,10 +312,21 @@ int main(void)
     assert(overlay_kills == 7); /* the menu's own processes are killed, libdol's kept */
     assert(sys_inits == 111 && SystemInitF); /* started before bootDll's init: done here */
 
+    /* N38: the old board's processes (a reload mid-board) ran on in frame 0 and wrote the state on this peer only. */
+    GWSystem.player_curr = 3;
+    GWSystem.flag[1][0] = 0x7C;
+    GWPlayer[1].coins = 99;
+    reseeded = 0;
+
     /* Another overlay first: no scrub. The board: free memory zeroed, used blocks kept, layout unchanged. */
     netplay_ovl_start(DLL_w01dll + 3);
     assert(freed[50] == 0xBB);
+    assert(GWPlayer[1].coins == 99 && reseeded == 0);
     netplay_ovl_start(DLL_w01dll + 2);
+    /* ... and the board's start sets the match state and seeds again, as a peer that came from a menu has them. */
+    assert(party_calls == 2 && reseeded == 1);
+    assert(GWSystem.flag[1][0] == 0 && GWPlayer[1].coins == 0 && save_board == 2 && GWSystem.board == 2);
+    reseeded = 0;
     for (i = 0; i < 200; i++) {
         assert(freed[i] == 0);
     }
@@ -491,9 +502,16 @@ int main(void)
         proc();
         assert(called == DLL_w01dll + 3);
         assert(sys_inits == 111); /* the system was up: not again */
+        /* N38: frame 0's teardown of an old board changed the state; the board's start loads the checkpoint again. */
+        GWSystem.turn = 1;
+        GWSystem.flag[1][0] = 0x7C;
+        GWPlayer[2].coins = 0;
+        GWPlayer[1].com = 0;
+        netplay_ovl_start(DLL_w01dll + 3);
+        assert(GWSystem.turn == 7 && GWSystem.flag[1][0] == 0x01 && GWPlayer[2].coins == 23);
+        assert(GWPlayer[1].com == 1 && GWPlayerCfg[1].diff == 3 && play_clears == 2 && saveExecF == 0);
         /* N31: the continued match ends before this peer wrote a checkpoint: its save goes by the match's id, and
          * the last match's path is not deleted again. */
-        netplay_ovl_start(DLL_w01dll + 3);
         finished.calls = deleted.calls = 0;
         finished.ok = 1;
         netplay_ovl_start(DLL_modeseldll);
