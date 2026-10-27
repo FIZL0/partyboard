@@ -49,6 +49,41 @@ if (NOT PBNET_CARGO_TARGET)
     endif ()
 endif ()
 
+# C stand-in for targets the crate cannot be built for (src/port/pbnet_stub.c: no session, ever).
+# tvOS: the std is there on stable, but iroh -> netwatch -> netdev has no tvOS code (netdev 0.46.3,
+# `interfaces()` and `libc::in6_ifreq`), so the crate fails to compile; nightly + -Zbuild-std does not
+# help (research/journal/2026-10-27-n17-pbnet-tvos). Built everywhere so the desktop build checks it.
+add_library(pbnet_stub STATIC ${CMAKE_SOURCE_DIR}/src/port/pbnet_stub.c)
+target_include_directories(pbnet_stub PRIVATE ${CMAKE_SOURCE_DIR}/include)
+if (NOT APPLE AND NOT WIN32)
+    target_link_libraries(pbnet_stub PRIVATE m)
+endif ()
+if (PBNET_CARGO_TARGET MATCHES "-tvos(-sim)?$")
+    set(PBNET_STUB_DEFAULT ON)
+else ()
+    set(PBNET_STUB_DEFAULT OFF)
+endif ()
+option(PBNET_STUB "Link the C pbnet stub (no netplay) instead of building the Rust crate" ${PBNET_STUB_DEFAULT})
+# Every pbnet_* the header declares must be in the stub, or the stub build fails to link later.
+file(STRINGS ${CMAKE_SOURCE_DIR}/include/port/pbnet.h PBNET_HEADER_FNS REGEX "[ *]pbnet_[a-z_]+\\(")
+foreach (decl ${PBNET_HEADER_FNS})
+    string(REGEX MATCH "pbnet_[a-z_]+\\(" fn "${decl}")
+    string(REPLACE "(" "" fn "${fn}")
+    file(STRINGS ${CMAKE_SOURCE_DIR}/src/port/pbnet_stub.c defined REGEX "[ *]${fn}\\(")
+    if (NOT defined)
+        if (PBNET_STUB)
+            message(FATAL_ERROR "pbnet: ${fn}() is declared in include/port/pbnet.h but not in src/port/pbnet_stub.c")
+        endif ()
+        message(WARNING "pbnet: ${fn}() is declared in include/port/pbnet.h but not in src/port/pbnet_stub.c "
+                "(the tvOS build needs it there)")
+    endif ()
+endforeach ()
+if (PBNET_STUB)
+    message(STATUS "pbnet: PBNET_STUB is on (target: ${PBNET_CARGO_TARGET}), linking the C stub; netplay is not available")
+    add_library(pbnet::pbnet ALIAS pbnet_stub)
+    return()
+endif ()
+
 set(PBNET_DIR ${CMAKE_SOURCE_DIR}/net)
 set(PBNET_TARGET_DIR ${CMAKE_BINARY_DIR}/pbnet-cargo)
 set(PBNET_CARGO_ARGS build --release --locked --manifest-path ${PBNET_DIR}/Cargo.toml --target-dir ${PBNET_TARGET_DIR})
