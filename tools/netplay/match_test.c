@@ -106,6 +106,8 @@ int pbnet_save_write(const char *dir, const char *room, const uint8_t *blob, int
 static u8 heap_mem[2][0x4000];
 static void *heaps[HEAP_MAX];
 void *HuMemHeapPtrGet(HeapID h) { return heaps[h]; }
+size_t HuMemHeapSizeGet(HeapID h) { return heaps[h] != NULL ? sizeof(heap_mem[0]) : 0; }
+static u8 heap_moved[sizeof(heap_mem[1])];
 void HuMemDirectFree(void *p) { HuMemMemoryFree(p, 0); }
 
 static NetplayMatch base(void)
@@ -168,6 +170,20 @@ int main(void)
     assert(h1 != h2);
     heaps[1] = heap_mem[1];
     assert(netplay_heap_hash() == h1);
+    /* A block tagged with a pointer into its heap (hsfman.c's (uintptr_t)hsf) hashes alike wherever the heap is. */
+    {
+        u8 *bufs[2] = { heap_mem[1], heap_moved };
+        u64 tagged[2];
+        for (i = 0; i < 2; i++) {
+            heaps[1] = HuMemHeapInit(bufs[i], sizeof(heap_mem[1]));
+            HuMemMemoryAllocNum(heaps[1], 100, (uintptr_t)heaps[1] + 0x200, 0);
+            tagged[i] = netplay_heap_hash();
+        }
+        assert(tagged[0] == tagged[1] && tagged[0] != h1);
+        heaps[1] = HuMemHeapInit(heap_mem[1], sizeof(heap_mem[1]));
+        other = HuMemMemoryAllocNum(heaps[1], 100, 5, 0);
+        assert(netplay_heap_hash() == h1);
+    }
 
     /* Start: the session begins with the folded seed; nothing else until the tick. */
     GWSystem.turn = 9;
