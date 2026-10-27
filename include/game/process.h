@@ -32,6 +32,7 @@ typedef struct process {
     s32 sleep_time;
 #ifdef TARGET_PC
     cothread_t thread;
+    void (*func)(void); /* entry point: netplay's match start finds the menu overlay's processes by it */
 #else
     uintptr_t base_sp;
     jmp_buf jump;
@@ -65,5 +66,8 @@ void HuPrcSetStat(Process *process, u16 value);
 void HuPrcResetStat(Process *process, u16 value);
 void HuPrcAllPause(s32 flag);
 void HuPrcAllUPause(s32 flag);
+#ifdef TARGET_PC
+s32 HuPrcKillIf(BOOL (*pred)(const Process *process, void *user), void *user);
+#endif
 
 #endif

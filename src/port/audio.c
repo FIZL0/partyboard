@@ -476,6 +476,12 @@ void HuAudDllSndGrpSet(u16 ovl) {
     }
 }
 
+/* Netplay match start: the next HuAudDllSndGrpSet changes the AUX (and sleeps its frame) on every peer, whatever
+ * overlay each came from. */
+void HuAudNetplayAuxReset(void) {
+    auxANoBak = auxBNoBak = -1;
+}
+
 void HuAudSndGrpSetSet(s16 dataSize) {
 }
 

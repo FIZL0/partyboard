@@ -86,10 +86,15 @@ void netplay_begin(u32 seed)
     step_hash_set = FALSE;
     step_taken_set = FALSE;
     memset(step_latched, 0, sizeof(step_latched));
+    netplay_reseed();
+    OSReport("netplay: session start, seed %08X\n", seed);
+}
+
+void netplay_reseed(void)
+{
     frandSeedSet(netplay_seed(NETPLAY_SALT_FRAND));
     rnd_seed = (s32)netplay_seed(NETPLAY_SALT_RAND8);
     boardRandSeed = netplay_seed(NETPLAY_SALT_BOARD);
-    OSReport("netplay: session start, seed %08X\n", seed);
 }
 
 void netplay_end(void)

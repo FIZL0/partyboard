@@ -17,6 +17,10 @@
  * SLSaveBoard blob, loaded with SLLoadBoard as mentDll's continue does) instead of a new party.
  */
 
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE /* dladdr */
+#endif
+
 #include "dolphin.h"
 #include "game/audio.h"
 #include "game/board/main.h"
@@ -33,6 +37,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+#elif defined(__linux__) || defined(__APPLE__)
+#include <dlfcn.h>
+#endif
 
 SHARED_SYM extern GameStat GWGameStatDefault;
 SHARED_SYM extern s32 saveExecF;
@@ -109,9 +119,12 @@ BOOL netplay_match_start(const NetplayMatch *m)
     match.resume = FALSE;
     match.blob_size = 0;
     netplay_checkpoint_set(NULL, 0);
-    /* A --script run keeps its session (and frame numbers); its seed already makes two runs alike. */
+    /* A --script run keeps its session (and frame numbers), but the menus it went through used the seeds: they are
+     * set again from the session seed and this frame (N26: two runs by different menus differed in rand8/frand). */
     if (!netplay_debug_scripted()) {
         netplay_begin((u32)m->seed ^ (u32)(m->seed >> 32));
+    } else {
+        netplay_reseed();
     }
     OSReport("netplay: match start: board %d, %d turns, bonus %d, teams %d\n", m->board, m->turns, m->bonus, m->teams);
     return TRUE;
@@ -265,11 +278,48 @@ static void resume_config(const NetplayMatch *m)
     saveExecF = 0;
 }
 
+/* The module (shared library) holding the code at `fn`, NULL if unknown. */
+static const void *code_module(void (*fn)(void))
+{
+#if defined(_WIN32)
+    HMODULE mod = NULL;
+    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            (LPCSTR)(uintptr_t)fn, &mod)) {
+        return NULL;
+    }
+    return mod;
+#elif defined(__linux__) || defined(__APPLE__)
+    Dl_info info;
+    if (fn == NULL || dladdr((void *)(uintptr_t)fn, &info) == 0) {
+        return NULL;
+    }
+    return info.dli_fbase;
+#else
+    (void)fn;
+    return NULL;
+#endif
+}
+
+/* A process running (or destroyed by) code outside libdol: the menu overlay's own. */
+static BOOL overlay_process(const Process *process, void *dol)
+{
+    const void *f = code_module(process->func);
+    const void *d = code_module(process->dtor);
+    return (f != NULL && f != dol) || (d != NULL && d != dol);
+}
+
 /* Frame 0, first process to run: mentDll fn_1_C174(3) without its wipe-out. */
 static void MatchStartProc(void)
 {
     s32 i;
+    s32 killed;
 
+    /* omOvlKill only kills omwatchproc's children (the objman). A menu's root processes (HuPrcCreate in its
+     * ObjectSetup, e.g. bootDll's BootExec) end themselves after their own omOvlCallEx; called from here they
+     * would run on in an unloaded DLL. Killed processes end later in this frame's HuPrcCall, before omwatchproc
+     * (priority 0) unloads the DLL, so their destructors still find their code. */
+    killed = HuPrcKillIf(overlay_process, (void *)code_module((void (*)(void))netplay_match_tick));
+    OSReport("netplay: match start: killed %d menu processes\n", (int)killed);
     CharModelKill(-1);
     MGSeqKillAll();
     for (i = 0; i < 4; i++) {
@@ -301,6 +351,9 @@ void netplay_match_tick(void)
         party_config(&match.m);
     }
     wipe_reset();
+    /* HuAudDllSndGrpSet sleeps a frame when the AUX changes, which depends on the menu left (N26: from the title
+     * screen the board started a frame later than from mode select). */
+    HuAudNetplayAuxReset();
     GlobalCounter = 0;
     HuSysVWaitSet(1);
     /* The highest priority: it runs before any process of the menu overlay does in frame 0. */

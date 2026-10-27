@@ -23,6 +23,8 @@ static int begun, scripted; static u32 begun_seed;
 void netplay_begin(u32 seed) { begun++; begun_seed = seed; }
 u32 netplay_frame(void) { return 0; }
 BOOL netplay_debug_scripted(void) { return scripted; }
+static int reseeded;
+void netplay_reseed(void) { reseeded++; }
 
 static s32 party_args[8], party_calls, save_board = -1, vwait, pad_resets, motions[4], nmotions, ended;
 static u8 wipe_rgb[3];
@@ -44,11 +46,26 @@ void MGSeqKillAll(void) {}
 void CharMotionInit(s16 c) { motions[nmotions++ % 4] = c; }
 void HuAudSeqAllFadeOut(s32 s) { (void)s; }
 void HuAudSStreamAllFadeOut(s32 s) { (void)s; }
+static s32 aux_resets;
+void HuAudNetplayAuxReset(void) { aux_resets++; }
 static struct { OMOVL ovl; s32 event; } his[16];
 void omOvlHisChg(s32 level, OMOVL o, s32 e, s32 st) { (void)st; his[omovlhisidx - level].ovl = o; his[omovlhisidx - level].event = e; }
 static OMOVL called = DLL_NONE;
 void omOvlCallEx(OMOVL o, s16 a, s32 e, s32 st) { (void)a; (void)e; (void)st; called = o; his[++omovlhisidx].ovl = o; }
 void HuPrcEnd(void) { ended++; }
+/* A process of this program's code (libdol's stand-in) is kept, one of libc's (another module: an overlay's) killed. */
+static void dol_proc(void) {}
+static s32 overlay_kills;
+s32 HuPrcKillIf(BOOL (*pred)(const Process *, void *), void *user)
+{
+    Process dol = { 0 }, ovl = { 0 }, ovl_dtor = { 0 };
+    dol.func = dol_proc;
+    ovl.func = (void (*)(void))abort;
+    ovl_dtor.func = dol_proc;
+    ovl_dtor.dtor = (void (*)(void))abort;
+    overlay_kills = !pred(&dol, user) + 2 * pred(&ovl, user) + 4 * pred(&ovl_dtor, user);
+    return 2;
+}
 static void (*proc)(void); static u16 proc_prio;
 Process *HuPrcCreate(void (*f)(void), u16 prio, u32 stack, s32 extra)
 {
@@ -206,6 +223,7 @@ int main(void)
     assert(GWGameStat.mg_avail[0] == 0xFFFFFFFF && GWGameStat.open_w06 && GWGameStat.veryHardUnlock);
     assert(wipeData.stat == 0 && wipeData.mode == WIPE_MODE_BLANK && wipe_rgb[0] == 0xFF);
     assert(proc != NULL && proc_prio == 0xFFFF);
+    assert(aux_resets == 1);
     netplay_match_tick(); /* once only */
     assert(party_calls == 1);
 
@@ -214,6 +232,7 @@ int main(void)
     assert(called == DLL_w01dll + 2 && omovlhisidx == 3);
     assert(his[0].ovl == DLL_bootdll && his[1].ovl == DLL_modeseldll && his[1].event == 1 && his[2].ovl == DLL_mstory3dll);
     assert(nmotions == 4 && motions[0] == 7 && motions[3] == 4 && ended == 1);
+    assert(overlay_kills == 7); /* the menu's own processes are killed, libdol's kept */
 
     /* Another overlay first: no scrub. The board: free memory zeroed, used blocks kept, layout unchanged. */
     netplay_ovl_start(DLL_w01dll + 3);
@@ -238,7 +257,7 @@ int main(void)
     m.board = 5;
     scripted = 1;
     proc = NULL;
-    assert(netplay_match_start(&m) && begun == 1);
+    assert(netplay_match_start(&m) && begun == 1 && reseeded == 1); /* the seeds again, the frame count kept */
     netplay_match_tick();
     assert(party_args[0] == 1 && wipe_rgb[0] == 0);
     for (i = 0; i < 4; i++) {

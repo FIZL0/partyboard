@@ -95,6 +95,7 @@ Process *HuPrcCreate(void (*func)(void), u16 prio, u32 stack_size, s32 extra_siz
     process->sleep_time = 0;
 #ifdef TARGET_PC
     process->thread = co_create(stack_size, func);
+    process->func = func;
 #else
     process->base_sp = ((uintptr_t)HuMemMemoryAlloc(heap, stack_size, FAKE_RETADDR)) + stack_size - 8;
     gcsetjmp(&process->jump);
@@ -217,6 +218,22 @@ static void gcTerminateProcess(Process *process)
     gclongjmp(&processjmpbuf, 2);
 #endif
 }
+
+#ifdef TARGET_PC
+/* Kills (as HuPrcKill) every process but the current one that `pred` picks; returns how many. */
+s32 HuPrcKillIf(BOOL (*pred)(const Process *process, void *user), void *user)
+{
+    Process *process;
+    s32 n = 0;
+    for (process = processtop; process != NULL; process = process->next) {
+        if (process != processcur && process->exec != EXEC_KILLED && pred(process, user)) {
+            HuPrcKill(process);
+            n++;
+        }
+    }
+    return n;
+}
+#endif
 
 void HuPrcEnd()
 {

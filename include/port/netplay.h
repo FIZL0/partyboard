@@ -23,6 +23,8 @@ BOOL netplay_active(void);
 
 /* Start a session: resets the frame counter and the game's random seeds from `seed`. */
 void netplay_begin(u32 seed);
+/* The game's random seeds from the session seed and the current frame, as netplay_begin sets them. */
+void netplay_reseed(void);
 void netplay_end(void);
 
 u32 netplay_session_seed(void);
