@@ -140,6 +140,12 @@ struct Shared {
     /// Once the lockstep runs: the line-up ([`Room::peers`]) and its session's inbox.
     lineup: Vec<String>,
     inbox: Option<mpsc::UnboundedSender<(u8, Vec<u8>)>>,
+    /// The lockstep of the current match was handed to the starter (cleared by [`Shared::back`]). The line-up and
+    /// inbox above outlive it until the next start: the drain of the match that ended, and the host's relay between
+    /// guests still finishing it, go on over them.
+    lockstep_on: bool,
+    /// Host: the first characters of its endpoint ID, for the next match's id.
+    id_prefix: String,
     start: Starter,
     gen: u32,
     /// Host: the endpoint whose mDNS record carries the LAN listing (and the runtime to set it on), the listing it
@@ -164,6 +170,8 @@ impl Shared {
             rtts: BTreeMap::new(),
             lineup: Vec::new(),
             inbox: None,
+            lockstep_on: false,
+            id_prefix: String::new(),
             start,
             gen: 0,
             lan: None,
@@ -265,7 +273,7 @@ impl Shared {
 
     /// The match started: the lockstep on the started room's line-up, handed to the starter. Once.
     fn lockstep(&mut self) {
-        if self.inbox.is_some() {
+        if self.lockstep_on {
             return;
         }
         let room = match &self.role {
@@ -290,7 +298,44 @@ impl Shared {
         let cfg = Config { me: me as u8, peers: lineup.len() as u8, seats, delay: room.delay.clamp(2, 15) };
         self.lineup = lineup;
         self.inbox = Some(tx);
+        self.lockstep_on = true;
         (self.start)(cfg, Wire { out, host: self.host, inbox });
+    }
+
+    /// This machine's match is over: the lobby is open again with the same people. The host reopens the room for
+    /// everyone as a new match id (a guest whose connection is gone loses its seats); a guest goes back to the room the
+    /// host sent after the match, or will send, and is closed if its connection to the host is gone. False unless
+    /// started.
+    fn back(&mut self) -> bool {
+        if self.phase != Phase::Started {
+            return false;
+        }
+        self.lockstep_on = false;
+        if self.host {
+            let secs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+            let id = format!("{}-{secs}", self.id_prefix);
+            let connected: Vec<String> = self.peers.keys().cloned().collect();
+            let Some(h) = self.host() else { return false };
+            let mut out = h.reopen(id);
+            for p in h.room().peers().into_iter().skip(1) {
+                if !connected.contains(&p) {
+                    out.extend(h.gone(&p));
+                }
+            }
+            self.phase = Phase::Open;
+            self.dispatch(out);
+            return true;
+        }
+        if let Some(Role::Guest(g)) = &mut self.role {
+            g.back();
+        }
+        if self.peers.contains_key(HOST) {
+            self.phase = Phase::Open;
+            self.bump();
+        } else {
+            self.close("Lost the connection to the host.");
+        }
+        true
     }
 
     /// A lockstep datagram from the connection to `peer`: delivered here, or (host) relayed to the guest it is for.
@@ -474,9 +519,14 @@ impl Lobby {
         Ok(())
     }
 
-    /// This lobby started a lockstep (it reached the start).
+    /// This lobby started a lockstep (it reached the start) and its match is not over.
     pub fn lockstep_started(&self) -> bool {
-        lock(&self.shared).inbox.is_some()
+        lock(&self.shared).lockstep_on
+    }
+
+    /// This machine's match is over: back in the open lobby ([`Shared::back`]). False unless started.
+    pub fn back(&self) -> bool {
+        lock(&self.shared).back()
     }
 
     /// Leaves: the host closes the lobby for everyone, a guest frees its seats. The tasks wind down on their own.
@@ -530,6 +580,7 @@ async fn run_host<B: Future<Output = Result<Transport, String>>>(bind: B, sh: Sh
         s.me = HOST.into();
         s.host_name = setup.players.first().map(|p| p.name.clone()).unwrap_or_default();
         s.lan = Some((t.clone(), Handle::current()));
+        s.id_prefix = t.id().to_string()[..8].to_string();
         s.ticket = t.ticket();
         s.phase = Phase::Open;
         s.bump();
@@ -986,6 +1037,15 @@ pub extern "C" fn pbnet_lobby_leave() {
     }
 }
 
+/// This machine's started match is over (call after `pbnet_lockstep_finish`): back to `PBNET_LOBBY_OPEN` with the
+/// same people. The host reopens the room for everyone as a new match (new id, nobody ready, the seats and rules
+/// kept); a guest takes the host's room after the match, which it may hear before or after this call. 1 if the lobby
+/// was started; 0 otherwise (no lobby, not started). Safe to call any time, from any thread.
+#[no_mangle]
+pub extern "C" fn pbnet_lobby_back() -> i32 {
+    global().as_ref().is_some_and(|l| l.back()) as i32
+}
+
 /// The lobby's `PBNET_LOBBY_*` state (`PBNET_LOBBY_NONE` with none). Safe to call any time, from any thread.
 #[no_mangle]
 pub extern "C" fn pbnet_lobby_state() -> i32 {
@@ -1424,6 +1484,39 @@ mod tests {
                 let want = if f < d { [IDLE; 4] } else { [pad(0, f as u32), pad(1, f as u32), pad(2, f as u32), IDLE] };
                 assert_eq!(*ran, want, "frame {f}");
             }
+
+            // the match is over: b is back first, then the host (reopens for all), then a; then the next match
+            assert!(b.back());
+            let bs = b.snapshot();
+            assert_eq!(bs.state, Phase::Open);
+            assert!(!bs.room.as_ref().unwrap().started);
+            assert!(host.back());
+            assert!(!host.back(), "back once");
+            let hs = host.snapshot();
+            let open = hs.room.unwrap();
+            assert_eq!(hs.state, Phase::Open);
+            assert!(!open.started && open.seed == 0 && open.id != room.id && open.ver == room.ver + 1);
+            assert_eq!(open.seats, room.seats);
+            assert!(!host.lockstep_started());
+            until(&b, "b hears the reopened room", |s| s.room.as_ref().is_some_and(|r| r.id == open.id)).await;
+            // a still plays: it keeps the started room until it is back
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            assert_eq!(a.snapshot().state, Phase::Started);
+            assert_eq!(a.snapshot().room.unwrap().id, room.id);
+            assert!(a.back());
+            assert_eq!(a.snapshot().room.unwrap().id, open.id, "the host's room heard while playing");
+            assert!(host.start(8).is_err(), "nobody ready after the match");
+            for g in [&a, &b] {
+                assert!(g.ready(true));
+            }
+            until(&host, "all ready again", |s| s.room.as_ref().unwrap().all_ready()).await;
+            host.start(8).unwrap();
+            until(&a, "a started again", |s| s.state == Phase::Started).await;
+            until(&b, "b started again", |s| s.state == Phase::Started).await;
+            for rx in [&hrx, &arx, &brx] {
+                assert_eq!(got(rx).0.peers, 3, "a second lockstep");
+            }
+            assert!(host.lockstep_started());
             host.leave();
             a.leave();
             b.leave();

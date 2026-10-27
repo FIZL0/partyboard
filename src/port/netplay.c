@@ -477,12 +477,50 @@ BOOL netplay_debug_scripted(void)
     return script.loaded;
 }
 
+/* An online match ended and its lobby is back (or closed meanwhile): the UI shows it (netplay_lobby_returned). */
+static BOOL lobby_returned;
+
+/*
+ * The match is over (netplay_match_over), at the end of the frame that saw it: the same frame on every peer. The
+ * lockstep stops (pbnet drains what the others still need), the session ends (netplay_end gives the player's
+ * GWGameStat back) and the lobby goes back to open for the next match; the menu that started runs on this machine's
+ * own pads from the next frame.
+ */
+static void match_finish(void)
+{
+    BOOL lockstep = pbnet_lockstep_active() != 0;
+
+    if (script.loaded) {
+        /* A --script run keeps its session: its frames, script lines and hash log go on. */
+        OSReport("netplay: match over at frame %u (scripted run, the session goes on)\n", frame);
+        netplay_match_end();
+        return;
+    }
+    OSReport("netplay: match over at frame %u, hash %016llX: session ends\n", frame, (unsigned long long)netplay_hash());
+    pbnet_lockstep_finish();
+    netplay_end();
+    if (lockstep && pbnet_lobby_state() != PBNET_LOBBY_NONE) {
+        pbnet_lobby_back();
+        lobby_returned = TRUE;
+    }
+}
+
+BOOL netplay_lobby_returned(void)
+{
+    BOOL r = lobby_returned;
+    lobby_returned = FALSE;
+    return r;
+}
+
 void netplay_frame_end(void)
 {
     if (hash_log != NULL) {
         hash_log_line(hash_log, frame);
     }
     frame++;
+    if (netplay_match_over()) {
+        match_finish();
+    }
     if (debug_match_at != 0 && frame == debug_match_at && debug_continue_size != 0) {
         netplay_match_continue(&debug_match, debug_continue, debug_continue_size);
     } else if (debug_match_at != 0 && frame == debug_match_at) {

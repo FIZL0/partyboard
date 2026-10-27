@@ -300,6 +300,16 @@ impl<T: Transport> Session<T> {
         Step::Ready(pads)
     }
 
+    /// After the last frame (every peer stops at the same one): takes in what came and sends each peer the own pads
+    /// it still lacks and the acks of its pads, without taking pads or running a frame. True once every peer has
+    /// every own frame this machine ran, i.e. no peer needs anything more from it to reach the same last frame.
+    pub fn drain(&mut self, now_ms: u64) -> bool {
+        self.pump(now_ms);
+        self.send(now_ms);
+        let tick = self.tick;
+        self.remotes.iter().flatten().all(|r| r.acked >= tick)
+    }
+
     /// This machine's hash of the state before `frame` (C calls it when `frame() % HASH_EVERY == 0`, before
     /// `step` runs that frame). Compared with the peers' as they come in.
     pub fn set_hash(&mut self, frame: u32, hash: u64) {
@@ -821,5 +831,63 @@ mod tests {
         let junk = Junk(vec![vec![], vec![TAG_FRAMES], vec![TAG_FRAMES, 0, 1, 2], long, vec![TAG_FRAMES, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9]]);
         let mut s = Session::new(Config { me: 0, peers: 2, seats: TWO, delay: 2 }, junk);
         assert!(matches!(s.step(0, &[IDLE]), Step::Ready(_)));
+    }
+
+    /// Three peers run to the same last frame `END` on a lossy wire, the last one starting late. A peer that is done
+    /// drains (if `drain`; else it goes silent) until drained. Each peer's last frame and pads.
+    fn finish(loss: f64, seed: u64, drain: bool) -> Vec<(u32, Vec<[Pad; 4]>)> {
+        const END: u32 = 300;
+        let net = Net::new(50, loss, seed);
+        let delay = delay_for(100);
+        let mut peers: Vec<Session<End>> =
+            (0..3).map(|me| Session::new(Config { me, peers: 3, seats: [0, 1, 2, NO_PEER], delay }, net.end(me))).collect();
+        let mut logs = vec![Vec::new(); 3];
+        let mut reads = [0u32; 3];
+        let mut drained = [false; 3];
+        for f in 0..6_000u32 {
+            let now = f as u64 * 1000 / 60;
+            net.set_now(now);
+            for (i, s) in peers.iter_mut().enumerate() {
+                if i == 2 && f < 60 {
+                    continue;
+                }
+                if s.frame() < END {
+                    let local = [input(i as u8, 0, reads[i])];
+                    let before = s.own_next;
+                    if let Step::Ready(p) = s.step(now, &local) {
+                        logs[i].push(p);
+                    }
+                    if s.own_next != before {
+                        reads[i] += 1;
+                    }
+                } else if !drained[i] {
+                    drained[i] = !drain || s.drain(now);
+                }
+            }
+        }
+        peers.iter().zip(logs).map(|(s, l)| (s.frame(), l)).collect()
+    }
+
+    /// A peer that reaches the last frame first drains, so the others reach it too on a lossy wire; one that just goes
+    /// silent can strand a peer short of it (the datagrams with its last pads were lost and nobody resends).
+    #[test]
+    fn a_finished_peer_drains_until_the_others_reach_the_end() {
+        let mut stranded = 0;
+        for seed in 1..=20u64 {
+            let r = finish(0.5, seed, true);
+            for (i, (end, log)) in r.iter().enumerate() {
+                assert_eq!(*end, 300, "seed {seed}: peer {i} stopped short");
+                assert_eq!(log, &r[0].1, "seed {seed}: peer {i} ran other pads");
+            }
+            stranded += finish(0.5, seed, false).iter().any(|(end, _)| *end < 300) as u32;
+        }
+        assert!(stranded > 0, "going silent never stranded a peer: the test proves nothing");
+        // a drain takes no pads and runs nothing
+        let net = Net::new(0, 0.0, 1);
+        let mut s = Session::new(Config { me: 0, peers: 1, seats: [0, NO_PEER, NO_PEER, NO_PEER], delay: 2 }, net.end(0));
+        s.step(0, &[IDLE]);
+        let own = s.own_next;
+        assert!(s.drain(0));
+        assert_eq!((s.frame(), s.own_next), (1, own));
     }
 }

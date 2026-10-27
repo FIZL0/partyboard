@@ -51,4 +51,7 @@ private:
     std::function<void(Pane &)> mRightBuilder;
 };
 
+// An online match is over and its lobby open again (netplay_lobby_returned): shows the lobby.
+void open_lobby_after_match();
+
 } // namespace partyboard::ui

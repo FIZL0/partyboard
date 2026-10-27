@@ -5,6 +5,7 @@
 
 #include <chrono>
 
+#include "online.hpp"
 #include "ui.hpp"
 
 extern "C" {
@@ -35,6 +36,10 @@ void ui_update(void)
 {
     // A started online lobby's match begins here, between game ticks (src/port/netplay.c).
     netplay_lobby_poll();
+    // An online match ended: every peer is back in its lobby.
+    if (netplay_lobby_returned()) {
+        partyboard::ui::open_lobby_after_match();
+    }
     partyboard::ui::update();
 }
 

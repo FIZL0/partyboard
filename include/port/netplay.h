@@ -122,8 +122,17 @@ BOOL netplay_match_running(void);
 void netplay_match_tick(void);
 /* objmain.c omWatchOverlayProc, while netplay_active(): `ovl` is about to start. */
 void netplay_ovl_start(s32 ovl);
+/*
+ * True once the match is over: netplay_ovl_start saw a menu overlay (modeseldll, mentDll, bootDll) start after the
+ * board (board -> mstory3dll -> modeseldll), and gave the player's own GWGameStat back before it set up. Cleared by
+ * netplay_match_end. netplay_frame_end then ends the session at the end of that frame (the same on every peer):
+ * pbnet_lockstep_finish, netplay_end, pbnet_lobby_back; a --script run only ends the match and keeps its session.
+ */
+BOOL netplay_match_over(void);
 /* netplay_end: gives the player's own GWGameStat back. */
 void netplay_match_end(void);
+/* TRUE once after an online match ended and its lobby went back to open (or closed meanwhile): show the lobby. */
+BOOL netplay_lobby_returned(void);
 /* FNV-1a of every heap's used blocks (heap, offset, size, num): equal when peers' heaps are laid out alike. */
 u64 netplay_heap_hash(void);
 /* "--match <board>@<frame>": parse a debug match (seat 1P human, 2P-4P CPU) for a --script run. */

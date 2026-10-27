@@ -513,6 +513,22 @@ impl Host {
         self.room.started = true;
         Ok(vec![(To::All, Msg::Start(self.room.clone()))])
     }
+
+    /// The match is over: the same people in an open room for the next one, as match `id` (a new online save), seed
+    /// and delay unset, nobody ready, a continue's save forgotten. Seats (the computer's from the start included)
+    /// and rules stay. Nothing if no match started.
+    pub fn reopen(&mut self, id: String) -> Vec<(To, Msg)> {
+        if !self.room.started {
+            return vec![];
+        }
+        self.room.id = id;
+        self.room.started = false;
+        self.room.seed = 0;
+        self.room.delay = 0;
+        self.room.checkpoint = None;
+        self.saved = None;
+        self.changed()
+    }
 }
 
 /// What a guest heard.
@@ -530,12 +546,14 @@ pub enum Event {
 pub struct Guest {
     me: String,
     pub room: Option<Room>,
+    /// The host's room after the match ([`Host::reopen`]), kept while this guest still plays it ([`Guest::back`]).
+    after: Option<Box<Room>>,
 }
 
 impl Guest {
     /// `me`: this guest's peer name as the host knows it (its endpoint ID).
     pub fn new(me: String) -> Guest {
-        Guest { me, room: None }
+        Guest { me, room: None, after: None }
     }
 
     /// The first message, to the host.
@@ -558,12 +576,34 @@ impl Guest {
         self.room.as_ref().is_some_and(|r| r.ready.contains(&self.me))
     }
 
+    /// This guest's match is over: back in the open room, the host's room after the match if it came already, else
+    /// the started one opened as the host does (nobody ready) until the host's comes. False if no match started.
+    pub fn back(&mut self) -> bool {
+        let Some(r) = self.room.as_mut().filter(|r| r.started) else { return false };
+        match self.after.take() {
+            Some(a) => *r = *a,
+            None => {
+                r.started = false;
+                r.seed = 0;
+                r.delay = 0;
+                r.checkpoint = None;
+                r.ready.clear();
+            }
+        }
+        true
+    }
+
     /// A message from the host.
     pub fn on(&mut self, m: Msg) -> Option<Event> {
         match m {
             Msg::Room(r) if !self.room.as_ref().is_some_and(|o| o.started) => {
                 self.room = Some(r);
                 Some(Event::Room)
+            }
+            // the host is back in the open room while this guest still plays the match
+            Msg::Room(r) if !r.started => {
+                self.after = Some(Box::new(r));
+                None
             }
             Msg::Start(r) => {
                 self.room = Some(r);
@@ -674,6 +714,52 @@ mod tests {
             assert_eq!(g.room.as_ref(), Some(&room), "{name} sees the host's room");
         }
         assert_eq!(n.guests["g2"].seats(), [2]);
+    }
+
+    /// After the match the host reopens the room; a guest still playing keeps its started room until it is back
+    /// itself, one back before the host's room came sees the started room opened, and the next match starts alike.
+    #[test]
+    fn back_in_the_lobby_after_the_match() {
+        let mut n = Net::new();
+        for g in ["g1", "g2"] {
+            n.join(g, ident(), vec![player(g)]);
+        }
+        n.ready("g1");
+        n.ready("g2");
+        let out = n.host.start(42).unwrap();
+        n.deliver(out);
+        let started = n.host.room().clone();
+        assert!(started.seats[3].as_ref().unwrap().cpu, "the open seat is the computer's");
+        // g1's match ends first: before the host's room comes, it sees the started room opened
+        assert!(n.guests.get_mut("g1").unwrap().back());
+        let g1 = n.guests["g1"].room.clone().unwrap();
+        assert!(!g1.started && g1.seed == 0 && g1.ready.is_empty() && g1.id == "m1");
+
+        // the host is done: the room reopens for everyone; g2 still plays
+        let out = n.host.reopen("m2".into());
+        n.deliver(out);
+        let open = n.host.room().clone();
+        assert!(!open.started && open.seed == 0 && open.delay == 0 && open.ready.is_empty() && open.checkpoint.is_none());
+        assert_eq!((open.id.as_str(), open.ver), ("m2", started.ver + 1));
+        assert_eq!(open.seats, started.seats, "same seats, the computer's included");
+        assert_eq!(n.guests["g1"].room.as_ref(), Some(&open), "g1 (back) took it");
+        assert_eq!(n.guests["g2"].room.as_ref(), Some(&started), "g2 still plays the started room");
+        assert!(n.host.reopen("m3".into()).is_empty(), "reopens once");
+        assert!(n.guests.get_mut("g2").unwrap().back());
+        assert_eq!(n.guests["g2"].room.as_ref(), Some(&open), "g2 back: the host's room");
+        assert!(!n.guests.get_mut("g2").unwrap().back(), "back once");
+
+        // a stale ready (old line-up) is answered with the room; then the next match
+        n.send("g1", Msg::Ready { ver: started.ver, ready: true });
+        assert!(n.host.start(7).is_err());
+        n.ready("g1");
+        n.ready("g2");
+        let out = n.host.start(7).unwrap();
+        n.deliver(out);
+        for g in ["g1", "g2"] {
+            assert_eq!(n.last(g), Some(&Event::Started));
+            assert_eq!(n.guests[g].room.as_ref().map(|r| (r.id.as_str(), r.seed)), Some(("m2", 7)));
+        }
     }
 
     #[test]

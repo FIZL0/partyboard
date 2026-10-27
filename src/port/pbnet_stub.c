@@ -23,6 +23,8 @@ int pbnet_lockstep_active(void)
 
 void pbnet_lockstep_stop(void) { }
 
+void pbnet_lockstep_finish(void) { }
+
 int pbnet_step(const struct PADStatus *local, int n_local, struct PADStatus *out)
 {
     (void)local;
@@ -84,6 +86,11 @@ int pbnet_lobby_join(const char *setup, const char *code)
 }
 
 void pbnet_lobby_leave(void) { }
+
+int pbnet_lobby_back(void)
+{
+    return 0;
+}
 
 int pbnet_lobby_state(void)
 {

@@ -13,6 +13,10 @@
  *     (netplay_ovl_start), every heap's free memory is zeroed, so reads of memory the game did not write see
  *     the same bytes on every peer, and the heaps' layout is logged.
  *
+ * The match is over when the game leaves the board for a menu (board -> mstory3dll's results -> modeseldll, or the
+ * board straight to modeseldll): netplay_ovl_start gives the player's GWGameStat back before the menu sets itself up,
+ * and netplay_frame_end ends the session at the end of that frame, the same frame on every peer (N25).
+ *
  * A continue (netplay_match_continue, N9) is the same with the board state of an online save's checkpoint (the
  * SLSaveBoard blob, loaded with SLLoadBoard as mentDll's continue does) instead of a new party.
  */
@@ -48,6 +52,8 @@ static struct {
     BOOL pending; /* started; netplay_match_tick has not applied it yet */
     BOOL scrub;   /* applied; the board overlay has not started yet */
     BOOL resume;  /* a continue: the board state is `blob` */
+    BOOL board;   /* the board overlay started */
+    BOOL over;    /* a menu overlay started after the board: the match is over */
     NetplayMatch m;
     u8 blob[NETPLAY_BLOB_MAX];
     u32 blob_size;
@@ -177,6 +183,15 @@ static void game_stat_canned(void)
     GWGameStat.veryHardUnlock = 1;
     GWGameStat.customPackEnable = 0;
     GWGameStat.musicAllF = 0;
+}
+
+/* The player's own GWGameStat back (the canned one was only for the match). */
+static void game_stat_own(void)
+{
+    if (own_stat_saved) {
+        GWGameStat = own_stat;
+        own_stat_saved = FALSE;
+    }
 }
 
 /* A wipe the menu left running would make the board's own WipeCreate a no-op on one peer only. */
@@ -384,20 +399,31 @@ u64 netplay_heap_hash(void)
 
 void netplay_ovl_start(s32 ovl)
 {
+    if (match.board && !match.over && (ovl == DLL_modeseldll || ovl == DLL_mentdll || ovl == DLL_bootdll)) {
+        /* The party is over (mstory3dll returns to modeseldll; the board itself does when flag (1,27) skips the
+         * results). The menu reads GWGameStat as it sets up, so it gets the player's own back now. */
+        match.over = TRUE;
+        game_stat_own();
+        OSReport("netplay: match over: overlay %d starts at frame %u\n", ovl, netplay_frame());
+        return;
+    }
     if (!match.scrub || ovl != DLL_w01dll + match.m.board) {
         return;
     }
     match.scrub = FALSE;
+    match.board = TRUE;
     OSReport("netplay: board overlay %d starts at frame %u, heaps %016llX\n", ovl, netplay_frame(),
         (unsigned long long)heap_walk(TRUE, TRUE));
 }
 
+BOOL netplay_match_over(void)
+{
+    return match.over;
+}
+
 void netplay_match_end(void)
 {
-    if (own_stat_saved) {
-        GWGameStat = own_stat;
-        own_stat_saved = FALSE;
-    }
+    game_stat_own();
     memset(&match, 0, sizeof(match));
     netplay_checkpoint_set(NULL, 0);
 }

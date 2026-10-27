@@ -33,6 +33,12 @@ const char *pbnet_version(void);
 int pbnet_lockstep_active(void);
 /* Ends the lockstep session, if one runs. */
 void pbnet_lockstep_stop(void);
+/*
+ * Ends the lockstep session after its last frame (every peer ends after the same one): pbnet_lockstep_active is 0
+ * at once, while a pbnet thread keeps sending the peers the pads they still lack (up to 5 s), so a peer still
+ * behind reaches the same last frame.
+ */
+void pbnet_lockstep_finish(void);
 
 /*
  * One real frame. local: this machine's seats' pads in seat order (n_local of them; NULL if 0).
@@ -79,6 +85,12 @@ int pbnet_lobby_join(const char *setup, const char *code);
 /* Leaves: the host's lobby closes for everyone, a guest's seats open; a started lobby's lockstep stops. Then
  * PBNET_LOBBY_NONE. */
 void pbnet_lobby_leave(void);
+/*
+ * This machine's started match is over (after pbnet_lockstep_finish): back to PBNET_LOBBY_OPEN with the same
+ * people. The host reopens the room for everyone (new match id, nobody ready, seats and rules kept); a guest takes
+ * the host's room after the match, heard before or after this call. 1 if the lobby was started, else 0.
+ */
+int pbnet_lobby_back(void);
 /* PBNET_LOBBY_* */
 int pbnet_lobby_state(void);
 /* Moves on every change to the lobby (0 with none): re-read the JSON when it does. */
