@@ -1,0 +1,54 @@
+From 1fd4bd8ec357f7d2136622e7e9dc5590fad71b91 Mon Sep 17 00:00:00 2001
+From: Ryan Hayden <ryan@hayde.in>
+Date: Tue, 27 Oct 2026 16:24:13 -0400
+Subject: [PATCH] rmlui: add InputType::Code (no autocorrect, no
+ auto-capitalization)
+
+Text fields for codes, URLs and identifiers get mangled by mobile soft
+keyboards that autocorrect and capitalize the first letter. InputType::Code
+starts SDL text input as SDL_TEXTINPUT_TYPE_TEXT with
+SDL_CAPITALIZE_NONE and autocorrect disabled.
+---
+ include/aurora/rmlui.hpp             | 2 ++
+ lib/rmlui/SystemInterface_Aurora.cpp | 5 +++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/include/aurora/rmlui.hpp b/include/aurora/rmlui.hpp
+index feb5cdf..280b20b 100644
+--- a/include/aurora/rmlui.hpp
++++ b/include/aurora/rmlui.hpp
+@@ -19,6 +19,8 @@ namespace aurora::rmlui {
+ enum class InputType {
+   Text,
+   Number,
++  // Text without autocorrect or auto-capitalization: codes, URLs, identifiers.
++  Code,
+ };
+ 
+ inline constexpr const char* TouchStartEvent = "touchstart";
+diff --git a/lib/rmlui/SystemInterface_Aurora.cpp b/lib/rmlui/SystemInterface_Aurora.cpp
+index 1c16010..afb9843 100644
+--- a/lib/rmlui/SystemInterface_Aurora.cpp
++++ b/lib/rmlui/SystemInterface_Aurora.cpp
+@@ -19,6 +19,7 @@ SDL_TextInputType sdl_input_type(InputType type) noexcept {
+   case InputType::Number:
+     return SDL_TEXTINPUT_TYPE_NUMBER;
+   case InputType::Text:
++  case InputType::Code:
+   default:
+     return SDL_TEXTINPUT_TYPE_TEXT;
+   }
+@@ -35,6 +36,10 @@ bool start_text_input(SDL_Window* window, InputType type) {
+   }
+ 
+   SDL_SetNumberProperty(props, SDL_PROP_TEXTINPUT_TYPE_NUMBER, sdl_input_type(type));
++  if (type == InputType::Code) {
++    SDL_SetNumberProperty(props, SDL_PROP_TEXTINPUT_CAPITALIZATION_NUMBER, SDL_CAPITALIZE_NONE);
++    SDL_SetBooleanProperty(props, SDL_PROP_TEXTINPUT_AUTOCORRECT_BOOLEAN, false);
++  }
+   const bool result = SDL_StartTextInputWithProperties(window, props);
+   SDL_DestroyProperties(props);
+   return result;
+-- 
+2.56.0
+
