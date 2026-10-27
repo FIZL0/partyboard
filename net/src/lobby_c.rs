@@ -12,7 +12,10 @@
 //! settings, start) run on the caller's thread against it, so they answer at once, and only bytes go through the
 //! tasks. The menu polls [`Snapshot`] (as JSON in C) when [`Snapshot::gen`] moved.
 //!
-//! After the start the connections stay open (N8 runs the lockstep on them; a drop then is N10's).
+//! At the start the lockstep runs on the same connections ([`Wire`]): datagrams, addressed by line-up index
+//! ([`Room::peers`]), guest to guest through the host. The host picks the input delay from its connections' round
+//! trips and puts it in the final room; every peer then hands its [`Config`] and [`Wire`] to the [`Starter`]
+//! (`lockstep_c::start` in C). A drop after the start is N10's.
 
 use std::collections::BTreeMap;
 use std::ffi::{c_char, CStr};
@@ -25,8 +28,10 @@ use tokio::runtime::{Handle, Runtime};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::codes;
-use crate::lobby::{Event, Guest, Host, Ident, Msg, Pick, Player, Room, To, HOST, SEATS};
-use crate::transport::{Peer, Relay, Transport};
+use crate::lobby::{Event, Guest, Host, Ident, Msg, Pick, Player, Room, To, CPU, HOST, SEATS};
+use crate::lockstep::{self, delay_for, Config, NO_PEER};
+use crate::lockstep_c;
+use crate::transport::{datagram, undatagram, Incoming, Peer, Relay, Transport};
 
 /// No lobby.
 pub const PBNET_LOBBY_NONE: i32 = 0;
@@ -43,6 +48,50 @@ pub const PBNET_LOBBY_CLOSED: i32 = 4;
 const REFUSED_LINGER: Duration = Duration::from_secs(2);
 /// How long a leaving side waits for its Leave to go out before closing.
 const LEAVE_LINGER: Duration = Duration::from_millis(300);
+/// How often the host reads a guest connection's round trip (for the input delay).
+const RTT_EVERY: Duration = Duration::from_millis(250);
+
+/// Takes the lockstep a started lobby made: this machine's line-up and the wire to the others.
+pub type Starter = Arc<dyn Fn(Config, Wire) + Send + Sync>;
+
+/// The process's lockstep session ([`lockstep_c::start`]): the C ABI's starter.
+pub fn global_starter() -> Starter {
+    Arc::new(|cfg, wire| lockstep_c::start(cfg, Box::new(wire)))
+}
+
+/// The lockstep's datagrams on the lobby's connections.
+///
+/// On the wire each is a [`datagram`] whose peer name is a line-up index in decimal (the sender's from the host,
+/// the receiver's to it), not an endpoint ID: a lockstep datagram with a full backlog is ~1075 bytes, and 64
+/// characters of ID would push it past [`crate::transport::DATAGRAM_MAX`] (lost every time, so the stall that made
+/// the backlog would never end). The host delivers its own and relays guest to guest, renamed to the sender.
+pub struct Wire {
+    /// Host: each guest's datagram outbox by line-up index (None for the host); guest: the host's, alone.
+    out: Vec<Option<mpsc::UnboundedSender<Vec<u8>>>>,
+    host: bool,
+    inbox: mpsc::UnboundedReceiver<(u8, Vec<u8>)>,
+}
+
+impl lockstep::Transport for Wire {
+    fn send(&mut self, to: u8, d: &[u8]) {
+        let (via, name) = if self.host { (to as usize, "0".to_string()) } else { (0, to.to_string()) };
+        if let Some(Some(tx)) = self.out.get(via) {
+            let _ = tx.send(datagram(&name, d));
+        }
+    }
+
+    fn recv(&mut self) -> Option<(u8, Vec<u8>)> {
+        self.inbox.try_recv().ok()
+    }
+}
+
+/// The input delay for a line-up: [`delay_for`] the slowest round trip, which is guest to guest through the host
+/// (the two slowest guests' round trips to it) with two or more guests. Unmeasured round trips count as 0.
+fn delay_of(rtts: &[u32]) -> u32 {
+    let mut r = rtts.to_vec();
+    r.sort_unstable_by(|a, b| b.cmp(a));
+    delay_for(r.iter().take(2).sum())
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -80,11 +129,19 @@ struct Shared {
     error: String,
     /// Host: each guest connection's outbox by peer name; guest: the host's under [`HOST`].
     peers: BTreeMap<String, mpsc::UnboundedSender<Msg>>,
+    /// The same connections' datagram outboxes.
+    dgrams: BTreeMap<String, mpsc::UnboundedSender<Vec<u8>>>,
+    /// Host: each guest connection's round trip (ms), last read.
+    rtts: BTreeMap<String, u32>,
+    /// Once the lockstep runs: the line-up ([`Room::peers`]) and its session's inbox.
+    lineup: Vec<String>,
+    inbox: Option<mpsc::UnboundedSender<(u8, Vec<u8>)>>,
+    start: Starter,
     gen: u32,
 }
 
 impl Shared {
-    fn new(host: bool) -> Shared {
+    fn new(host: bool, start: Starter) -> Shared {
         Shared {
             phase: Phase::Connecting,
             host,
@@ -94,6 +151,11 @@ impl Shared {
             short: String::new(),
             error: String::new(),
             peers: BTreeMap::new(),
+            dgrams: BTreeMap::new(),
+            rtts: BTreeMap::new(),
+            lineup: Vec::new(),
+            inbox: None,
+            start,
             gen: 0,
         }
     }
@@ -154,6 +216,65 @@ impl Shared {
         match self.peers.get(HOST) {
             Some(tx) if self.phase == Phase::Open => tx.send(m).is_ok(),
             _ => false,
+        }
+    }
+
+    /// Host: the input delay for the room's guests' round trips.
+    fn delay(&self) -> u32 {
+        let Some(Role::Host(h)) = &self.role else { return delay_for(0) };
+        let rtts: Vec<u32> = h.room().peers().iter().skip(1).map(|p| self.rtts.get(p).copied().unwrap_or(0)).collect();
+        delay_of(&rtts)
+    }
+
+    /// The match started: the lockstep on the started room's line-up, handed to the starter. Once.
+    fn lockstep(&mut self) {
+        if self.inbox.is_some() {
+            return;
+        }
+        let room = match &self.role {
+            Some(Role::Host(h)) => h.room().clone(),
+            Some(Role::Guest(Guest { room: Some(r), .. })) => r.clone(),
+            _ => return,
+        };
+        let lineup = room.peers();
+        let Some(me) = lineup.iter().position(|p| *p == self.me) else { return };
+        let mut seats = [NO_PEER; SEATS];
+        for (i, s) in room.seats.iter().enumerate() {
+            if let Some(s) = s.as_ref().filter(|s| s.peer != CPU) {
+                seats[i] = lineup.iter().position(|p| *p == s.peer).map_or(NO_PEER, |p| p as u8);
+            }
+        }
+        let out = if self.host {
+            lineup.iter().map(|p| if p == HOST { None } else { self.dgrams.get(p).cloned() }).collect()
+        } else {
+            vec![self.dgrams.get(HOST).cloned()]
+        };
+        let (tx, inbox) = mpsc::unbounded_channel();
+        let cfg = Config { me: me as u8, peers: lineup.len() as u8, seats, delay: room.delay.clamp(2, 15) };
+        self.lineup = lineup;
+        self.inbox = Some(tx);
+        (self.start)(cfg, Wire { out, host: self.host, inbox });
+    }
+
+    /// A lockstep datagram from the connection to `peer`: delivered here, or (host) relayed to the guest it is for.
+    fn datagram_in(&self, peer: &str, d: &[u8]) {
+        let (Some(inbox), Some((name, data))) = (&self.inbox, undatagram(d)) else { return };
+        let Ok(idx) = name.parse::<usize>() else { return };
+        if !self.host {
+            // from the host: the name is the sender's
+            if self.lineup.get(idx).is_some_and(|p| *p != self.me) {
+                let _ = inbox.send((idx as u8, data.to_vec()));
+            }
+            return;
+        }
+        // from a guest: the name is the receiver's
+        let Some(from) = self.lineup.iter().position(|p| p == peer) else { return };
+        if idx == 0 {
+            let _ = inbox.send((from as u8, data.to_vec()));
+        } else if idx != from {
+            if let Some(tx) = self.lineup.get(idx).and_then(|p| self.dgrams.get(p)) {
+                let _ = tx.send(datagram(&from.to_string(), data));
+            }
         }
     }
 
@@ -241,24 +362,24 @@ pub struct Lobby {
 }
 
 impl Lobby {
-    /// Hosts a lobby on the endpoint `bind` makes, its tasks on `rt`.
-    pub fn host<B>(rt: &Handle, bind: B, setup: Setup) -> Lobby
+    /// Hosts a lobby on the endpoint `bind` makes, its tasks on `rt`; its lockstep goes to `start`.
+    pub fn host<B>(rt: &Handle, bind: B, setup: Setup, start: Starter) -> Lobby
     where
         B: Future<Output = Result<Transport, String>> + Send + 'static,
     {
-        let shared: Sh = Arc::new(Mutex::new(Shared::new(true)));
+        let shared: Sh = Arc::new(Mutex::new(Shared::new(true, start)));
         let (quit, q) = oneshot::channel();
         rt.spawn(run_host(bind, shared.clone(), setup, q));
         Lobby { shared, quit: Some(quit) }
     }
 
     /// Joins the lobby at `code` (a short code, ticket, bare endpoint ID or a link with one) from the endpoint
-    /// `bind` makes.
-    pub fn join<B>(rt: &Handle, bind: B, setup: Setup, code: &str) -> Lobby
+    /// `bind` makes; its lockstep goes to `start`.
+    pub fn join<B>(rt: &Handle, bind: B, setup: Setup, code: &str, start: Starter) -> Lobby
     where
         B: Future<Output = Result<Transport, String>> + Send + 'static,
     {
-        let shared: Sh = Arc::new(Mutex::new(Shared::new(false)));
+        let shared: Sh = Arc::new(Mutex::new(Shared::new(false, start)));
         let (quit, q) = oneshot::channel();
         let code = codes::code_in(code).unwrap_or_else(|| code.trim().to_string());
         rt.spawn(run_guest(bind, shared.clone(), setup, code, q));
@@ -299,16 +420,23 @@ impl Lobby {
         lock(&self.shared).host_cmd(|h| h.cpu(i, difficulty))
     }
 
-    /// Host: starts the match with `seed` (0: one from the clock). Err: why not.
+    /// Host: starts the match with `seed` (0: one from the clock), and its lockstep. Err: why not.
     pub fn start(&self, seed: u64) -> Result<(), String> {
         let seed = if seed == 0 { clock_seed() } else { seed };
         let mut s = lock(&self.shared);
         if s.phase != Phase::Open {
             return Err("the lobby isn't open".into());
         }
-        let out = s.host().ok_or("only the host starts")?.start(seed)?;
+        let delay = s.delay();
+        let out = s.host().ok_or("only the host starts")?.start_with(seed, delay)?;
         s.dispatch(out);
+        s.lockstep();
         Ok(())
+    }
+
+    /// This lobby started a lockstep (it reached the start).
+    pub fn lockstep_started(&self) -> bool {
+        lock(&self.shared).inbox.is_some()
     }
 
     /// Leaves: the host closes the lobby for everyone, a guest frees its seats. The tasks wind down on their own.
@@ -414,6 +542,7 @@ async fn keep_code(t: Arc<Transport>, sh: std::sync::Weak<Mutex<Shared>>) {
 async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
     let peer = p.id().to_string();
     let (tx, mut outbox) = mpsc::unbounded_channel();
+    let (dtx, mut dgrams) = mpsc::unbounded_channel::<Vec<u8>>();
     {
         let mut s = lock(&sh);
         if s.phase == Phase::Closed {
@@ -421,18 +550,27 @@ async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
             return;
         }
         s.peers.insert(peer.clone(), tx);
+        s.dgrams.insert(peer.clone(), dtx);
     }
     let mut refused = None;
+    let mut rtt = tokio::time::interval(RTT_EVERY);
     loop {
         tokio::select! {
-            m = p.recv() => match m {
-                Ok(m) => {
+            Some(d) = dgrams.recv() => p.send_datagram(d),
+            _ = rtt.tick() => {
+                if let Some(r) = p.rtt() {
+                    lock(&sh).rtts.insert(peer.clone(), r.as_millis().min(u32::MAX as u128) as u32);
+                }
+            }
+            m = p.recv_any() => match m {
+                Incoming::Datagram(d) => lock(&sh).datagram_in(&peer, &d),
+                Incoming::Msg(Ok(m)) => {
                     let mut s = lock(&sh);
                     let Some(h) = s.host() else { break };
                     let out = h.on(&peer, m);
                     s.dispatch(out);
                 }
-                Err(_) => break,
+                Incoming::Msg(Err(_)) => break,
             },
             Some(m) = outbox.recv() => {
                 if matches!(m, Msg::Refused(_)) {
@@ -446,6 +584,8 @@ async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
     p.close("bye");
     let mut s = lock(&sh);
     s.peers.remove(&peer);
+    s.dgrams.remove(&peer);
+    s.rtts.remove(&peer);
     if let Some(h) = s.host() {
         let out = h.gone(&peer);
         if !out.is_empty() {
@@ -482,11 +622,24 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
         }
     };
     let (tx, mut outbox) = mpsc::unbounded_channel();
-    lock(&sh).peers.insert(HOST.into(), tx);
+    let (dtx, mut dgrams) = mpsc::unbounded_channel::<Vec<u8>>();
+    {
+        let mut s = lock(&sh);
+        s.peers.insert(HOST.into(), tx);
+        s.dgrams.insert(HOST.into(), dtx);
+    }
     p.send(Guest::hello(setup.ident(), setup.players.clone()));
     loop {
         tokio::select! {
-            m = p.recv() => {
+            Some(d) = dgrams.recv() => p.send_datagram(d),
+            m = p.recv_any() => {
+                let m = match m {
+                    Incoming::Datagram(d) => {
+                        lock(&sh).datagram_in(HOST, &d);
+                        continue;
+                    }
+                    Incoming::Msg(m) => m,
+                };
                 let mut s = lock(&sh);
                 let started = s.phase == Phase::Started;
                 let ev = match (m, &mut s.role) {
@@ -512,6 +665,7 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
                     }
                     Some(Event::Started) => {
                         s.phase = Phase::Started;
+                        s.lockstep();
                         s.bump();
                     }
                     Some(Event::Refused(why)) => {
@@ -541,7 +695,11 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
             }
         }
     }
-    lock(&sh).peers.clear();
+    {
+        let mut s = lock(&sh);
+        s.peers.clear();
+        s.dgrams.clear();
+    }
     p.close("bye");
     t.close().await;
 }
@@ -600,7 +758,7 @@ fn setup(json: &str) -> Option<(Setup, Relay)> {
 pub unsafe extern "C" fn pbnet_lobby_host(setup_json: *const c_char) -> i32 {
     // SAFETY: the caller's contract on `setup_json`.
     let Some((s, relay)) = (unsafe { arg(setup_json) }).and_then(setup) else { return 0 };
-    let l = Lobby::host(rt().handle(), async move { Transport::bind(&relay).await }, s);
+    let l = Lobby::host(rt().handle(), async move { Transport::bind(&relay).await }, s, global_starter());
     *global() = Some(l);
     1
 }
@@ -616,15 +774,19 @@ pub unsafe extern "C" fn pbnet_lobby_join(setup_json: *const c_char, code: *cons
     // SAFETY: the caller's contract on both strings.
     let (s, code) = unsafe { (arg(setup_json), arg(code)) };
     let (Some((s, relay)), Some(code)) = (s.and_then(setup), code.filter(|c| !c.trim().is_empty())) else { return 0 };
-    let l = Lobby::join(rt().handle(), async move { Transport::bind(&relay).await }, s, code);
+    let l = Lobby::join(rt().handle(), async move { Transport::bind(&relay).await }, s, code, global_starter());
     *global() = Some(l);
     1
 }
 
-/// Leaves the lobby, if one runs (the host's closes for everyone). Safe to call any time, from any thread.
+/// Leaves the lobby, if one runs (the host's closes for everyone), and ends the lockstep its start began. Safe to
+/// call any time, from any thread.
 #[no_mangle]
 pub extern "C" fn pbnet_lobby_leave() {
     if let Some(l) = global().take() {
+        if l.lockstep_started() {
+            lockstep_c::pbnet_lockstep_stop();
+        }
         l.leave();
     }
 }
@@ -767,6 +929,13 @@ mod tests {
         }
     }
 
+    /// A starter that hands the lockstep to the test.
+    fn catch() -> (Starter, std::sync::mpsc::Receiver<(Config, Wire)>) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let tx = Mutex::new(tx);
+        (Arc::new(move |c, w| drop(tx.lock().unwrap().send((c, w)))), rx)
+    }
+
     fn bind(net: &Testnet) -> impl Future<Output = Result<Transport, String>> + Send + 'static {
         let dht = Dht::builder().bootstrap(&net.bootstrap).build().unwrap();
         async move { Transport::bind_with(&Relay::Off, dht).await }
@@ -793,13 +962,13 @@ mod tests {
         rt.block_on(async {
             let net = Testnet::new(3).await.unwrap();
             let h = Handle::current();
-            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"));
+            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"), catch().0);
             let s = until(&host, "host open", |s| s.state == Phase::Open && !s.code.is_empty()).await;
             assert!(s.host && s.me == HOST);
             assert_eq!(s.seats, [0]);
             assert!(!host.ready(true), "the host is always ready");
 
-            let guest = Lobby::join(&h, bind(&net), setup("g", "GMPE01-00"), &s.code);
+            let guest = Lobby::join(&h, bind(&net), setup("g", "GMPE01-00"), &s.code, catch().0);
             let g = until(&guest, "guest seated", |s| s.state == Phase::Open).await;
             assert_eq!(g.seats, [1]);
             assert!(!g.host && g.me != HOST);
@@ -818,12 +987,12 @@ mod tests {
             until(&host, "guest ready", |s| s.room.as_ref().unwrap().all_ready()).await;
 
             // another disc: refused, closed with why
-            let pal = Lobby::join(&h, bind(&net), setup("p", "GMPP01-00"), &s.code);
+            let pal = Lobby::join(&h, bind(&net), setup("p", "GMPP01-00"), &s.code, catch().0);
             let p = until(&pal, "pal refused", |s| s.state == Phase::Closed).await;
             assert!(p.error.contains("different disc"), "{}", p.error);
 
             // a fourth joins (ready cleared), then leaves: its seat is open again
-            let late = Lobby::join(&h, bind(&net), setup("l", "GMPE01-00"), &s.code);
+            let late = Lobby::join(&h, bind(&net), setup("l", "GMPE01-00"), &s.code, catch().0);
             until(&late, "late seated", |s| s.state == Phase::Open).await;
             until(&host, "late in", |s| s.room.as_ref().unwrap().seats[2].is_some()).await;
             late.leave();
@@ -856,19 +1025,105 @@ mod tests {
         rt.block_on(async {
             let net = Testnet::new(3).await.unwrap();
             let h = Handle::current();
-            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"));
+            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"), catch().0);
             let s = until(&host, "host open", |s| s.state == Phase::Open).await;
-            let guest = Lobby::join(&h, bind(&net), setup("g", "GMPE01-00"), &s.code);
+            let guest = Lobby::join(&h, bind(&net), setup("g", "GMPE01-00"), &s.code, catch().0);
             until(&guest, "guest seated", |s| s.state == Phase::Open).await;
             host.leave();
             let g = until(&guest, "guest closed", |s| s.state == Phase::Closed).await;
             assert_eq!(g.error, "The host closed the lobby.");
             assert!(!guest.ready(true));
 
-            let bad = Lobby::join(&h, bind(&net), setup("b", "GMPE01-00"), "not a code");
+            let bad = Lobby::join(&h, bind(&net), setup("b", "GMPE01-00"), "not a code", catch().0);
             let b = until(&bad, "bad code", |s| s.state == Phase::Closed).await;
             assert!(b.error.contains("isn't a lobby code"), "{}", b.error);
         });
+    }
+
+    /// Three real endpoints start a match and run its lockstep on the lobby's connections: every seat's pads reach
+    /// every peer (guest to guest through the host), all three run the same frames on the same pads, with the
+    /// host's delay, and the hashes they swap agree.
+    #[test]
+    fn started_lobby_runs_the_lockstep() {
+        use crate::lockstep::{Pad, Session, Step, IDLE};
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(3).await.unwrap();
+            let h = Handle::current();
+            let (hs, hrx) = catch();
+            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"), hs);
+            let s = until(&host, "host open", |s| s.state == Phase::Open && !s.code.is_empty()).await;
+            let (as_, arx) = catch();
+            let a = Lobby::join(&h, bind(&net), setup("a", "GMPE01-00"), &s.code, as_);
+            until(&a, "a seated", |s| s.state == Phase::Open).await;
+            let (bs, brx) = catch();
+            let b = Lobby::join(&h, bind(&net), setup("b", "GMPE01-00"), &s.code, bs);
+            until(&b, "b seated", |s| s.state == Phase::Open).await;
+            until(&host, "both in", |s| s.room.as_ref().unwrap().peers().len() == 3).await;
+            for g in [&a, &b] {
+                until(g, "sees three", |s| s.room.as_ref().unwrap().peers().len() == 3).await;
+                assert!(g.ready(true));
+            }
+            until(&host, "all ready", |s| s.room.as_ref().unwrap().all_ready()).await;
+            assert!(!host.lockstep_started());
+            host.start(7).unwrap();
+            until(&a, "a started", |s| s.state == Phase::Started).await;
+            until(&b, "b started", |s| s.state == Phase::Started).await;
+
+            let got = |rx: &std::sync::mpsc::Receiver<(Config, Wire)>| rx.recv_timeout(Duration::from_secs(1)).unwrap();
+            let lineup: Vec<_> = [got(&hrx), got(&arx), got(&brx)].into_iter().collect();
+            let room = host.snapshot().room.unwrap();
+            assert!(room.delay >= 2 && room.delay <= 15, "{}", room.delay);
+            for (i, (c, _)) in lineup.iter().enumerate() {
+                assert_eq!((c.me, c.peers, c.delay), (i as u8, 3, room.delay));
+                assert_eq!(c.seats, [0, 1, 2, NO_PEER], "seat 4 is the computer's");
+            }
+            assert!(hrx.try_recv().is_err(), "started once");
+            let mut peers: Vec<Session<Wire>> = lineup.into_iter().map(|(c, w)| Session::new(c, w)).collect();
+
+            const FRAMES: u32 = 90;
+            let pad = |p: usize, f: u32| Pad { button: 1 << p, stick_x: (f % 100) as i8, stick_y: p as i8, ..IDLE };
+            let mut runs: Vec<Vec<[Pad; 4]>> = vec![vec![]; 3];
+            let t0 = std::time::Instant::now();
+            while runs.iter().any(|r| (r.len() as u32) < FRAMES) {
+                assert!(t0.elapsed() < Duration::from_secs(20), "stuck at {:?}", runs.iter().map(Vec::len).collect::<Vec<_>>());
+                for (p, sess) in peers.iter_mut().enumerate() {
+                    if runs[p].len() as u32 >= FRAMES {
+                        // keep sending (acks) so the others finish
+                        sess.step(t0.elapsed().as_millis() as u64, &[]);
+                        continue;
+                    }
+                    let f = sess.frame();
+                    if f % lockstep::HASH_EVERY == 0 {
+                        sess.set_hash(f, 0xabc + f as u64);
+                    }
+                    if let Step::Ready(pads) = sess.step(t0.elapsed().as_millis() as u64, &[pad(p, f + sess.delay())]) {
+                        runs[p].push(pads);
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(4)).await;
+            }
+            for p in 0..3 {
+                assert_eq!(runs[p][..FRAMES as usize], runs[0][..FRAMES as usize], "peer {p} ran other pads");
+                assert!(peers[p].desync().is_none());
+            }
+            let d = room.delay as usize;
+            for (f, ran) in runs[0].iter().enumerate().take(FRAMES as usize) {
+                let want = if f < d { [IDLE; 4] } else { [pad(0, f as u32), pad(1, f as u32), pad(2, f as u32), IDLE] };
+                assert_eq!(*ran, want, "frame {f}");
+            }
+            host.leave();
+            a.leave();
+            b.leave();
+        });
+    }
+
+    #[test]
+    fn delay_from_the_slowest_two_guests() {
+        assert_eq!(delay_of(&[]), delay_for(0));
+        assert_eq!(delay_of(&[150]), delay_for(150));
+        // guest to guest is through the host: the two slowest legs
+        assert_eq!(delay_of(&[40, 150, 100]), delay_for(250));
     }
 
     /// The C ABI with no lobby, and bad setups refused (the one test touching the global lobby).

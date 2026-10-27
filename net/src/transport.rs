@@ -141,6 +141,12 @@ pub fn undatagram(d: &[u8]) -> Option<(String, &[u8])> {
 
 // ---------------------------------------------------------------- a connection
 
+/// What [`Peer::recv_any`] got.
+pub enum Incoming<T> {
+    Msg(Result<T, String>),
+    Datagram(Vec<u8>),
+}
+
 /// One peer connection: messages of type `T` on its stream, datagrams beside. Its stream and datagrams are read on
 /// their own tasks (a stream read isn't cancel-safe, so it can't sit in a `select!`); messages go out in order
 /// through a task of their own, so [`Peer::send`] never waits.
@@ -212,6 +218,15 @@ impl<T: Serialize + DeserializeOwned + Send + 'static> Peer<T> {
     /// The next datagram; None once the connection is gone.
     pub async fn recv_datagram(&mut self) -> Option<Vec<u8>> {
         self.dgrams.recv().await
+    }
+
+    /// The next message or datagram, whichever comes first (both cancel-safe, so it can sit in a `select!`). After
+    /// the datagrams end, only messages; Err once the stream ended.
+    pub async fn recv_any(&mut self) -> Incoming<T> {
+        tokio::select! {
+            m = self.msgs.recv() => Incoming::Msg(m.unwrap_or_else(|| Err("connection closed".into()))),
+            Some(d) = self.dgrams.recv() => Incoming::Datagram(d),
+        }
     }
 
     /// The current round-trip time estimate.

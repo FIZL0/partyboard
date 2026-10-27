@@ -22,7 +22,7 @@ const char *pbnet_version(void);
 
 /*
  * Lockstep (net/src/lockstep.rs, C ABI in net/src/lockstep_c.rs). One session per process, started from
- * Rust at the match start; C only steps it. All calls are thread-safe; with no session they do nothing.
+ * Rust at the match start (the lobby, when it reaches PBNET_LOBBY_STARTED); C only steps it. All calls are thread-safe; with no session they do nothing.
  */
 
 #define PBNET_READY 1 /* run the frame on out[0..4] */
@@ -75,7 +75,8 @@ int pbnet_lobby_host(const char *setup);
 /* Joins the lobby at code (short code, ticket, endpoint ID or a link with ?code=), leaving one that runs.
  * 1 if dialling, 0 if setup is not valid or code empty. */
 int pbnet_lobby_join(const char *setup, const char *code);
-/* Leaves: the host's lobby closes for everyone, a guest's seats open. Then PBNET_LOBBY_NONE. */
+/* Leaves: the host's lobby closes for everyone, a guest's seats open; a started lobby's lockstep stops. Then
+ * PBNET_LOBBY_NONE. */
 void pbnet_lobby_leave(void);
 /* PBNET_LOBBY_* */
 int pbnet_lobby_state(void);
@@ -88,7 +89,7 @@ uint32_t pbnet_lobby_gen(void);
  *    "code": "<host: ticket>", "short": "<host: short code, once online>", "error": "<why closed / no short code>",
  *    "seats": [this machine's seat indices], "room": null | Room (net/src/lobby.rs: id, seats[4] of null |
  *    {peer, name, key, character, cpu, difficulty, team}, board, turns, bonus, teams, handicaps[4], seed,
- *    ready [peer names], ver, started), "gen": n}
+ *    ready [peer names], ver, started, delay), "gen": n}
  */
 int pbnet_lobby_json(char *buf, int cap);
 /* This machine's picks for its seats in seat order (n of them). 1 if sent (open lobby only). */
@@ -99,8 +100,9 @@ int pbnet_lobby_ready(int ready);
 int pbnet_lobby_settings(int board, int turns, int bonus, int teams, const uint8_t *handicaps);
 /* Host: the computer plays seat (0..3) at difficulty (0..3), or the seat opens again (difficulty < 0). */
 int pbnet_lobby_cpu(int seat, int difficulty);
-/* Host: starts once every guest is ready (open seats become CPUs); seed 0: from the clock. 1 if started, else 0
- * and the reason snprintf'd into why/cap (why may be NULL). */
+/* Host: starts once every guest is ready (open seats become CPUs); seed 0: from the clock. Every peer's lockstep
+ * session then runs on the lobby's connections (pbnet_lockstep_active), delay from the host's round trips. 1 if
+ * started, else 0 and the reason snprintf'd into why/cap (why may be NULL). */
 int pbnet_lobby_start(uint64_t seed, char *why, int cap);
 
 #ifdef __ANDROID__

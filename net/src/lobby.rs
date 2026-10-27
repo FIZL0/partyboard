@@ -90,6 +90,9 @@ pub struct Room {
     pub ver: u32,
     /// Set in the room sent with [`Msg::Start`].
     pub started: bool,
+    /// The lockstep's input delay (frames), picked by the host at the start (0 before; [`Host::start_with`]).
+    #[serde(default)]
+    pub delay: u32,
 }
 
 impl Room {
@@ -106,6 +109,7 @@ impl Room {
             ready: BTreeSet::new(),
             ver: 0,
             started: false,
+            delay: 0,
         }
     }
 
@@ -405,6 +409,11 @@ impl Host {
     /// Starts the match with `seed` once every guest is ready: open seats become the computer's (normal
     /// difficulty), and every guest gets the final room. Err (why) if someone isn't ready or it already started.
     pub fn start(&mut self, seed: u64) -> Result<Vec<(To, Msg)>, String> {
+        self.start_with(seed, 0)
+    }
+
+    /// [`Host::start`] with the lockstep's input `delay` in the final room.
+    pub fn start_with(&mut self, seed: u64, delay: u32) -> Result<Vec<(To, Msg)>, String> {
         if self.room.started {
             return Err("already started".into());
         }
@@ -417,6 +426,7 @@ impl Host {
             }
         }
         self.room.seed = seed;
+        self.room.delay = delay;
         self.room.started = true;
         Ok(vec![(To::All, Msg::Start(self.room.clone()))])
     }
