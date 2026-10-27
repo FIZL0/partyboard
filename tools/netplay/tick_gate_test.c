@@ -35,7 +35,21 @@ static PADStatus taken[4];
 int pbnet_lockstep_active(void) { return on; }
 uint32_t pbnet_frame(void) { return fr; }
 void pbnet_set_hash(uint32_t f, uint64_t h) { (void)h; hash_calls++; hashed_frame = f; }
-int pbnet_poll_desync(uint32_t *a, int *b, uint64_t *c, uint64_t *d) { return 0; }
+/* N11: queued mismatches, each handed to pbnet_desync_recover. */
+static int desyncs_queued, recover_calls; static u32 recovered_frame; static int recovered_peer;
+int pbnet_poll_desync(uint32_t *a, int *b, uint64_t *c, uint64_t *d)
+{
+    if (desyncs_queued == 0) return 0;
+    desyncs_queued--;
+    *a = 30; *b = 1; *c = 5; *d = 6;
+    return 1;
+}
+int pbnet_desync_recover(uint32_t f, int p, uint64_t o, uint64_t t)
+{
+    assert(o == 5 && t == 6);
+    recover_calls++; recovered_frame = f; recovered_peer = p;
+    return 1;
+}
 int pbnet_step(const struct PADStatus *local, int n, struct PADStatus *out)
 {
     if (!on) return PBNET_OFF;
@@ -204,6 +218,10 @@ int main(void)
     hash_calls = 0; wait_now = 1;
     netplay_tick_begin(); netplay_tick_begin(); netplay_tick_begin();
     assert(hash_calls == 1 && hashed_frame == 30);
+    /* N11: every mismatch goes to pbnet_desync_recover (it logs and reloads once per session). */
+    desyncs_queued = 2;
+    netplay_tick_begin();
+    assert(desyncs_queued == 0 && recover_calls == 2 && recovered_frame == 30 && recovered_peer == 1);
     /* Session gone: back to local controllers. */
     on = 0; wait_now = 0; phys[0].button = PAD_BUTTON_Y;
     assert(netplay_tick_begin());

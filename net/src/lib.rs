@@ -6,6 +6,7 @@
 #[cfg(target_os = "android")]
 pub mod android;
 pub mod codes;
+pub mod desync;
 pub mod lobby;
 pub mod lobby_c;
 pub mod lockstep;

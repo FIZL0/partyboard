@@ -9,12 +9,15 @@
 //! first, capped per datagram), so a lost one is covered by the next. Each datagram also carries the
 //! receiver's ack, a timestamp echo (round trip, for [`delay_for`]) and this peer's latest frame hashes. Hashes
 //! (of the state before a frame, computed by C, one every [`HASH_EVERY`] frames) are compared whichever side
-//! comes first; a mismatch is queued for [`Session::desync`].
+//! comes first; a mismatch is queued for [`Session::desync`]. Every session keeps the pads of the frames it ran (the
+//! last [`LOG_KEPT`]) and its hashes: the input log a desync writes out ([`Session::input_log`], N11).
 //!
 //! The transport is the [`Transport`] trait (peers by line-up index); tests use an in-memory wire with fake
 //! lag and loss.
 
 use std::collections::{BTreeMap, VecDeque};
+
+use serde::Serialize;
 
 /// C hashes the state before every this many frames.
 pub const HASH_EVERY: u32 = 30;
@@ -28,6 +31,8 @@ const HASHES_SENT: usize = 2;
 const HASHES_KEPT: usize = 256;
 /// A peer's hashes kept while ours for that frame isn't in yet.
 const THEIRS_KEPT: usize = 16;
+/// Frames whose pads a session keeps for the input log (N11): 5 minutes.
+pub const LOG_KEPT: usize = 5 * 60 * 60;
 /// Datagram tag of a frame packet.
 const TAG_FRAMES: u8 = 0x50;
 
@@ -198,6 +203,27 @@ pub struct Session<T: Transport> {
     desyncs: VecDeque<Desync>,
     /// The clock of the first step (a peer never heard is silent since then).
     began: Option<u64>,
+    /// N11: the pads of the frames run, the last [`LOG_KEPT`]; the first is frame `tick - ran.len()`.
+    ran: VecDeque<[Pad; 4]>,
+}
+
+/// A session's input log (N11): who plays where, the pads of the frames it ran and its own hashes. Two peers'
+/// logs of the same session, diffed, show the first frame they ran on other pads (a lockstep bug) or, when the
+/// pads agree, that the game itself diverged between two hashes on the same pads.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct InputLog {
+    pub me: u8,
+    pub peers: u8,
+    pub seats: [u8; 4],
+    pub delay: u32,
+    /// The next frame to run.
+    pub tick: u32,
+    /// The frame of `frames[0]`.
+    pub first: u32,
+    /// Per frame run: the four seats' pads, each its 12 wire bytes in hex, space-separated.
+    pub frames: Vec<String>,
+    /// This machine's hashes of the state before a frame: (frame, hash in hex), oldest first.
+    pub hashes: Vec<(u32, String)>,
 }
 
 impl<T: Transport> Session<T> {
@@ -231,6 +257,7 @@ impl<T: Transport> Session<T> {
             hashes: BTreeMap::new(),
             desyncs: VecDeque::new(),
             began: None,
+            ran: VecDeque::new(),
         }
     }
 
@@ -323,6 +350,10 @@ impl<T: Transport> Session<T> {
         }
         self.tick += 1;
         self.prune();
+        self.ran.push_back(pads);
+        if self.ran.len() > LOG_KEPT {
+            self.ran.pop_front();
+        }
         Step::Ready(pads)
     }
 
@@ -337,6 +368,21 @@ impl<T: Transport> Session<T> {
             if let Some(theirs) = self.remotes[p].as_mut().and_then(|r| r.theirs.remove(&frame)) {
                 self.compare(p as u8, frame, theirs);
             }
+        }
+    }
+
+    /// The input log of this session so far (N11).
+    pub fn input_log(&self) -> InputLog {
+        let hex = |p: &Pad| p.wire().iter().map(|b| format!("{b:02x}")).collect::<String>();
+        InputLog {
+            me: self.cfg.me,
+            peers: self.cfg.peers,
+            seats: self.cfg.seats,
+            delay: self.cfg.delay,
+            tick: self.tick,
+            first: self.tick - self.ran.len() as u32,
+            frames: self.ran.iter().map(|f| f.iter().map(hex).collect::<Vec<_>>().join(" ")).collect(),
+            hashes: self.hashes.iter().map(|(&f, &h)| (f, format!("{h:016x}"))).collect(),
         }
     }
 
@@ -843,6 +889,42 @@ mod tests {
         assert_eq!(b.len(), 1, "{b:?}");
         assert_eq!((b[0].frame, b[0].peer), (300, 0));
         assert_eq!((b[0].ours, b[0].theirs), (a[0].theirs, a[0].ours));
+    }
+
+    #[test]
+    fn the_input_log_has_the_pads_run_and_the_hashes() {
+        let net = Net::new(0, 0.0, 3);
+        let mut s: Vec<_> = (0..2).map(|me| Session::new(Config { me, peers: 2, seats: TWO, delay: 2 }, net.end(me))).collect();
+        let mut ran = vec![vec![]; 2];
+        for f in 0..40u32 {
+            net.set_now(f as u64 * 16);
+            for (i, p) in s.iter_mut().enumerate() {
+                if p.frame() % HASH_EVERY == 0 {
+                    p.set_hash(p.frame(), 0xabc0 + p.frame() as u64);
+                }
+                if let Step::Ready(pads) = p.step(f as u64 * 16, &[pad(f as u16 + 1, -1)]) {
+                    ran[i].push(pads);
+                }
+            }
+        }
+        let a = s[0].input_log();
+        let b = s[1].input_log();
+        assert_eq!((a.me, a.peers, a.seats, a.delay, a.first), (0, 2, TWO, 2, 0));
+        assert_eq!(a.tick as usize, ran[0].len());
+        assert_eq!(a.frames.len(), ran[0].len());
+        let n = a.frames.len().min(b.frames.len());
+        assert_eq!(a.frames[..n], b.frames[..n], "same pads on both sides");
+        assert_eq!(a.frames[0], ["000000000000000000000000"; 4].join(" "), "frame 0 is idle");
+        // frame 2: seat 0 is peer 0's first pad (button 1, stick_x -1)
+        assert!(a.frames[2].starts_with("0100ff"), "{}", a.frames[2]);
+        assert_eq!(a.hashes, vec![(0, format!("{:016x}", 0xabc0)), (30, format!("{:016x}", 0xabc0 + 30))]);
+        // the last LOG_KEPT frames only
+        let mut solo = Session::new(Config { me: 0, peers: 1, seats: [0, NO_PEER, NO_PEER, NO_PEER], delay: 2 }, net.end(5));
+        for f in 0..LOG_KEPT as u64 + 10 {
+            solo.step(f, &[IDLE]);
+        }
+        let l = solo.input_log();
+        assert_eq!((l.first, l.frames.len(), l.tick), (10, LOG_KEPT, LOG_KEPT as u32 + 10));
     }
 
     #[test]
