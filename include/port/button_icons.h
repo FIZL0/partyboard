@@ -31,6 +31,7 @@ typedef enum {
     PB_FAMILY_GENERIC,
     PB_FAMILY_STEAMDECK,
     PB_FAMILY_TOUCH, /* N58: the on-screen pad's buttons (port/touch_pad.h), while it is shown */
+    PB_FAMILY_KEYBOARD, /* N61: keycaps with the bound key's name, for a port on the keyboard */
     PB_FAMILY_COUNT,
 } PbIconFamily;
 
@@ -58,6 +59,9 @@ enum {
 };
 /* Number of glyph ids (0 .. count-1). */
 int pb_button_icons_glyph_count(void);
+/* N61: keycap glyph ids are outside 0 .. count-1: one key (its scancode in the id) or a cluster of four (stick,
+ * d-pad). pb_button_icons_glyph_for_entry returns them for a port in the Keyboard family. */
+int pb_button_icons_glyph_is_key(int glyph);
 /* The glyph of an SDL gamepad button / axis (as aurora's mappings store them), or PB_GLYPH_NONE. */
 int pb_button_icons_glyph_for_native_button(s32 sdl_button);
 int pb_button_icons_glyph_for_native_axis(s32 sdl_axis);
