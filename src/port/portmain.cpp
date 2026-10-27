@@ -13,6 +13,7 @@
 #include <SDL3/SDL_filesystem.h>
 #ifdef __ANDROID__
 #include <SDL3/SDL_system.h>
+#include <android/log.h>
 #include <jni.h>
 #endif
 #include <aurora/aurora.h>
@@ -125,6 +126,14 @@ void aurora_log_callback(AuroraLogLevel level, const char* module, const char *m
             break;
     }
     fprintf(out, "[%s | %s] %s\n", levelStr, module, message);
+#ifdef __ANDROID__
+    // stdout/stderr go nowhere on Android; logcat is the only place a log can be read.
+    static constexpr int kAndroidPriority[] = {ANDROID_LOG_DEBUG, ANDROID_LOG_INFO, ANDROID_LOG_WARN,
+                                               ANDROID_LOG_ERROR, ANDROID_LOG_FATAL};
+    const int priority = static_cast<unsigned>(level) < std::size(kAndroidPriority) ? kAndroidPriority[level]
+                                                                                    : ANDROID_LOG_INFO;
+    __android_log_print(priority, "PartyBoard", "[%s] %s", module, message);
+#endif
     if (level == LOG_FATAL) {
         fflush(out);
         abort();

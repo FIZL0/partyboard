@@ -16,6 +16,10 @@ static PLATFORM_TLS: AtomicBool = AtomicBool::new(false);
 /// in `platforms/android/app/build.gradle`). Call once at boot, before any short code. Returns 1 if the phone's own
 /// certificate check is on, 0 if not (short codes then use the bundled roots).
 ///
+/// It also hands the VM and the activity to `ndk-context` ([`init_ndk_context`]), whatever the TLS result: iroh's
+/// interface scan (netwatch -> netdev) asks it for both on every endpoint bind (host, join, LAN browse), and without
+/// them it panics, which `panic = "abort"` turns into a crash (research/journal/2026-10-27-n36-android-touch).
+///
 /// # Safety
 ///
 /// `env` is SDL's `SDL_GetAndroidJNIEnv()`: a valid `JNIEnv*` of the calling thread, which is attached to the VM, or
@@ -36,6 +40,7 @@ pub unsafe extern "C" fn pbnet_android_init_tls(env: *mut c_void, activity: *mut
             // SAFETY: the caller guarantees `activity` is a valid reference to a Context in this env; the init takes
             // its own global reference.
             let activity = unsafe { jni22::objects::JObject::from_raw(env, activity.cast()) };
+            init_ndk_context(env, &activity);
             rustls_platform_verifier::android::init_with_env(env, activity)
         })
         .into_outcome();
@@ -50,6 +55,26 @@ pub unsafe extern "C" fn pbnet_android_init_tls(env: *mut c_void, activity: *mut
         }
         jni22::Outcome::Panic(_) => 0,
     }
+}
+
+/// Gives `ndk-context` the VM and a global reference to `activity`, once per process (later calls do nothing). The
+/// reference is never deleted: `ndk-context` keeps it for the life of the process. On failure netdev still panics on
+/// bind, so it is logged.
+fn init_ndk_context(env: &mut jni22::Env, activity: &jni22::objects::JObject) {
+    static DONE: std::sync::Once = std::sync::Once::new();
+    DONE.call_once(|| {
+        let vm = match env.get_java_vm() {
+            Ok(vm) => vm,
+            Err(e) => return eprintln!("pbnet: android: no JavaVM for ndk-context ({e})"),
+        };
+        let context = match env.new_global_ref(activity) {
+            Ok(g) => g.into_raw(),
+            Err(e) => return eprintln!("pbnet: android: no global activity reference for ndk-context ({e})"),
+        };
+        // SAFETY: `vm` is this process's JavaVM and `context` a global reference to the activity, which is never
+        // deleted, so both stay valid for the process. `Once` makes this the only call.
+        unsafe { ndk_context::initialize_android_context(vm.get_raw().cast(), context.cast()) };
+    });
 }
 
 /// The TLS settings of the short codes' HTTPS. Certificates are checked by the phone (`rustls-platform-verifier`:
