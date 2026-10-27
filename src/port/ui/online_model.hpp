@@ -1,0 +1,115 @@
+#pragma once
+
+// Data side of the online menu (src/port/ui/online.cpp), without RmlUi: this device's players, the
+// pbnet_lobby_host/join setup JSON, the pbnet_lobby_json snapshot, and the online saves on disk.
+
+#include <cstdint>
+#include <filesystem>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace partyboard::online {
+
+constexpr int kSeats = 4;
+constexpr int kCharacters = 8;
+constexpr int kBoards = 6;
+constexpr int kDifficulties = 4;
+constexpr int kTurnsMin = 10;
+constexpr int kTurnsMax = 50;
+constexpr int kHandicapMax = 9;
+
+// pbnet_lobby_state()
+enum State {
+    None = 0,
+    Connecting = 1,
+    Open = 2,
+    Started = 3,
+    Closed = 4,
+};
+
+// GWPlayerCfg.character order (net/src/lobby.rs CHARACTERS).
+extern const char *const kCharacterNames[kCharacters];
+// GWSystem.board order.
+extern const char *const kBoardNames[kBoards];
+extern const char *const kDifficultyNames[kDifficulties];
+
+struct Player {
+    std::string name;
+    // Stable id of this player on this device: online saves give the seat back by it.
+    std::string key;
+};
+
+// <config>/online.json
+struct Profile {
+    Player players[kSeats];
+    // Players on this device (1..4); they take seats in order.
+    int local = 1;
+    // "n0" (public relays), "own" (relayUrl) or "off" (LAN and direct only).
+    std::string relay = "n0";
+    std::string relayUrl;
+    std::string lastCode;
+};
+
+// Missing or broken file: defaults. Every player gets a name and a fresh random key if it has none.
+Profile load_profile(const std::filesystem::path &path);
+bool save_profile(const std::filesystem::path &path, const Profile &profile);
+
+// Setup JSON for pbnet_lobby_host (host = true) and pbnet_lobby_join.
+std::string setup_json(const Profile &profile, std::string_view build, std::string_view disc, bool host);
+
+struct Seat {
+    bool open = true;
+    std::string peer;
+    std::string name;
+    std::string key;
+    int character = 0;
+    bool cpu = false;
+    int difficulty = 1;
+    int team = 0;
+};
+
+// pbnet_lobby_json, parsed.
+struct View {
+    int state = None;
+    bool host = false;
+    std::string me;
+    std::string code;
+    std::string shortCode;
+    std::string error;
+    // This device's seat indices, in the order of Profile::players.
+    std::vector<int> mySeats;
+    bool hasRoom = false;
+    std::string id;
+    Seat seats[kSeats];
+    int board = 0;
+    int turns = 20;
+    bool bonus = true;
+    bool teams = false;
+    uint8_t handicaps[kSeats] = {};
+    std::vector<std::string> ready;
+    bool started = false;
+    uint32_t gen = 0;
+};
+
+// False (and view untouched) if json is not a lobby snapshot.
+bool parse_view(std::string_view json, View &view);
+
+// The peer has nothing left to confirm: the host, a CPU, or a guest in the ready list.
+bool peer_ready(const View &view, const std::string &peer);
+// Names of the seated players whose peers are not ready, in seat order (no repeats).
+std::vector<std::string> not_ready(const View &view);
+// Whether a seat other than `except` has character c.
+bool character_taken(const View &view, int c, int except);
+
+// An online save (<config>/online/<match id>.json, written at board checkpoints).
+struct Save {
+    std::filesystem::path path;
+    std::string id;
+    std::filesystem::file_time_type modified;
+};
+
+// Newest first; no directory: none.
+std::vector<Save> list_saves(const std::filesystem::path &dir);
+
+} // namespace partyboard::online
