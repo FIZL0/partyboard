@@ -4,6 +4,7 @@
 //! `include/port/pbnet.h`; every `extern "C"` fn here must have a matching prototype there.
 
 pub mod codes;
+pub mod lobby;
 pub mod lockstep;
 pub mod lockstep_c;
 pub mod transport;
