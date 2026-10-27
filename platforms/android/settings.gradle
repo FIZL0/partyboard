@@ -11,6 +11,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // N16: rustls-platform-verifier's Java side (net/src/android.rs), published only on its GitHub maven branch
+        maven {
+            url = 'https://github.com/rustls/rustls-platform-verifier/raw/maven-archive/android-release-support/maven/'
+            content { includeGroup 'org.rustls' }
+        }
     }
 }
 

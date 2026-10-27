@@ -55,8 +55,20 @@ android {
     }
 }
 
+// N16: the short codes' HTTPS checks certificates through Android's own verifier (net/src/android.rs), whose Java
+// side must be the version net/Cargo.lock's rustls-platform-verifier-android names.
+def rustlsPlatformVerifierVersion = {
+    def lockFile = new File(partyboardRepoDir, 'net/Cargo.lock')
+    def lines = lockFile.readLines()
+    def idx = lines.findIndexOf { it.trim() == 'name = "rustls-platform-verifier-android"' }
+    def version = idx < 0 ? null : lines.drop(idx + 1).find { it.stripLeading().startsWith('version = ') }?.find(/"([^"]*)"/) { m, v -> v }
+    if (!version) throw new GradleException("rustls-platform-verifier-android not found in $lockFile")
+    version
+}()
+
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "org.rustls:rustls-platform-verifier:$rustlsPlatformVerifierVersion"
 }
 
 tasks.configureEach { task ->

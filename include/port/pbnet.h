@@ -53,6 +53,15 @@ int pbnet_poll_desync(uint32_t *frame, int *peer, uint64_t *ours, uint64_t *thei
 /* Input delay (frames, 2..15) for a round trip of rtt_ms: one-way 60 Hz frames + 1. */
 uint32_t pbnet_delay_for(uint32_t rtt_ms);
 
+#ifdef __ANDROID__
+/*
+ * Android (net/src/android.rs): sets up the phone's certificate check for the short codes' HTTPS. Call once at boot
+ * on SDL's thread with SDL_GetAndroidJNIEnv() and SDL_GetAndroidActivity() (a JNIEnv* and a jobject; the activity
+ * may be deleted after). 1 if on, 0 if not (then the bundled roots; also with a NULL argument).
+ */
+int pbnet_android_init_tls(void *env, void *activity);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
