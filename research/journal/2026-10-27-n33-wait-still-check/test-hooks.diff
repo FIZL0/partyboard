@@ -1,0 +1,119 @@
+diff --git i/plan/TODO.md w/plan/TODO.md
+index c8edb100..e8ea88ed 100644
+--- i/plan/TODO.md
++++ w/plan/TODO.md
+@@ -25,6 +25,7 @@ Goal: online play for Party Board (Mario Party 4), built on the opentennis netco
+ - [ ] **N40** A --match party does not reach its end in the game (found in N25, temporary turbo: disableFrameLimiter + video.enableVsync false in the run's config.json): --script with mash-a.script up to 1500 then A taps every 20 frames, --match 0@1500: board 1501, instDll waits for START forever (explain on; instDll main.c:295 wants exactly START); with GWMGExplainSet(0) the first minigame (m421) and resultDll's checkpoint run, then 'stack smashing detected' in the board at ~frame 16077 (turn 2). With alternating A/START taps the board segfaults at ~6973 (pause menu?). Find both crashes (gdb / ASan build); needed before any match can be played to its end (N26, N30, N42).
+ - [ ] **N43** Finish N15's script tuning into a minigame: tools/netplay/mash-a.py reaches w01 (4182) and instDll (10579, fresh user dir) but its START window (10500-10800) ends before instDll's intro does, so it never enters the minigame. Widen INST_START/INST_END (e.g. 10620-12000), find the frame the minigame overlay (8-69) starts, end the START taps there (START pauses a minigame), set END past the minigame, then rerun the two-run --hash-log check (fresh user dir per run). A tuning run was killed by the session's low-memory reaper; see research/journal/2026-10-27-n15-determinism-run.
+ - [ ] **N44** Desync UI: show 'Out of sync, going back to the last save point' while a desync reload runs, and tell players when the per-checkpoint reloads ran out (net/src/desync.rs Resync; Status has no message for it yet) (after N11)
++- [ ] **N45** N10's hold modal ("Waiting for <name>", src/port/ui/online.cpp update_online_match) closes itself when the WAIT ends via Modal::pop → Document::pop → show_top_document(), which shows the hidden MenuBar (bottom of the stack): after every held WAIT the menu bar is open mid-match and PADBlockInput blocks the local pads until the player closes it. Seen in-game in N33 (research/journal/2026-10-27-n33-wait-still-check). Close the hold modal without showing the document under it (hide(true) + sync_input_block), check the menu bar stays hidden and pads work after a WAIT.
+ 
+ ### Stretch
+ 
+diff --git i/src/game/main.c w/src/game/main.c
+index c40b38ab..16e9808e 100644
+--- i/src/game/main.c
++++ w/src/game/main.c
+@@ -76,6 +76,10 @@ void PartyBoard_RequestRestart(void)
+ #endif
+ 
+ #ifdef TARGET_PC
++#include <SDL3/SDL_timer.h>
++#include <stdio.h>
++#include <stdlib.h>
++static Uint64 n33_keep_ns, n33_keeps; static int n33_waits, n33_after_wait; /* N33 TEST HOOK */
+ int game_main(void)
+ #else
+ void main(void)
+@@ -158,6 +162,7 @@ void main(void)
+         if (netplay_active() && !netplay_tick_begin()) {
+             /* Lockstep WAIT: no game tick, but events, UI and the 60 Hz pace go on. The frame shows the
+              * last tick's image (aurora clears the EFB every frame) with RmlUi redrawn on top. */
++            n33_waits++;
+             if (aurora_begin_frame()) {
+                 netplay_still_draw();
+                 ui_update();
+@@ -215,15 +220,29 @@ void main(void)
+ #ifdef TARGET_PC
+         if (netplay_active()) {
+             netplay_frame_end();
+-            if (netplay_lockstep() && framed) {
++            if ((netplay_lockstep() || getenv("N33_KEEP")) && framed) {
++                OSTime n33t = SDL_GetTicksNS(); /* N33 TEST HOOK */
+                 netplay_still_keep();
++                n33_keep_ns += SDL_GetTicksNS() - n33t;
++                n33_keeps++;
+             }
+         }
++        if (n33_after_wait) { fprintf(stderr, "N33 first tick after %d WAIT frames\n", n33_after_wait); n33_after_wait = 0; }
+         ui_update();
+         aurora_end_frame();
++        if (getenv("N33_TURBO")) disableFrameLimiter = TRUE;
+         if (!disableFrameLimiter || netplay_lockstep()) {
+             frame_limiter();
+         }
++        { /* N33 TEST HOOK */
++            static Uint64 t0, f0;
++            if (n33_waits) { n33_after_wait = n33_waits; n33_waits = 0; }
++            if (++f0 % 600 == 0) {
++                Uint64 t = SDL_GetTicksNS();
++                fprintf(stderr, "N33 600 ticks %.3f ms/tick, keep cpu %.4f ms avg (%llu keeps)\n", (t - t0) / 600e6, n33_keeps ? n33_keep_ns / 1e6 / n33_keeps : 0.0, (unsigned long long)n33_keeps);
++                t0 = t; n33_keep_ns = 0; n33_keeps = 0;
++            }
++        }
+ #endif
+     }
+ 
+diff --git i/src/port/portmain.cpp w/src/port/portmain.cpp
+index acb83e5c..291b4fd9 100644
+--- i/src/port/portmain.cpp
++++ w/src/port/portmain.cpp
+@@ -415,6 +415,7 @@ extern "C" int port_main(int argc, char* argv[]) {
+         config.pauseOnFocusLost = partyboard::getSettings().game.pauseOnFocusLost;
+         // config.imGuiInitCallback = &aurora_imgui_init_callback;
+         config.allowTextureDumps = false;
++        if (getenv("N33_MSAA")) config.msaa = atoi(getenv("N33_MSAA")); // N33 TEST HOOK
+         auroraInfo = aurora_initialize(argc, argv, &config);
+     }
+ 
+diff --git i/src/port/ui/compat.cpp w/src/port/ui/compat.cpp
+index 8d7f6167..8e8e081a 100644
+--- i/src/port/ui/compat.cpp
++++ w/src/port/ui/compat.cpp
+@@ -4,6 +4,11 @@
+ #include "port/ui.h"
+ 
+ #include <chrono>
++#include <cstdio>
++#include <cstdlib>
++#include <fstream>
++#include <string>
++#include "port/pbnet.h"
+ 
+ #include "online.hpp"
+ #include "ui.hpp"
+@@ -34,6 +39,24 @@ void ui_handle_sdl_event(const SDL_Event *event)
+ 
+ void ui_update(void)
+ {
++    { // N33 TEST HOOK
++        static int n33 = 0, joined = 0, readied = 0;
++        const char *cf = getenv("N33_CODE");
++        if (cf && ++n33 > 300) {
++            if (!joined) {
++                std::ifstream in(cf); std::string code; std::getline(in, code);
++                if (!code.empty()) {
++                    std::string build = std::string(getenv("N33_BUILD"));
++                    std::string setup = "{\"build\":\"" + build + "\",\"disc\":\"GMPE01-01\",\"players\":[{\"name\":\"Guesty\",\"key\":\"guestykey\"}],\"relay\":\"off\"}";
++                    joined = pbnet_lobby_join(setup.c_str(), code.c_str());
++                    fprintf(stderr, "N33 join %d\n", joined);
++                }
++            } else if (pbnet_lobby_state() == PBNET_LOBBY_OPEN && n33 % 60 == 0) {
++                readied = pbnet_lobby_ready(1);
++                fprintf(stderr, "N33 ready %d\n", readied);
++            }
++        }
++    }
+     // A started online lobby's match begins here, between game ticks (src/port/netplay.c).
+     netplay_lobby_poll();
+     // N10: a dropped peer holds the match: "Waiting for <name>", "Host left"
