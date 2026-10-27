@@ -1,0 +1,4 @@
+button_icons: ovl 74 icon 0 port 0 -> PlayStation glyph 17
+button_icons: ovl 74 icon 2 port 0 -> PlayStation glyph 0
+button_icons: ovl 74 icon 3 port 0 -> PlayStation glyph 1
+netplay: script ended at frame 2500, hash CE198F8A1A3BDCA2
