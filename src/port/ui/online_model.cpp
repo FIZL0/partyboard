@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cstdint>
 #include <fstream>
 #include <random>
 #include <system_error>
@@ -151,7 +152,8 @@ bool save_profile(const std::filesystem::path &path, const Profile &profile)
     return static_cast<bool>(out);
 }
 
-std::string setup_json(const Profile &profile, std::string_view build, std::string_view disc, bool host)
+std::string setup_json(const Profile &profile, std::string_view build, std::string_view disc, bool host,
+    std::string_view resume)
 {
     nlohmann::json players = nlohmann::json::array();
     for (int i = 0; i < std::clamp(profile.local, 1, kSeats); ++i) {
@@ -168,6 +170,9 @@ std::string setup_json(const Profile &profile, std::string_view build, std::stri
     }
     if (host) {
         j["short"] = true;
+        if (!resume.empty()) {
+            j["resume"] = std::string(resume);
+        }
     }
     return j.dump();
 }
@@ -202,6 +207,11 @@ bool parse_view(std::string_view json, View &view)
         v.bonus = flag(room, "bonus", true);
         v.teams = flag(room, "teams", false);
         v.started = flag(room, "started", false);
+        if (auto cp = room.find("checkpoint"); cp != room.end() && cp->is_object()) {
+            v.resume = true;
+            v.resumeTurn = num(*cp, "turn", 0);
+            v.resumeMaxTurn = num(*cp, "max_turn", 0);
+        }
         if (auto seats = room.find("seats"); seats != room.end() && seats->is_array()) {
             for (int i = 0; i < kSeats && i < static_cast<int>(seats->size()); ++i) {
                 const auto &s = (*seats)[i];
@@ -268,20 +278,75 @@ bool character_taken(const View &view, int c, int except)
     return false;
 }
 
-std::vector<Save> list_saves(const std::filesystem::path &dir)
+bool parse_saves(std::string_view json, std::vector<SaveInfo> &saves)
 {
-    std::vector<Save> saves;
-    std::error_code ec;
-    for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
-        const auto &path = it->path();
-        if (!it->is_regular_file(ec) || path.extension() != ".json") {
+    const auto j = nlohmann::json::parse(json.begin(), json.end(), nullptr, false);
+    if (!j.is_array()) {
+        return false;
+    }
+    std::vector<SaveInfo> out;
+    for (const auto &e : j) {
+        if (!e.is_object() || str(e, "path").empty()) {
             continue;
         }
-        Save save { path, path.stem().string(), it->last_write_time(ec) };
-        saves.push_back(std::move(save));
+        SaveInfo save;
+        save.id = str(e, "id");
+        save.path = str(e, "path");
+        if (auto t = e.find("time"); t != e.end() && t->is_number_unsigned()) {
+            save.time = static_cast<int64_t>(std::min<uint64_t>(t->get<uint64_t>(), INT64_MAX));
+        }
+        save.board = std::clamp(num(e, "board", 0), 0, kBoards - 1);
+        save.turn = num(e, "turn", 0);
+        save.maxTurn = num(e, "max_turn", 0);
+        if (auto seats = e.find("seats"); seats != e.end() && seats->is_array()) {
+            for (const auto &s : *seats) {
+                if (!s.is_object() || static_cast<int>(save.seats.size()) >= kSeats) {
+                    continue;
+                }
+                save.seats.push_back({
+                    .name = str(s, "name"),
+                    .character = std::clamp(num(s, "character", 0), 0, kCharacters - 1),
+                    .cpu = flag(s, "cpu", false),
+                });
+            }
+        }
+        out.push_back(std::move(save));
     }
-    std::sort(saves.begin(), saves.end(), [](const Save &a, const Save &b) { return a.modified > b.modified; });
-    return saves;
+    saves = std::move(out);
+    return true;
+}
+
+bool load_save_keys(SaveInfo &save)
+{
+    // pbnet's paths are UTF-8
+    std::ifstream in(std::filesystem::path(std::u8string(save.path.begin(), save.path.end())));
+    if (!in) {
+        return false;
+    }
+    const auto j = nlohmann::json::parse(in, nullptr, false);
+    const auto keys = j.is_object() ? j.find("keys") : j.end();
+    if (!j.is_object() || keys == j.end() || !keys->is_array()) {
+        return false;
+    }
+    for (size_t i = 0; i < save.seats.size() && i < keys->size(); ++i) {
+        save.seats[i].key = (*keys)[i].is_string() ? (*keys)[i].get<std::string>() : std::string {};
+    }
+    return true;
+}
+
+std::vector<int> own_seats(const SaveInfo &save, const Profile &profile)
+{
+    std::vector<int> seats;
+    for (int i = 0; i < static_cast<int>(save.seats.size()); ++i) {
+        const std::string &key = save.seats[i].key;
+        for (int p = 0; p < std::clamp(profile.local, 1, kSeats) && !key.empty(); ++p) {
+            if (profile.players[p].key == key) {
+                seats.push_back(i);
+                break;
+            }
+        }
+    }
+    return seats;
 }
 
 bool parse_lan(std::string_view json, LanList &list)

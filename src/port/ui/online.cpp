@@ -31,11 +31,6 @@ namespace {
         return PartyBoard_ConfigPath / "online.json";
     }
 
-    std::filesystem::path saves_dir()
-    {
-        return PartyBoard_ConfigPath / "online";
-    }
-
     // Peers must run the same build and disc; pbnet refuses a guest whose differ.
     std::string build_id()
     {
@@ -210,15 +205,6 @@ namespace {
 
     const char *const kTeamNames[2] = { "Team A", "Team B" };
 
-    // Not std::chrono::clock_cast: the NDK's and Apple's libc++ don't have it. Off by the few microseconds
-    // between the two now() calls, which a minute-resolution date doesn't show.
-    std::chrono::system_clock::time_point file_time_to_system(std::filesystem::file_time_type t)
-    {
-        using std::chrono::system_clock;
-        return system_clock::now()
-            + std::chrono::duration_cast<system_clock::duration>(t - std::filesystem::file_time_type::clock::now());
-    }
-
     // N10: the rejoin token lives in the user dir (pbnet keeps it in <dir>/rejoin.txt).
     void set_recover_dir()
     {
@@ -262,6 +248,64 @@ namespace {
     private:
         std::shared_ptr<bool> mAlive;
     };
+
+    // The user dir as pbnet takes it (UTF-8).
+    std::string user_dir_utf8()
+    {
+        const auto u8 = PartyBoard_ConfigPath.u8string();
+        return std::string(u8.begin(), u8.end());
+    }
+
+    // This device's online saves (pbnet_save_list), newest first, with their seat keys.
+    std::vector<SaveInfo> load_saves()
+    {
+        const std::string dir = user_dir_utf8();
+        int len = pbnet_save_list(dir.c_str(), nullptr, 0);
+        std::vector<SaveInfo> saves;
+        if (len <= 0) {
+            return saves;
+        }
+        std::string json(static_cast<size_t>(len) + 1, '\0');
+        len = pbnet_save_list(dir.c_str(), json.data(), static_cast<int>(json.size()));
+        json.resize(static_cast<size_t>(std::clamp(len, 0, static_cast<int>(json.size()) - 1)));
+        parse_saves(json, saves);
+        for (auto &save : saves) {
+            load_save_keys(save);
+        }
+        return saves;
+    }
+
+    Rml::String local_date(int64_t unixSeconds)
+    {
+        const std::time_t when = static_cast<std::time_t>(unixSeconds);
+        std::tm local {};
+        if (const std::tm *tm = std::localtime(&when)) {
+            local = *tm;
+        }
+        return fmt::format("{:%Y-%m-%d %H:%M}", local);
+    }
+
+    Rml::String turn_text(const SaveInfo &save)
+    {
+        return save.maxTurn > 0 ? fmt::format("Turn {}/{}", save.turn, save.maxTurn) : fmt::format("Turn {}", save.turn);
+    }
+
+    // The details pane of a save: board, turn, date and who sat where (this device's seats marked).
+    Rml::String save_details(const SaveInfo &save, const Profile &profile, const Rml::String &date)
+    {
+        Rml::String rml = fmt::format("<b>{}</b><br/>{}, saved {}.<br/><br/>", escape(kBoardNames[save.board]),
+            escape(turn_text(save)), escape(date));
+        const auto own = own_seats(save, profile);
+        for (int i = 0; i < static_cast<int>(save.seats.size()); ++i) {
+            const SavedSeat &s = save.seats[i];
+            const bool mine = std::find(own.begin(), own.end(), i) != own.end();
+            rml += fmt::format("{}P: {} - {}{}<br/>", i + 1, s.cpu ? Rml::String("CPU") : escape(s.name),
+                kCharacterNames[s.character], mine ? " (this device)" : "");
+        }
+        rml += "<br/>Press to host this match again from where it was saved. Send the code to the others: each "
+               "player gets their seat back, and the computer plays the seats nobody takes.";
+        return rml;
+    }
 
 } // namespace
 
@@ -389,25 +433,26 @@ OnlineWindow::OnlineWindow()
         auto &left = add_child<Pane>(content, Pane::Type::Controlled);
         auto &right = add_child<Pane>(content, Pane::Type::Uncontrolled);
 
+        const int state = pbnet_lobby_state();
+        if (state == Connecting || state == Open) {
+            left.add_section("Lobby");
+            help(left, right, left.add_button("Back to Lobby").on_pressed([this] { open_lobby(); }),
+                "Go back to the lobby you are in. Continuing a saved match leaves it.");
+        }
+
         left.add_section("Saved Online Matches");
-        const auto saves = list_saves(saves_dir());
+        const auto saves = load_saves();
         if (saves.empty()) {
             left.add_text("No saved online matches. A match is saved after every minigame.");
         }
         for (const auto &save : saves) {
-            const std::time_t when = std::chrono::system_clock::to_time_t(file_time_to_system(save.modified));
-            std::tm local {};
-            if (const std::tm *tm = std::localtime(&when)) {
-                local = *tm;
-            }
-            const Rml::String date = fmt::format("{:%Y-%m-%d %H:%M}", local);
+            const Rml::String date = local_date(save.time);
             auto &button = left.add_select_button({
-                .key = save.id,
-                .getValue = [date] { return date; },
-                .submit = false,
+                .key = kBoardNames[save.board],
+                .getValue = [turn = turn_text(save)] { return turn; },
             });
-            help(left, right, button,
-                fmt::format("Saved {}.<br/><br/>Continuing a saved match is not available in this build yet.", escape(date)));
+            button.on_pressed([this, save] { pick_save(save); });
+            help(left, right, button, save_details(save, mProfile, date));
         }
         left.finalize();
     });
@@ -533,6 +578,61 @@ void OnlineWindow::rejoin()
     const std::string setup = setup_json(mProfile, build_id(), disc_id(), false);
     if (!pbnet_lobby_rejoin(setup.c_str())) {
         show_message(*this, "Can't Rejoin", "That match can't be rejoined any more.");
+        return;
+    }
+    open_lobby();
+}
+
+void OnlineWindow::pick_save(const SaveInfo &save)
+{
+    const Rml::String title = fmt::format("{}, {}", kBoardNames[save.board], turn_text(save));
+    std::vector<ModalAction> actions;
+    actions.push_back({ .label = "Host Match", .onPressed = [this, path = save.path](Modal &modal) {
+                           modal.pop();
+                           host_continue(path);
+                       } });
+    actions.push_back({ .label = "Delete Save", .onPressed = [this, path = save.path, title](Modal &modal) {
+                           modal.pop();
+                           confirm_delete_save(path, title);
+                       } });
+    actions.push_back({ .label = "Cancel", .onPressed = [](Modal &modal) { modal.pop(); } });
+    push(std::make_unique<Modal>(Modal::Props {
+        .title = title,
+        .bodyRml = "Host this saved match again? You get a code to send to the others; it goes on from the last "
+                   "minigame.",
+        .actions = std::move(actions),
+        .onDismiss = [](Modal &modal) { modal.pop(); },
+        .icon = "question-mark",
+    }));
+}
+
+void OnlineWindow::confirm_delete_save(const std::string &path, const Rml::String &title)
+{
+    std::vector<ModalAction> actions;
+    actions.push_back({ .label = "Delete", .onPressed = [this, path](Modal &modal) {
+                           modal.pop();
+                           if (!pbnet_save_delete(path.c_str())) {
+                               show_message(*this, "Can't Delete", "The save could not be deleted.");
+                           }
+                           refresh_active_tab();
+                       } });
+    actions.push_back({ .label = "Keep", .onPressed = [](Modal &modal) { modal.pop(); } });
+    push(std::make_unique<Modal>(Modal::Props {
+        .title = "Delete Save",
+        .bodyRml = fmt::format("Delete the save of <b>{}</b> on this device? The other players keep theirs.", escape(title)),
+        .actions = std::move(actions),
+        .onDismiss = [](Modal &modal) { modal.pop(); },
+        .icon = "question-mark",
+    }));
+}
+
+void OnlineWindow::host_continue(const std::string &path)
+{
+    save();
+    set_recover_dir();
+    const std::string setup = setup_json(mProfile, build_id(), disc_id(), true, path);
+    if (!pbnet_lobby_host(setup.c_str())) {
+        show_message(*this, "Can't Continue", "The lobby could not be opened. Check the relay setting in the Players tab.");
         return;
     }
     open_lobby();
@@ -785,6 +885,15 @@ LobbyWindow::LobbyWindow()
                     return "Not in a lobby.";
             }
         });
+        // N29: a continued save keeps its seats, characters and rules.
+        left.add_child<LiveText>([this]() -> Rml::String {
+            if (!mView.resume) {
+                return "";
+            }
+            return mView.resumeMaxTurn > 0
+                ? fmt::format("Continuing a saved match at turn {} of {}.", mView.resumeTurn, mView.resumeMaxTurn)
+                : Rml::String("Continuing a saved match.");
+        });
 
         if (mView.host) {
             left.add_section("Invite");
@@ -829,6 +938,10 @@ LobbyWindow::LobbyWindow()
                                 if (s.open) {
                                     return "Open";
                                 }
+                                if (s.cpu && mView.resume) {
+                                    // the saved player's seat ("<name> (CPU)") until they join
+                                    return fmt::format("{} - {} ({})", s.name, kCharacterNames[s.character], kDifficultyNames[s.difficulty]);
+                                }
                                 if (s.cpu) {
                                     return fmt::format("CPU ({}) - {}", kDifficultyNames[s.difficulty], kCharacterNames[s.character]);
                                 }
@@ -855,15 +968,18 @@ LobbyWindow::LobbyWindow()
                         return;
                     }
                     if (!mView.host) {
-                        pane.add_text(s.cpu ? "The computer plays this seat." : "Open: a friend can join here. "
-                                                                                 "Open seats are played by the computer.");
+                        pane.add_text(mView.resume ? "The computer plays this seat until its player joins."
+                                : s.cpu        ? "The computer plays this seat."
+                                               : "Open: a friend can join here. Open seats are played by the computer.");
                         return;
                     }
-                    pane.add_button({
-                                        .text = "Open",
-                                        .isSelected = [this, i] { return mView.seats[i].open; },
-                                    })
-                        .on_pressed([i] { pbnet_lobby_cpu(i, -1); });
+                    if (!mView.resume) {
+                        pane.add_button({
+                                            .text = "Open",
+                                            .isSelected = [this, i] { return mView.seats[i].open; },
+                                        })
+                            .on_pressed([i] { pbnet_lobby_cpu(i, -1); });
+                    }
                     for (int d = 0; d < kDifficulties; ++d) {
                         pane.add_button({
                                             .text = fmt::format("CPU ({})", kDifficultyNames[d]),
@@ -871,7 +987,10 @@ LobbyWindow::LobbyWindow()
                                         })
                             .on_pressed([i, d] { pbnet_lobby_cpu(i, d); });
                     }
-                    pane.add_rml("<br/>An open seat waits for a friend to join; at the start the computer plays it.");
+                    pane.add_rml(mView.resume ? "<br/>The player of this seat gets it back when they join (by their "
+                                                "player key); anyone else joining takes a free seat. Until then the "
+                                                "computer plays it at this level."
+                                              : "<br/>An open seat waits for a friend to join; at the start the computer plays it.");
                 });
         }
 
@@ -890,7 +1009,7 @@ LobbyWindow::LobbyWindow()
                         return mView.teams ? fmt::format("{} - {}", kCharacterNames[s.character], kTeamNames[s.team])
                                            : Rml::String(kCharacterNames[s.character]);
                     },
-                .isDisabled = [this, seat] { return seat() < 0 || mView.state != Open; },
+                .isDisabled = [this, seat] { return seat() < 0 || mView.state != Open || mView.resume; },
             });
             button.on_nav_command([this, k, seat](Rml::Event &, NavCommand cmd) {
                 if (cmd != NavCommand::Left && cmd != NavCommand::Right) {
@@ -977,9 +1096,9 @@ LobbyWindow::LobbyWindow()
         mRightBuilder = {};
         auto &left = add_child<Pane>(content, Pane::Type::Controlled);
         auto &right = add_child<Pane>(content, Pane::Type::Uncontrolled);
-        const auto locked = [this] { return !mView.host || mView.state != Open || !mView.hasRoom; };
+        const auto locked = [this] { return !mView.host || mView.state != Open || !mView.hasRoom || mView.resume; };
 
-        left.add_section(mView.host ? "Rules" : "Rules (set by the host)");
+        left.add_section(mView.resume ? "Rules (the save's)" : mView.host ? "Rules" : "Rules (set by the host)");
         auto &board = left.add_select_button({
             .key = "Board",
             .getValue = [this] { return Rml::String(kBoardNames[mView.board]); },

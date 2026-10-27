@@ -55,8 +55,10 @@ struct Profile {
 Profile load_profile(const std::filesystem::path &path);
 bool save_profile(const std::filesystem::path &path, const Profile &profile);
 
-// Setup JSON for pbnet_lobby_host (host = true) and pbnet_lobby_join.
-std::string setup_json(const Profile &profile, std::string_view build, std::string_view disc, bool host);
+// Setup JSON for pbnet_lobby_host (host = true) and pbnet_lobby_join. resume: the online save a host continues
+// (a SaveInfo::path; empty: a new match).
+std::string setup_json(const Profile &profile, std::string_view build, std::string_view disc, bool host,
+    std::string_view resume = {});
 
 struct Seat {
     bool open = true;
@@ -89,6 +91,10 @@ struct View {
     uint8_t handicaps[kSeats] = {};
     std::vector<std::string> ready;
     bool started = false;
+    // A continued online save (the room has a checkpoint): seats, characters and rules are the save's.
+    bool resume = false;
+    int resumeTurn = 0;
+    int resumeMaxTurn = 0;
     uint32_t gen = 0;
 };
 
@@ -102,15 +108,36 @@ std::vector<std::string> not_ready(const View &view);
 // Whether a seat other than `except` has character c.
 bool character_taken(const View &view, int c, int except);
 
-// An online save (<config>/online/<match id>.json, written at board checkpoints).
-struct Save {
-    std::filesystem::path path;
-    std::string id;
-    std::filesystem::file_time_type modified;
+// A seat of an online save.
+struct SavedSeat {
+    std::string name;
+    int character = 0;
+    bool cpu = false;
+    // The player key that gets the seat back on a continue ("" for a seat the computer played).
+    std::string key;
 };
 
-// Newest first; no directory: none.
-std::vector<Save> list_saves(const std::filesystem::path &dir);
+// An online save (<config>/online/<match id>.json, written at board checkpoints), as pbnet_save_list lists it.
+struct SaveInfo {
+    std::string id;
+    std::string path;
+    // When it was written (Unix seconds).
+    int64_t time = 0;
+    int board = 0;
+    int turn = 0;
+    int maxTurn = 0;
+    std::vector<SavedSeat> seats;
+};
+
+// pbnet_save_list's JSON array, parsed (newest first, as listed). False (and saves untouched) if it is not an
+// array; entries without a path are left out.
+bool parse_saves(std::string_view json, std::vector<SaveInfo> &saves);
+// Fills each seat's key from the save file's "keys" (pbnet_save_list doesn't list them). False if the file can't
+// be read.
+bool load_save_keys(SaveInfo &save);
+// The seats of save whose keys are this device's players' (Profile::local of them), in seat order: the seats they
+// get back when they continue it.
+std::vector<int> own_seats(const SaveInfo &save, const Profile &profile);
 
 // A lobby heard on the LAN (pbnet_lan_browse).
 struct LanGame {
