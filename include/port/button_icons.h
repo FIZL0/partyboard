@@ -30,6 +30,7 @@ typedef enum {
     PB_FAMILY_SWITCH,
     PB_FAMILY_GENERIC,
     PB_FAMILY_STEAMDECK,
+    PB_FAMILY_TOUCH, /* N58: the on-screen pad's buttons (port/touch_pad.h), while it is shown */
     PB_FAMILY_COUNT,
 } PbIconFamily;
 

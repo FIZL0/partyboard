@@ -3,6 +3,7 @@
 
 #include "port/button_icons.h"
 #include "port/settings.h"
+#include "port/touch_pad.h"
 
 #include "game/animdata.h"
 #include "game/object.h"
@@ -177,6 +178,10 @@ std::vector<Seg> letter(char c)
             break;
         case 'T':
             v = { { 0.0f, 0.0f, 1.0f, 0.0f }, { 0.5f, 0.0f, 0.5f, 1.0f } };
+            break;
+        case 'S':
+            arc(v, 0.5f, 0.25f, 0.42f, 0.25f, -0.4f, -1.5f * kPi);
+            arc(v, 0.5f, 0.75f, 0.45f, 0.25f, -0.5f * kPi, kPi - 0.4f);
             break;
         case '1':
             v = { { 0.2f, 0.22f, 0.6f, 0.0f }, { 0.6f, 0.0f, 0.6f, 1.0f } };
@@ -437,8 +442,63 @@ void menu_button(Canvas &cv, PbIconFamily f, bool start)
     }
 }
 
+// N58: the on-screen pad's controls (src/port/ui/touch_pad.cpp), opaque so they read over the game: dark bodies with
+// a light rim, A green, B red, Z purple. Glyph ids are aurora's default bindings (A south, B east, X west, Y north, L/R
+// the triggers, Z the right shoulder), which is how pb_button_icon_for_window maps a touch port. Controls the pad
+// lacks (d-pad, C stick, ...) fall back to Generic's art.
+bool touch_glyph(Canvas &cv, Ctl c)
+{
+    static const Rgba kPadBody { 0.08f, 0.08f, 0.12f, 1 }, kRim { 0.86f, 0.86f, 0.88f, 1 }, kA { 0.12f, 0.67f, 0.43f, 1 },
+        kB { 0.78f, 0.20f, 0.20f, 1 }, kZ { 0.43f, 0.27f, 0.75f, 1 };
+    auto button = [&](float x0, float y0, float x1, float y1, float r, const Rgba &fill) {
+        cv.fill(kInk, [&](float x, float y) { return in_rrect(x, y, x0, y0, x1, y1, r); });
+        cv.fill(kRim, [&](float x, float y) { return in_rrect(x, y, x0 + 0.03f, y0 + 0.03f, x1 - 0.03f, y1 - 0.03f, r - 0.03f); });
+        cv.fill(fill, [&](float x, float y) { return in_rrect(x, y, x0 + 0.08f, y0 + 0.08f, x1 - 0.08f, y1 - 0.08f, r - 0.08f); });
+    };
+    switch (c) {
+        case C_SOUTH:
+        case C_EAST:
+        case C_WEST:
+        case C_NORTH: {
+            static const char *kLabel[4] = { "A", "B", "X", "Y" };
+            const Rgba *kFill[4] = { &kA, &kB, &kPadBody, &kPadBody };
+            button(0.03f, 0.03f, 0.97f, 0.97f, 0.47f, *kFill[c - C_SOUTH]);
+            text(cv, kLabel[c - C_SOUTH], 0.5f, 0.5f, 0.42f, 0.34f, 0.1f, kWhite);
+            return true;
+        }
+        case C_LTRIGGER:
+        case C_RTRIGGER:
+            // the pad's shoulders are wide boxes with rounded ends
+            button(0.02f, 0.22f, 0.98f, 0.78f, 0.26f, kPadBody);
+            text(cv, c == C_LTRIGGER ? "L" : "R", 0.5f, 0.5f, 0.38f, 0.28f, 0.1f, kWhite);
+            return true;
+        case C_RSHOULDER:
+            button(0.04f, 0.22f, 0.96f, 0.78f, 0.26f, kZ);
+            text(cv, "Z", 0.5f, 0.5f, 0.38f, 0.28f, 0.1f, kWhite);
+            return true;
+        case C_START:
+            button(0.0f, 0.26f, 1.0f, 0.74f, 0.22f, kPadBody);
+            text(cv, "START", 0.5f, 0.5f, 0.2f, 0.13f, 0.06f, kWhite);
+            return true;
+        case C_LSTICK:
+            // the stick's base with its knob
+            button(0.03f, 0.03f, 0.97f, 0.97f, 0.47f, kPadBody);
+            cv.fill(kInk, [](float x, float y) { return in_circle(x, y, 0.5f, 0.5f, 0.24f); });
+            cv.fill(kRim, [](float x, float y) { return in_circle(x, y, 0.5f, 0.5f, 0.2f); });
+            return true;
+        default:
+            return false;
+    }
+}
+
 void draw(Canvas &cv, PbIconFamily f, Ctl c)
 {
+    if (f == PB_FAMILY_TOUCH) {
+        if (touch_glyph(cv, c)) {
+            return;
+        }
+        f = PB_FAMILY_GENERIC;
+    }
     switch (c) {
         case C_SOUTH:
         case C_EAST:
@@ -718,8 +778,19 @@ Ctl bound_ctl(int port, GcInput in)
     return default_ctl(in);
 }
 
+// What `in` is under `family`'s art: the touch pad's buttons are the GameCube's own, whatever the port's controller
+// binds.
+Ctl family_ctl(int port, PbIconFamily family, GcInput in)
+{
+    return family == PB_FAMILY_TOUCH ? default_ctl(in) : bound_ctl(port, in);
+}
+
 PbIconFamily auto_family(int port)
 {
+    if (touch_pad_shown() && port == touch_pad_port()) {
+        // N58: the last input was a touch on the on-screen pad, which plays this port
+        return PB_FAMILY_TOUCH;
+    }
     const u32 p = static_cast<u32>(port);
     if (PADGetIndexForPort(p) < 0) {
         // the keyboard or nothing: Auto's fallback
@@ -755,7 +826,7 @@ int forced_family()
     if (cached == -2) {
         cached = -1;
         if (const char *e = std::getenv("PB_ICON_FAMILY")) {
-            static const char *kNames[PB_FAMILY_COUNT] = { "gamecube", "playstation", "xbox", "switch", "generic", "steamdeck" };
+            static const char *kNames[PB_FAMILY_COUNT] = { "gamecube", "playstation", "xbox", "switch", "generic", "steamdeck", "touch" };
             for (int i = 0; i < PB_FAMILY_COUNT; ++i) {
                 if (std::strcmp(e, kNames[i]) == 0) {
                     cached = i;
@@ -827,7 +898,7 @@ PbIconFamily pb_button_icons_family(int port)
 
 const char *pb_button_icons_family_name(PbIconFamily family)
 {
-    static const char *kNames[PB_FAMILY_COUNT] = { "GameCube", "PlayStation", "Xbox", "Switch", "Generic", "Steam Deck" };
+    static const char *kNames[PB_FAMILY_COUNT] = { "GameCube", "PlayStation", "Xbox", "Switch", "Generic", "Steam Deck", "Touch" };
     return family < PB_FAMILY_COUNT ? kNames[family] : "?";
 }
 
@@ -849,7 +920,7 @@ int pb_button_icon_for_window(int entry, u32 pad_mask, ANIMDATA **anim, s16 *ban
     if (f == PB_FAMILY_GAMECUBE) {
         return 0;
     }
-    const Ctl c = bound_ctl(port, in);
+    const Ctl c = family_ctl(port, f, in);
     if (std::getenv("PB_ICON_LOG")) {
         // PB_ICON_LOG (test hook): each swap, once per overlay
         static int logged_ovl = -2;
@@ -890,10 +961,11 @@ int pb_button_icons_glyph_for_native_axis(s32 sdl_axis)
 int pb_button_icons_glyph_for_entry(int port, int entry)
 {
     const GcInput in = gc_input_for_entry(entry);
-    if (in == GC_NONE || pb_button_icons_family(port) == PB_FAMILY_GAMECUBE) {
+    const PbIconFamily f = pb_button_icons_family(port);
+    if (in == GC_NONE || f == PB_FAMILY_GAMECUBE) {
         return PB_GLYPH_NONE;
     }
-    return bound_ctl(port, in);
+    return family_ctl(port, f, in);
 }
 
 int pb_button_icons_glyph_rgba(PbIconFamily family, int glyph, u8 *out)
