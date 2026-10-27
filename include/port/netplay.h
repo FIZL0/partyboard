@@ -100,6 +100,8 @@ void netplay_point_reseed(u32 point, s32 ovl);
 BOOL netplay_debug_init(int argc, char *argv[]);
 /* True if --script was given (the prelaunch UI is skipped so runs need no clicks). */
 BOOL netplay_debug_scripted(void);
+/* True if the --script has `mg-explain off`: a --match party then starts with the minigame explanations off. */
+BOOL netplay_debug_mg_explain_off(void);
 /*
  * `--turbo` (with --script, N50): the run skips the 60 Hz frame limiter, like holding the TAB turbo key, so
  * scripted checks run as fast as the machine goes. True only for a --script run outside lockstep (a lockstep

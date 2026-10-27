@@ -27,6 +27,7 @@ static int begun, scripted; static u32 begun_seed;
 void netplay_begin(u32 seed) { begun++; begun_seed = seed; }
 u32 netplay_frame(void) { return 0; }
 BOOL netplay_debug_scripted(void) { return scripted; }
+BOOL netplay_debug_mg_explain_off(void) { return FALSE; }
 static int reseeded;
 void netplay_reseed(void) { reseeded++; }
 /* N64: gameplay points (netplay.c). */

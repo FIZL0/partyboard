@@ -58,7 +58,11 @@ void fn_1_669C(s32 arg0);
 void fn_1_6728(void);
 s32 fn_1_67E8(s32);
 s32 fn_1_6810(void);
+#ifdef TARGET_PC
+void fn_1_8934(u32 seed);
+#else
 void fn_1_8934(void);
+#endif
 s32 fn_1_8944(void);
 M420DllPlayerStruct *fn_1_1B8C(s32, s32);
 void fn_1_1E14(M420DllPlayerStruct *);

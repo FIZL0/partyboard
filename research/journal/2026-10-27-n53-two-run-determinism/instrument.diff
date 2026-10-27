@@ -1,0 +1,99 @@
+diff --git i/src/REL/bootDll/main.c w/src/REL/bootDll/main.c
+index 37a7b483..3cf5a919 100644
+--- i/src/REL/bootDll/main.c
++++ w/src/REL/bootDll/main.c
+@@ -1,3 +1,4 @@
++#include <stdlib.h>
+ #include "ext_math.h"
+ #include "game/audio.h"
+ #include "game/chrman.h"
+@@ -155,6 +156,24 @@ void ObjectSetup(void)
+ #endif
+ #endif
+ #ifdef TARGET_PC
++     if (omovlevtno == 0 && partyboard_settings_skipBootSequence() && getenv("PB_MG_TMP")) { /* N53 TMP */
++         extern s32 omMgIndexGet(s16 overlay);
++         s16 dll = (s16)strtol(getenv("PB_MG_TMP"), NULL, 0);
++         for (i = 0; i < 4; i++) {
++             GWPlayerCfg[i].pad_idx = i;
++             GWPlayerCfg[i].character = i;
++             GWPlayerCfg[i].iscom = 1;
++             GWPlayerCfg[i].diff = 1;
++             GWPlayerCfg[i].group = i == 0 ? 0 : 1;
++         }
++         BootInitForSkippedSequence();
++         GWSystem.mg_next = omMgIndexGet(dll);
++         omOvlCallEx(dll, 1, 0, 0);
++         HuPrcEnd();
++         do {
++             HuPrcVSleep();
++         } while (1);
++     }
+      if (omovlevtno == 0 && partyboard_settings_skipBootSequence()) {
+          for (i = 0; i < 4; i++) {
+              GWPlayerCfg[i].pad_idx = i;
+diff --git i/src/REL/m420dll/rand.c w/src/REL/m420dll/rand.c
+index 883af017..4263b78b 100644
+--- i/src/REL/m420dll/rand.c
++++ w/src/REL/m420dll/rand.c
+@@ -1,9 +1,11 @@
++#include "dolphin/os.h"
+ #include "dolphin/types.h"
+ 
+ u32 lbl_1_bss_A48;
+ 
+ void fn_1_8934 (u32 seed) {
+     lbl_1_bss_A48 = seed;
++    OSReport("N53TMP m420 seed %08x\n", seed);
+ }
+ 
+ s32 fn_1_8944(void) {
+diff --git i/src/game/memory.c w/src/game/memory.c
+index 76560bd4..82431ac6 100644
+--- i/src/game/memory.c
++++ w/src/game/memory.c
+@@ -1,3 +1,4 @@
++#include <string.h>
+ #include "game/memory.h"
+ #include "dolphin/os.h"
+ 
+@@ -81,6 +82,9 @@ static void *HuMemMemoryAlloc2(void *heap_ptr, size_t size, uintptr_t num, uintp
+             block->magic = 165;
+             block->num = num;
+             block->retaddr = retaddr;
++#ifdef TARGET_PC
++            { extern int pb_poison_tmp(void); int pz = pb_poison_tmp(); if (pz >= 0) memset(BLOCK_GET_DATA(block), pz, block->size - ((char *)BLOCK_GET_DATA(block) - (char *)block)); }
++#endif
+             return BLOCK_GET_DATA(block);
+         }
+         block = block->next;
+diff --git i/src/game/process.c w/src/game/process.c
+index b625a48e..a18869ed 100644
+--- i/src/game/process.c
++++ w/src/game/process.c
+@@ -1,3 +1,5 @@
++#include <string.h>
++#include <stdlib.h>
+ #include "game/process.h"
+ #include "dolphin/os.h"
+ #include "game/memory.h"
+@@ -100,7 +102,7 @@ Process *HuPrcCreate(void (*func)(void), u16 prio, u32 stack_size, s32 extra_siz
+     process->prio = prio;
+     process->sleep_time = 0;
+ #ifdef TARGET_PC
+-    process->thread = co_create(stack_size, func);
++    { extern int pb_poison_tmp(void); int pz = pb_poison_tmp(); void *mem = malloc(stack_size); if (pz >= 0) memset(mem, pz, stack_size); process->thread = co_derive(mem, stack_size, func); }
+     process->func = func;
+ #else
+     process->base_sp = ((uintptr_t)HuMemMemoryAlloc(heap, stack_size, FAKE_RETADDR)) + stack_size - 8;
+# and at the end of src/port/netplay.c (the env switch the memory.c/process.c poison above reads):
+#
+# int pb_poison_tmp(void)
+# {
+#     static int v = -2;
+#     if (v == -2) {
+#         const char *e = getenv("PB_POISON_TMP");
+#         v = e ? (int)strtol(e, NULL, 0) : -1;
+#     }
+#     return v;
+# }

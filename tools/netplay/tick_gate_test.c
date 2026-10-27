@@ -15,7 +15,7 @@
 SystemState GWSystem; PlayerState GWPlayer[4]; PlayerConfig GWPlayerCfg[4];
 u16 HuPadBtn[4], HuPadBtnDown[4], HuPadBtnRep[4]; s8 HuPadStkX[4], HuPadStkY[4], HuPadSubStkX[4], HuPadSubStkY[4];
 u8 HuPadTrigL[4], HuPadTrigR[4], HuPadDStk[4], HuPadDStkRep[4]; s8 HuPadErr[4];
-OMOVL omcurovl; s32 rnd_seed; u32 boardRandSeed; BOOL PartyBoard_IsRunning = TRUE; static u32 fseed;
+OMOVL omcurovl; s32 omovlevtno; s32 rnd_seed; u32 boardRandSeed; BOOL PartyBoard_IsRunning = TRUE; static u32 fseed;
 u32 frandSeedGet(void) { return fseed; } void frandSeedSet(u32 s) { fseed = s; }
 /* netplay_match.c is not linked here (tools/netplay/match_test.c tests it). */
 static int over, match_ends, still_drops;
@@ -334,6 +334,50 @@ static void turbo_checks(void)
     unlink(path);
 }
 
+/* N53: script commands `ovl <ovl> <event> <port> <buttons>` (presses become <buttons> in that overlay and event)
+ * and `mg-explain off`. */
+static void script_ovl_checks(void)
+{
+    char path[] = "/tmp/pb-ovl-XXXXXX";
+    char *args[] = {"pb", "--script", path};
+    const char *text = "mg-explain off\novl 78 1 0 START\n"
+                       "0 1 A\n0 0 A\n2 0 none\n4 0 A\n6 0 none\n8 0 A+B\n10 0 none\nend 100\n";
+    /* frame -> port 0's buttons, outside and inside overlay 78 event 1 */
+    static const struct { u32 frame; u16 out, in; } want[] = {
+        {0, PAD_BUTTON_A, PAD_BUTTON_START}, {1, PAD_BUTTON_A, PAD_BUTTON_START}, {2, 0, 0},
+        {4, PAD_BUTTON_A, PAD_BUTTON_START}, {6, 0, 0}, {8, PAD_BUTTON_A | PAD_BUTTON_B, PAD_BUTTON_START},
+        {10, 0, 0},
+    };
+    PADStatus got[4];
+    int run;
+    u32 f;
+    int fd = mkstemp(path);
+    assert(fd >= 0);
+    assert(write(fd, text, strlen(text)) == (ssize_t)strlen(text));
+    close(fd);
+    on = 0;
+    for (run = 0; run < 3; run++) {
+        /* run 0 in another overlay, run 1 in overlay 78 event 0, run 2 in overlay 78 event 1 */
+        omcurovl = run == 0 ? 74 : 78;
+        omovlevtno = run == 2 ? 1 : 0;
+        assert(netplay_debug_init(3, args) && netplay_debug_mg_explain_off());
+        for (f = 0; f <= 12; f++) {
+            size_t k;
+            netplay_pad_read(got);
+            assert(got[1].button == PAD_BUTTON_A); /* other ports keep the script's */
+            for (k = 0; k < sizeof(want) / sizeof(want[0]); k++) {
+                if (want[k].frame == f) {
+                    assert(got[0].button == (run == 2 ? want[k].in : want[k].out));
+                }
+            }
+            netplay_frame_end();
+        }
+    }
+    omcurovl = 0;
+    omovlevtno = 0;
+    unlink(path);
+}
+
 int main(void)
 {
     PADStatus got[4];
@@ -408,6 +452,7 @@ int main(void)
     match_end_checks();
     match_left_checks();
     turbo_checks();
+    script_ovl_checks();
     puts("harness: all checks passed");
     return 0;
 }

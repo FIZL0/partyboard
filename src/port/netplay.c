@@ -240,6 +240,12 @@ static void hash_log_line(FILE *out, u32 at)
  *   seed <n>                 session seed (default 0x50424E54)
  *   end <frame>              quit after this many frames
  *   <frame> <port> <buttons> [stickX stickY substickX substickY trigL trigR]
+ *   ovl <ovl> <event> <port> <buttons>   while overlay <ovl> runs with event <event> (omcurovl,
+ *                            omovlevtno), every press on <port> is <buttons> instead of the script's: a
+ *                            screen that wants another button than the rest of the run (mstory3's party
+ *                            results, event 1, leave on START alone; A turns their pages)
+ *   mg-explain off           a --match party without the minigame explanations (instDll then needs no
+ *                            START), as modeseldll's option sets it
  *
  * <buttons> is a number (0x... allowed) or names joined by '+': A B X Y START Z L R UP DOWN LEFT
  * RIGHT, or 0/none. A pad line sets that port's state from <frame> on; it holds until the next line
@@ -261,6 +267,11 @@ static struct {
     size_t count;
     size_t next;
     PADStatus pads[4];
+    /* ovl lines: per port, the overlay (-1: none), its event and the buttons pressed while it runs. */
+    s16 alt_ovl[4];
+    s16 alt_event[4];
+    u16 alt_buttons[4];
+    BOOL mg_explain_off;
 } script;
 
 static FILE *hash_log;
@@ -372,6 +383,21 @@ static BOOL script_parse_line(char *line, const char *path, int lineno)
         script.seed = (u32)s;
         return TRUE;
     }
+    if (strcmp(tok[0], "ovl") == 0 && n == 5) {
+        u16 b;
+        if (!parse_long(tok[1], 0, 0x7FFF, &v[0]) || !parse_long(tok[2], 0, 0x7FFF, &v[1])
+            || !parse_long(tok[3], 0, 3, &v[2]) || !parse_buttons(tok[4], &b)) {
+            goto bad;
+        }
+        script.alt_ovl[v[2]] = (s16)v[0];
+        script.alt_event[v[2]] = (s16)v[1];
+        script.alt_buttons[v[2]] = b;
+        return TRUE;
+    }
+    if (strcmp(tok[0], "mg-explain") == 0 && n == 2 && strcmp(tok[1], "off") == 0) {
+        script.mg_explain_off = TRUE;
+        return TRUE;
+    }
     if (strcmp(tok[0], "end") == 0 && n == 2) {
         if (!parse_long(tok[1], 1, 0x7FFFFFFF, &v[0])) {
             goto bad;
@@ -432,13 +458,18 @@ static BOOL script_load(const char *path)
 {
     char line[256];
     int lineno = 0;
+    int i;
     FILE *f = fopen(path, "r");
     if (f == NULL) {
         OSReport("netplay: cannot open script %s\n", path);
         return FALSE;
     }
+    free(script.events);
     memset(&script, 0, sizeof(script));
     script.seed = 0x50424E54; /* "PBNT" */
+    for (i = 0; i < 4; i++) {
+        script.alt_ovl[i] = -1;
+    }
     while (fgets(line, sizeof(line), f) != NULL) {
         lineno++;
         if (!script_parse_line(line, path, lineno)) {
@@ -458,11 +489,19 @@ static BOOL script_load(const char *path)
 /* Pads for the current frame: every script line up to and including this frame applied. */
 static void script_pads(PADStatus *status)
 {
+    s32 i;
+
     while (script.next < script.count && script.events[script.next].frame <= frame) {
         const ScriptEvent *ev = &script.events[script.next++];
         script.pads[ev->port] = ev->status;
     }
     memcpy(status, script.pads, sizeof(script.pads));
+    for (i = 0; i < 4; i++) {
+        if (script.alt_ovl[i] >= 0 && omcurovl == script.alt_ovl[i] && omovlevtno == script.alt_event[i]
+            && status[i].button != 0) {
+            status[i].button = script.alt_buttons[i];
+        }
+    }
 }
 
 BOOL netplay_debug_init(int argc, char *argv[])
@@ -531,6 +570,11 @@ BOOL netplay_debug_init(int argc, char *argv[])
 BOOL netplay_debug_scripted(void)
 {
     return script.loaded;
+}
+
+BOOL netplay_debug_mg_explain_off(void)
+{
+    return script.loaded && script.mg_explain_off;
 }
 
 BOOL netplay_debug_turbo_arg(int argc, char *argv[])

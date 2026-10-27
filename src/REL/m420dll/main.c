@@ -73,8 +73,14 @@ s32 fn_1_198(void)
     s32 var_r30;
 
     Vec sp14[3] = { { 0.0f, 4000.0f, 100.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
+#ifdef TARGET_PC
+    /* GC: the seed is frand()'s result, still in r3. On x86-64 the argument register held a heap address,
+     * so the CPUs' rolls differed from run to run. */
+    fn_1_8934(frand());
+#else
     frand();
     fn_1_8934();
+#endif
     fn_1_4964();
     fn_1_D98();
     fn_1_D14(0, 1);

@@ -275,7 +275,7 @@ static void party_config(const NetplayMatch *m)
     memset(GWPlayerCfg, 0, sizeof(GWPlayerCfg));
     /* modeseldll: the party options. Save mode 1 is "don't save": resultDll then never writes the local
      * memory card (online saves are N9's). */
-    GWMGExplainSet(1);
+    GWMGExplainSet(netplay_debug_mg_explain_off() ? 0 : 1);
     GWMGShowComSet(1);
     GWMGListSet(0);
     GWMessSpeedSet(1);
