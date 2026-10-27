@@ -221,7 +221,7 @@ void main(void)
         }
         ui_update();
         aurora_end_frame();
-        if (!disableFrameLimiter || netplay_lockstep()) {
+        if ((!disableFrameLimiter && !netplay_debug_turbo()) || netplay_lockstep()) {
             frame_limiter();
         }
 #endif

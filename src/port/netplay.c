@@ -243,6 +243,8 @@ static u32 debug_leave_at;
 /* --continue: the online save's checkpoint the --match continues from (N9). */
 static u8 debug_continue[NETPLAY_BLOB_MAX];
 static u32 debug_continue_size;
+/* --turbo: a --script run skips the 60 Hz frame limiter (N50); netplay_debug_turbo. */
+static BOOL debug_turbo;
 
 static const struct {
     const char *name;
@@ -456,6 +458,8 @@ BOOL netplay_debug_init(int argc, char *argv[])
                 return FALSE;
             }
             debug_continue_size = (u32)n;
+        } else if (strcmp(argv[i], "--turbo") == 0) {
+            debug_turbo = TRUE;
         }
     }
     if (debug_continue_size != 0 && debug_match_at == 0) {
@@ -468,6 +472,10 @@ BOOL netplay_debug_init(int argc, char *argv[])
     if (debug_match_at != 0 && script_path == NULL) {
         OSReport("netplay: --match needs --script\n");
         return FALSE;
+    }
+    if (debug_turbo && script_path == NULL) {
+        OSReport("netplay: --turbo needs --script, ignored\n");
+        debug_turbo = FALSE;
     }
     if (hash_path != NULL) {
         hash_log = fopen(hash_path, "w");
@@ -489,6 +497,28 @@ BOOL netplay_debug_init(int argc, char *argv[])
 BOOL netplay_debug_scripted(void)
 {
     return script.loaded;
+}
+
+BOOL netplay_debug_turbo_arg(int argc, char *argv[])
+{
+    BOOL turbo = FALSE;
+    BOOL scripted = FALSE;
+    int i;
+
+    for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--turbo") == 0) {
+            turbo = TRUE;
+        } else if (strcmp(argv[i], "--script") == 0 && i + 1 < argc) {
+            scripted = TRUE;
+            i++;
+        }
+    }
+    return turbo && scripted;
+}
+
+BOOL netplay_debug_turbo(void)
+{
+    return debug_turbo && script.loaded && !netplay_lockstep();
 }
 
 /* An online match ended and its lobby is back (or closed meanwhile): the UI shows it (netplay_lobby_returned). */
