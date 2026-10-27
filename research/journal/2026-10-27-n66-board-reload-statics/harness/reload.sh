@@ -85,7 +85,7 @@ bt 12
 quit
 G
 cd "$B"
-PB_SYMS=$H/../syms.txt HOME=$OUT/home XDG_DATA_HOME=$OUT/home/.local/share timeout -s KILL ${TMO:-400} \
+PB_SYMS=$H/syms.txt HOME=$OUT/home XDG_DATA_HOME=$OUT/home/.local/share timeout -s KILL ${TMO:-400} \
   gdb -q -batch -x "$OUT/run.gdb" --args ./partyboard --script "$R/tools/netplay/mash-a.script" --match 0@900 --turbo \
   > "$OUT/log.txt" 2>&1 || true
 grep -E "^GDB|netplay: (match|board)|SIGSEGV|SIGABRT" "$OUT/log.txt" | head -60

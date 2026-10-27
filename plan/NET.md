@@ -72,6 +72,11 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
   (`netplay_minigame_blob`) calls instDll over the board in the history. Battle/Bowser minigames still go back to the
   turn point. A reload's overlay start also resets roll.c's dice (`BoardRollNetplayReset`). Findings:
   `research/journal/2026-10-27-n52-minigame-resync`.
+- Board statics over a reload (N66): the reload's overlay start (`board_statics_reset` in `netplay_match.c`) sets
+  every board file's handles back to their initial values (`Board*NetplayReset`, one per `src/game/board/*.c`, at the
+  file's end), and `MatchStartProc` kills item.c's root `ItemRotProc` (`BoardItemNetplayKill`). A new board static
+  that names a model/sprite/window/object/process goes into its file's reset. Findings:
+  `research/journal/2026-10-27-n66-board-reload-statics`.
 - Gameplay-only desync check (N64): `netplay_hash` is GWSystem/GWPlayer/GWPlayerCfg + pads (no seeds; the old hash is
   the `--hash-log` column `full=`), sent to pbnet only in board and minigame overlays (`netplay_gameplay_ovl`).
   `netplay_point_reseed` sets frand/rand8/BoardRand from the session seed + turn, player, point and overlay at every
