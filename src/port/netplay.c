@@ -649,6 +649,16 @@ BOOL netplay_tick_begin(void)
     if (script.loaded || !pbnet_lockstep_active()) {
         return TRUE;
     }
+    /*
+     * N56: the lockstep's frame 0 is the match's frame 0 on every peer. A debug session (--hash-log) has netplay on
+     * in the menus too: it stepped a started lobby's lockstep there until netplay_lobby_poll applied the start, so
+     * its match's frame 0 was pbnet's frame 1 or 2 (a race with the lobby thread), not the other peers'. The board's
+     * intro hashes alike a frame apart, but a message that got ready a frame later missed an A press there (BoardRand
+     * diverged at the turn-order dice, frame ~1080 on w01).
+     */
+    if (!netplay_match_running()) {
+        return TRUE;
+    }
     next = pbnet_frame();
     /* Once per frame number: a WAIT repeats the call for the same frame with the same state. */
     if (next % 30 == 0 && (!step_hash_set || step_hash_frame != next)) {
