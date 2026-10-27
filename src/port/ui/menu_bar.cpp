@@ -9,6 +9,7 @@
 #include "port/settings.h"
 #include "imgui.h"
 #include "modal.hpp"
+#include "online.hpp"
 #include "settings.hpp"
 #include "ui.hpp"
 #include "window.hpp"
@@ -47,6 +48,7 @@ MenuBar::MenuBar()
             .autoSelect = false,
         });
     mTabBar->add_tab("Settings", [this] { push(std::make_unique<SettingsWindow>()); });
+    mTabBar->add_tab("Online", [this] { push(std::make_unique<OnlineWindow>()); });
     // mTabBar->add_tab("Warp", [] {
     //     // TODO
     // });

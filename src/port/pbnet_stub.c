@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <stdio.h>
 
 const char *pbnet_version(void)
 {
@@ -66,4 +67,73 @@ uint32_t pbnet_delay_for(uint32_t rtt_ms)
         return 15;
     }
     return (uint32_t)frames;
+}
+
+/* Lobby: never goes online, so the online menu says it can't host or join. */
+int pbnet_lobby_host(const char *setup)
+{
+    (void)setup;
+    return 0;
+}
+
+int pbnet_lobby_join(const char *setup, const char *code)
+{
+    (void)setup;
+    (void)code;
+    return 0;
+}
+
+void pbnet_lobby_leave(void) { }
+
+int pbnet_lobby_state(void)
+{
+    return PBNET_LOBBY_NONE;
+}
+
+uint32_t pbnet_lobby_gen(void)
+{
+    return 0;
+}
+
+int pbnet_lobby_json(char *buf, int cap)
+{
+    return snprintf(buf, buf != NULL && cap > 0 ? (size_t)cap : 0, "%s", "{\"state\":\"none\"}");
+}
+
+int pbnet_lobby_picks(const uint8_t *characters, const uint8_t *teams, int n)
+{
+    (void)characters;
+    (void)teams;
+    (void)n;
+    return 0;
+}
+
+int pbnet_lobby_ready(int ready)
+{
+    (void)ready;
+    return 0;
+}
+
+int pbnet_lobby_settings(int board, int turns, int bonus, int teams, const uint8_t *handicaps)
+{
+    (void)board;
+    (void)turns;
+    (void)bonus;
+    (void)teams;
+    (void)handicaps;
+    return 0;
+}
+
+int pbnet_lobby_cpu(int seat, int difficulty)
+{
+    (void)seat;
+    (void)difficulty;
+    return 0;
+}
+
+int pbnet_lobby_start(uint64_t seed, char *why, int cap)
+{
+    (void)seed;
+    snprintf(why, why != NULL && cap > 0 ? (size_t)cap : 0, "%s", "netplay is not available in this build");
+    return 0;
 }

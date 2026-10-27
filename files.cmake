@@ -119,6 +119,10 @@ set(PORT_FILES
         src/port/ui/nav_types.hpp
         src/port/ui/number_button.cpp
         src/port/ui/number_button.hpp
+        src/port/ui/online.cpp
+        src/port/ui/online.hpp
+        src/port/ui/online_model.cpp
+        src/port/ui/online_model.hpp
         src/port/ui/overlay.cpp
         src/port/ui/overlay.hpp
         src/port/ui/pane.cpp
