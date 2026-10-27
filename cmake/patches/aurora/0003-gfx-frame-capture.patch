@@ -1,0 +1,254 @@
+diff --git i/cmake/aurora_gx.cmake w/cmake/aurora_gx.cmake
+index e81b621..db50bfe 100644
+--- i/cmake/aurora_gx.cmake
++++ w/cmake/aurora_gx.cmake
+@@ -37,6 +37,8 @@ add_library(aurora_gx STATIC
+         lib/dolphin/gx/GXVert.cpp
+         lib/dolphin/gx/GXAurora.cpp
+         lib/gfx/png_io.cpp
++        lib/gfx/frame_capture.cpp
++        lib/gfx/frame_capture.hpp
+         lib/gfx/png_io.hpp
+ )
+ add_library(aurora::gx ALIAS aurora_gx)
+diff --git i/include/aurora/gfx.h w/include/aurora/gfx.h
+index 61388d7..d236a84 100644
+--- i/include/aurora/gfx.h
++++ w/include/aurora/gfx.h
+@@ -32,6 +32,10 @@ const AuroraStats* aurora_get_stats();
+ 
+ void aurora_enable_vsync(bool enabled);
+ 
++// Saves the game's frame (the EFB as presented, before RmlUi/ImGui) to a PNG at `path`, delay_frames
++// aurora_end_frame calls from now (0 = the next one). The file is written when the GPU readback completes.
++void aurora_capture_frame(const char* path, uint32_t delay_frames);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git i/lib/aurora.cpp w/lib/aurora.cpp
+index dc5ae5b..b719387 100644
+--- i/lib/aurora.cpp
++++ w/lib/aurora.cpp
+@@ -2,6 +2,7 @@
+ 
+ #ifdef AURORA_ENABLE_GX
+ #include "gfx/common.hpp"
++#include "gfx/frame_capture.hpp"
+ #include "gx/fifo.hpp"
+ #include "imgui.hpp"
+ #include "webgpu/gpu.hpp"
+@@ -245,8 +246,9 @@ void end_frame() noexcept {
+   }
+ #endif
+ 
+-  gfx::end_frame([rmlBindGroup = std::move(rmlBindGroup), viewport,
+-                  imguiDrawData = std::move(imguiDrawData)](wgpu::CommandEncoder& encoder) {
++  gfx::end_frame([rmlBindGroup = std::move(rmlBindGroup), viewport, imguiDrawData = std::move(imguiDrawData),
++                  captures = gfx::frame_capture::take_due()](wgpu::CommandEncoder& encoder) {
++    gfx::frame_capture::encode(encoder, captures);
+     window::SurfaceLock surfaceLock;
+     wgpu::Texture currentTexture;
+     wgpu::TextureView currentView;
+@@ -356,6 +358,7 @@ void end_frame() noexcept {
+       }
+     }
+     gfx::after_submit();
++    gfx::frame_capture::after_submit();
+ 
+     TracyPlotConfig("aurora: lastVertSize", tracy::PlotFormatType::Memory, false, true, 0);
+     TracyPlotConfig("aurora: lastUniformSize", tracy::PlotFormatType::Memory, false, true, 0);
+diff --git i/lib/gfx/frame_capture.cpp w/lib/gfx/frame_capture.cpp
+new file mode 100644
+index 0000000..a6ed684
+--- /dev/null
++++ w/lib/gfx/frame_capture.cpp
+@@ -0,0 +1,165 @@
++#include "frame_capture.hpp"
++
++#include <aurora/gfx.h>
++
++#include "../internal.hpp"
++#include "../webgpu/gpu.hpp"
++
++#include <cstdio>
++#include <memory>
++#include <mutex>
++
++#include "png.h"
++
++namespace aurora::gfx::frame_capture {
++namespace {
++Module Log("aurora::gfx::frame_capture");
++
++struct Request {
++  std::string path;
++  uint32_t delay;
++};
++
++struct Pending {
++  std::string path;
++  wgpu::Buffer buffer;
++  uint32_t width;
++  uint32_t height;
++  uint32_t bytesPerRow;
++  bool bgra;
++};
++
++std::mutex g_mutex;
++std::vector<Request> g_requests;
++std::vector<std::shared_ptr<Pending>> g_encoded;
++
++bool write_png(const Pending& p, const uint8_t* data) {
++  FILE* file = std::fopen(p.path.c_str(), "wb");
++  if (file == nullptr) {
++    return false;
++  }
++  png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
++  png_infop info = png ? png_create_info_struct(png) : nullptr;
++  if (info == nullptr || setjmp(png_jmpbuf(png))) {
++    png_destroy_write_struct(&png, &info);
++    std::fclose(file);
++    return false;
++  }
++  png_init_io(png, file);
++  png_set_IHDR(png, info, p.width, p.height, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
++               PNG_FILTER_TYPE_DEFAULT);
++  png_write_info(png, info);
++  std::vector<uint8_t> row(static_cast<size_t>(p.width) * 3);
++  for (uint32_t y = 0; y < p.height; ++y) {
++    const uint8_t* src = data + static_cast<size_t>(y) * p.bytesPerRow;
++    for (uint32_t x = 0; x < p.width; ++x) {
++      row[x * 3 + 0] = src[x * 4 + (p.bgra ? 2 : 0)];
++      row[x * 3 + 1] = src[x * 4 + 1];
++      row[x * 3 + 2] = src[x * 4 + (p.bgra ? 0 : 2)];
++    }
++    png_write_row(png, row.data());
++  }
++  png_write_end(png, nullptr);
++  png_destroy_write_struct(&png, &info);
++  return std::fclose(file) == 0;
++}
++} // namespace
++
++std::vector<std::string> take_due() noexcept {
++  std::lock_guard lock{g_mutex};
++  std::vector<std::string> due;
++  for (auto it = g_requests.begin(); it != g_requests.end();) {
++    if (it->delay == 0) {
++      due.push_back(std::move(it->path));
++      it = g_requests.erase(it);
++    } else {
++      --it->delay;
++      ++it;
++    }
++  }
++  return due;
++}
++
++void encode(const wgpu::CommandEncoder& encoder, std::vector<std::string> paths) noexcept {
++  if (paths.empty()) {
++    return;
++  }
++  const auto& source = webgpu::present_source();
++  bool bgra;
++  switch (source.format) {
++  case wgpu::TextureFormat::BGRA8Unorm:
++  case wgpu::TextureFormat::BGRA8UnormSrgb:
++    bgra = true;
++    break;
++  case wgpu::TextureFormat::RGBA8Unorm:
++  case wgpu::TextureFormat::RGBA8UnormSrgb:
++    bgra = false;
++    break;
++  default:
++    Log.error("Frame capture: unsupported framebuffer format {}", static_cast<uint32_t>(source.format));
++    return;
++  }
++  const uint32_t width = source.size.width;
++  const uint32_t height = source.size.height;
++  const uint32_t bytesPerRow = AURORA_ALIGN(width * 4, 256);
++  for (auto& path : paths) {
++    const wgpu::BufferDescriptor descriptor{
++        .label = "Frame capture buffer",
++        .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead,
++        .size = static_cast<uint64_t>(bytesPerRow) * height,
++    };
++    auto pending = std::make_shared<Pending>(Pending{
++        .path = std::move(path),
++        .buffer = webgpu::g_device.CreateBuffer(&descriptor),
++        .width = width,
++        .height = height,
++        .bytesPerRow = bytesPerRow,
++        .bgra = bgra,
++    });
++    const wgpu::TexelCopyTextureInfo src{.texture = source.texture};
++    const wgpu::TexelCopyBufferInfo dst{
++        .layout = {.bytesPerRow = bytesPerRow, .rowsPerImage = height},
++        .buffer = pending->buffer,
++    };
++    const wgpu::Extent3D size{.width = width, .height = height, .depthOrArrayLayers = 1};
++    encoder.CopyTextureToBuffer(&src, &dst, &size);
++    std::lock_guard lock{g_mutex};
++    g_encoded.push_back(std::move(pending));
++  }
++}
++
++void after_submit() noexcept {
++  std::vector<std::shared_ptr<Pending>> encoded;
++  {
++    std::lock_guard lock{g_mutex};
++    encoded.swap(g_encoded);
++  }
++  for (auto& pending : encoded) {
++    const uint64_t size = static_cast<uint64_t>(pending->bytesPerRow) * pending->height;
++    pending->buffer.MapAsync(wgpu::MapMode::Read, 0, size, wgpu::CallbackMode::AllowSpontaneous,
++                             [pending, size](wgpu::MapAsyncStatus status, wgpu::StringView message) {
++                               if (status != wgpu::MapAsyncStatus::Success) {
++                                 Log.warn("Frame capture {}: map failed: {}", pending->path, message);
++                                 return;
++                               }
++                               const auto* data = static_cast<const uint8_t*>(pending->buffer.GetConstMappedRange(0, size));
++                               if (data != nullptr && write_png(*pending, data)) {
++                                 Log.info("Frame capture: wrote {} ({}x{})", pending->path, pending->width,
++                                          pending->height);
++                               } else {
++                                 Log.warn("Frame capture: could not write {}", pending->path);
++                               }
++                               pending->buffer.Unmap();
++                             });
++  }
++}
++
++} // namespace aurora::gfx::frame_capture
++
++void aurora_capture_frame(const char* path, uint32_t delay_frames) {
++  if (path == nullptr) {
++    return;
++  }
++  std::lock_guard lock{aurora::gfx::frame_capture::g_mutex};
++  aurora::gfx::frame_capture::g_requests.push_back({path, delay_frames});
++}
+diff --git i/lib/gfx/frame_capture.hpp w/lib/gfx/frame_capture.hpp
+new file mode 100644
+index 0000000..46831e6
+--- /dev/null
++++ w/lib/gfx/frame_capture.hpp
+@@ -0,0 +1,17 @@
++#pragma once
++
++#include "../webgpu/wgpu.hpp"
++
++#include <string>
++#include <vector>
++
++namespace aurora::gfx::frame_capture {
++
++// Main thread, once per aurora_end_frame: counts down the requests and returns the paths due this frame.
++std::vector<std::string> take_due() noexcept;
++// Render worker: copies the present source (the game's image, before RmlUi/ImGui) to a readback buffer.
++void encode(const wgpu::CommandEncoder& encoder, std::vector<std::string> paths) noexcept;
++// Render worker, after the frame's submit: maps the buffers; each writes its PNG when the map completes.
++void after_submit() noexcept;
++
++} // namespace aurora::gfx::frame_capture

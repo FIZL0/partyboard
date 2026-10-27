@@ -7,6 +7,7 @@
 #include "game/animdata.h"
 #include "game/object.h"
 
+#include <aurora/gfx.h>
 #include <dolphin/pad.h>
 #include <SDL3/SDL_gamepad.h>
 
@@ -765,6 +766,39 @@ int forced_family()
     return cached;
 }
 
+// PB_ICON_SHOT=<dir> (test hook, N60): the first time an overlay draws a message icon (GameCube included), save
+// the game frame 20, 60 and 120 frames later (or PB_ICON_SHOT_DELAYS, e.g. "5,200") as <dir>/ovlNNN-iconNN-dNNN.png
+// (aurora_capture_frame).
+void shot_on_first_icon(int entry)
+{
+    static const char *dir = std::getenv("PB_ICON_SHOT");
+    if (dir == nullptr) {
+        return;
+    }
+    static int shot_ovl = -2;
+    static bool shot[13];
+    if (shot_ovl != omcurovl) {
+        shot_ovl = omcurovl;
+        std::memset(shot, 0, sizeof(shot));
+    }
+    if (shot[entry]) {
+        return;
+    }
+    shot[entry] = true;
+    const char *delays = std::getenv("PB_ICON_SHOT_DELAYS");
+    for (const char *d = delays ? delays : "20,60,120"; *d != '\0';) {
+        char *end;
+        const unsigned long delay = std::strtoul(d, &end, 10);
+        if (end == d) {
+            break;
+        }
+        d = *end == ',' ? end + 1 : end;
+        char path[1024];
+        std::snprintf(path, sizeof(path), "%s/ovl%03d-icon%02d-d%03lu.png", dir, static_cast<int>(omcurovl), entry, delay);
+        aurora_capture_frame(path, static_cast<u32>(delay));
+    }
+}
+
 } // namespace
 
 extern "C" {
@@ -810,6 +844,7 @@ int pb_button_icon_for_window(int entry, u32 pad_mask, ANIMDATA **anim, s16 *ban
             break;
         }
     }
+    shot_on_first_icon(entry);
     const PbIconFamily f = pb_button_icons_family(port);
     if (f == PB_FAMILY_GAMECUBE) {
         return 0;

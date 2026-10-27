@@ -8,6 +8,8 @@
 # - 0002-gfx-depth-copy-formats (N54): GXCopyTex conversion pipelines for Z24X8, Z8, Z4, Z8M, Z8L and Z16L
 #   (only Z16 had one). A scaled Z24X8 copy (m419) went through the color blit with the depth view bound;
 #   with skip_validation that faulted the GPU (radv GPUVM fault, device lost).
+# - 0003-gfx-frame-capture (N60): aurora_capture_frame(path, delay_frames) saves the game frame (the EFB as
+#   presented, before RmlUi/ImGui) to a PNG via a GPU readback, so tests get screenshots of hidden windows.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
