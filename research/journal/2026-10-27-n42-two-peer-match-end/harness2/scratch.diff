@@ -1,0 +1,95 @@
+diff --git i/src/game/pad.c w/src/game/pad.c
+index 342a6780..b9625b6b 100644
+--- i/src/game/pad.c
++++ w/src/game/pad.c
+@@ -166,6 +166,9 @@ static void PadReadVSync(u32 retraceCount)
+         } else
+ #endif
+         RumbleBit = PADRead(status);
++#ifdef TARGET_PC
++        { extern void n64_local_pads(PADStatus *); n64_local_pads(status); } /* N64 TMP */
++#endif
+         PADClamp(status);
+         chan = 0;
+         for(i=0; i<4; i++) {
+diff --git i/src/port/netplay.c w/src/port/netplay.c
+index 8cd7412f..52f7f140 100644
+--- i/src/port/netplay.c
++++ w/src/port/netplay.c
+@@ -719,6 +719,41 @@ BOOL netplay_lockstep(void)
+     return pbnet_lockstep_active() != 0;
+ }
+ 
++/* N42 scratch: this machine's seat mashes A (START in instDll and the party results). */
++static void n42_pads(PADStatus *local, u32 at)
++{
++    static int last_ovl = -1;
++    static u32 since;
++    if (getenv("PB_N42") == NULL) {
++        return;
++    }
++    if ((int)omcurovl != last_ovl) {
++        last_ovl = (int)omcurovl;
++        since = at;
++    }
++    memset(local, 0, 4 * sizeof(*local));
++    if (at % 24 < 4 && !(omcurovl == 3 && at - since < 120)) {
++        /* ovl 78: the party's end wants A first (ceremony), then START alone (results pages): take turns */
++        local[0].button = (omcurovl == 3) ? PAD_BUTTON_START
++            : (omcurovl == 78 && (at - since) / 600 % 2 == 1) ? (PAD_BUTTON_START | PAD_BUTTON_B) /* B: out of a page's details */
++                                                              : PAD_BUTTON_A;
++    }
++}
++
++/* N64 scratch: outside a session (the party results after the match), port 0 presses like n42_pads. */
++void n64_local_pads(PADStatus *status)
++{
++    static u32 n;
++    if (getenv("PB_N42") == NULL || netplay_active() || omcurovl != 78) {
++        return;
++    }
++    n++;
++    memset(status, 0, 4 * sizeof(*status));
++    if (n % 24 < 4) {
++        status[0].button = (n / 600 % 2 == 1) ? (PAD_BUTTON_START | PAD_BUTTON_B) : PAD_BUTTON_A;
++    }
++}
++
+ BOOL netplay_tick_begin(void)
+ {
+     PADStatus local[4];
+@@ -772,6 +807,7 @@ BOOL netplay_tick_begin(void)
+             local[i].err = PAD_ERR_NONE;
+         }
+     }
++    n42_pads(local, next); /* N42 TMP */
+     /* pbnet takes the local pads at the first call for a frame only. */
+     if (!step_taken_set || step_taken_frame != next) {
+         for (i = 0; i < 4; i++) {
+diff --git i/src/port/ui/online.cpp w/src/port/ui/online.cpp
+index 2023fae1..bad125a0 100644
+--- i/src/port/ui/online.cpp
++++ w/src/port/ui/online.cpp
+@@ -13,6 +13,10 @@
+ #include "ui.hpp"
+ 
+ #include <SDL3/SDL_clipboard.h>
++#include <RmlUi/Core.h>
++#include <cstdio>
++#include <fstream>
++#include <sys/time.h>
+ #include <fmt/chrono.h>
+ #include <fmt/format.h>
+ #include <nlohmann/json.hpp>
+@@ -752,8 +756,11 @@ std::string OnlineWindow::lan_status() const
+     return "Press a game to join it.";
+ }
+ 
++#include "/tmp/claude-1000/-home-ryha-repos-partyboard-slots-s1/c3b16b38-65d1-4c5c-94e3-12e5e7e91d5f/scratchpad/n42_harness.inc"
++
+ void update_online_match()
+ {
++    n42_harness();
+     static std::shared_ptr<bool> alive = std::make_shared<bool>(false);
+     static HoldModal *shown = nullptr;
+     static std::string shownKey;

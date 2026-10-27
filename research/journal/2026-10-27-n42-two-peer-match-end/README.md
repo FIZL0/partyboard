@@ -1,6 +1,72 @@
 # N42: N25's online match end, run with two game processes (GMPE01)
 
-**Outcome: blocked.** Two `partyboard` processes (host and guest, Online menu, one human seat each, two CPUs)
+**Outcome: done (rerun after N64, 2026-10-27).** Two `partyboard` processes, host and guest, with one human seat
+each and two CPUs, went through the Online menu. The host continued a turn-10/10 online save from the Continue tab. All
+of the task's items hold on both peers, with no resync. The first run (before N64) was blocked, and its notes are kept
+below under "First run".
+
+## Rerun after N64 (run r1)
+
+Base f10c4c59 (N53, N56 and N64 merged), `linux-default-relwithdebinfo`, `PB_DISC` = GMPE01 Rev 1. The harness is
+N64's, rebuilt in the tree for the run and reverted afterwards, so no code changed in this task. The files are in
+`harness2/`:
+- `scratch.diff` holds the temporary changes. `n42_pads` in `netplay_tick_begin` gives this machine's seat a tap every
+  24 frames: START in instDll, A/B|START in mstory3, A everywhere else. `n64_local_pads` in `PadReadVSync` presses the
+  same pattern for the results, which run on local pads after the session. The `online.cpp` include pulls in N64's
+  menu driver, `../2026-10-27-n64-gameplay-hash/harness/n42_harness.inc`, which presses the real RmlUi buttons.
+- `pair.sh` is N64's, with its paths changed to `build/n42b`. It sets up a private netns (relay off), starts the host
+  from the Continue tab, writes the host's code into the guest's `online.json`, then starts the guest on Join. Each
+  peer has its own `XDG_DATA_HOME`/`HOME` and runs with `--hash-log`.
+- `st.sh` is a progress grep. `run.sh` is N64's single-process scripted run.
+
+### The save
+
+- `tools/netplay/save-continue.py save` with `--match 0@900` no longer reaches the minigame, because its START window
+  is stale. instDll now starts at frame **7545** on a fresh user dir, not 6230 (N53/N56/N64 moved the frames). Run as
+  shipped, the party stays in instDll until `end`, and the last checkpoint is turn 1, player 3 (frame 6392).
+- I ran a scratch copy with the window at 7615–7825 and `end 13900`. That gave the checkpoint at **frame 13814, turn
+  2/10, player 0** (the save checkpoints at each player's turn start now, as of N47). N64's `last_turn.py` then set
+  `GWSystem.turn` to 10. So continuing it plays the **whole last turn** (four players' turns, minigame m423 (ovl 31) and
+  resultDll) and then the party results. That covers more than N64's ~12-board-frame run did.
+
+### Results, against the task
+
+| task item | result |
+|---|---|
+| both log `netplay: match over at frame N` with the same N | **yes**. Both: `match over: the results (overlay 78) start at frame 9717`, then `match over at frame 9718, hash BC1A26FCDC660183: session ends`. |
+| neither is stuck in a lockstep WAIT | **yes**. Both left the session at 9718 and played their local results. Both logged `the results are over: overlay 74 starts` (modeseldll), one wall-clock ms apart. |
+| both show the lobby again, toast "The match is over" | **yes**. The visible RmlUi text on the host is `[The match is over. Back in the lobby.][Waiting for Guesty to be ready.][Start Match]`, and on the guest `[...][Ready]`. |
+| the host's room has a new id and nobody ready | **yes**. Before the end the host's lobby JSON had id `local-0000000050424E54` (the continued save) and the guest's key in `ready`. At 9718 it became id **`5dbad37f-1793138757`**, `ready []`, `started false`, seats host/guest/cpu/cpu kept. The guest first reopened the old id locally (`Guest::back`), then got the host's new room with `ready []`. |
+| a second Start enters the board again on both, and hashdiff agrees from that frame | **yes**. The guest pressed Ready and the host pressed Start Match. Both logged `match start` and entered w01 (ovl 89) at frame 2. `hashdiff.py` on the second session: **identical: 19647 frames** (board turn 1, all four turns, instDll, minigame m427 ovl 35 from 6709). The per-session logs are **byte-identical**, so every column matches, `full=` and `heap=` too. Match 1 was also identical: 9718 frames, byte-identical. |
+| no resync | `desync at` count is 0 on both peers. |
+| N31: the online save is deleted at the end | **yes**. Both logged `match over: its online save is deleted`. The host's `online/local-0000000050424E54.json` is gone, and the only file left is the second match's `5dbad37f-1793138757.json` (its turn-1 checkpoints, on both peers). |
+
+The two peers ran about 9700 frames in ~160 s, because vsync was off and the lockstep was not throttled by
+display pacing.
+
+### Notes
+
+- In match 2, m427 (ovl 35) was still running after 12,900 frames when I stopped the run (frame 19647). It ran
+  identically on both peers. Taps of A every 24 frames probably don't finish it (it may want other input), but I did
+  not check that. It does not affect N42.
+- The first run's suspects (the divergence in mstory3, N58 in the old notes) are covered by N64: the window-process
+  fix, and the match ending at the results.
+
+## Not verified
+
+- **What m427 needs to end** with these pads (above). The second match was stopped inside it, so match 2's own end
+  was not run. Match 1's end is the one the task asks for.
+- **A whole party from turn 1 on two peers**: the save skips turns 1–9, as the task intends ("keep it short").
+- **Visuals** of the toast and lobby: only their RmlUi texts were read (hidden windows, no screenshots).
+- **Real clicks, real pads, two machines**: the buttons got synthetic events, and the pads were the scratch presser.
+  Both peers ran in one netns on one host, relay off.
+- **Offline play**: nothing in `src/` changed in this task, so nothing to check.
+
+Filed **N71**: the stale START window in `tools/netplay/save-continue.py` (above).
+
+# First run (before N64): blocked
+
+**Outcome then: blocked.** Two `partyboard` processes (host and guest, Online menu, one human seat each, two CPUs)
 continued a real turn-10/10 online save to the party's end. The guest ran N25's whole end path. The host never
 reached the end: the two peers **diverge in the party results** (mstory3Dll, ovl 78), a few seconds after the
 board.
@@ -17,7 +83,7 @@ reload while a player is in a shop) and **N57** (m425).
 No code changed in this task. Everything below ran on temporary changes, saved in `harness/scratch.diff` and
 reverted.
 
-## What was checked, against the task
+### What was checked, against the task
 
 | task item | result |
 |---|---|
@@ -28,7 +94,7 @@ reverted.
 | a second Start enters the board on both, hashdiff agrees from that frame | **not reached**. The guest pressed Ready again; the host was still in the match. |
 | N31: the guest's online save deleted at the end | guest: no `online/` file afterwards (it had none of its own: a turn-10 continue writes no checkpoint before the end). Host: the save is still there, because its end never ran. Not a real check of N31. |
 
-## The divergence (N58)
+### The divergence (N58)
 
 Run m4/m5 (desync check on). The same turn-10 save on the host, the same pads (both peers' pad hash sections are
 equal), fresh epochs:
@@ -59,7 +125,7 @@ The two-peer run from a **turn-1** save (run t1) also desynced, at frame 3480 in
 resync crashed both peers; that is N56 below. I did not look at that desync's cause. N53 is the general "runs
 diverge" task.
 
-## Also found (filed, not fixed)
+### Also found (filed, not fixed)
 
 - **N56**: a desync resync reload while the board runs crashes both peers at once. SIGSEGV in
   `Hu3DModelHookReset(54) <- BoardModelHookReset(46) <- DestroyShop (shop.c:390) <- gcTerminateProcess <-
@@ -72,7 +138,7 @@ diverge" task.
   (`fn_1_16AD4`), and only **B** leaves those (`result.c:382`). START on the page list leaves the results. An A/START
   pattern can stay in a details page for good. A + then B|START stretches got through (pads below).
 
-## How it was run
+### How it was run
 
 ### Setup
 
@@ -133,14 +199,14 @@ Turbo did not help in the end. Even with the limiter skipped, the hidden window 
 | m6 | hash check off; A/START | the results' details page waited for B (16k frames), so no end |
 | m7 | hash check off; A, then B\|START | guest: match end at 5421, lobby + toast. Host: lockstep WAIT at 5423 for good. |
 
-## Tried and dropped
+### Tried and dropped
 
 - `pkill -f`/`pgrep -f` loops with patterns that matched my own shell killed the shell, not the game. Kill by the
   PIDs that `peer.sh` prints instead. One of the slots in parallel runs its own peers with the same binary name
   under `s3/`, so never kill by name.
 - The first turbo patch went into the `#else` (GC) branch of `main.c`'s loop and did nothing.
 
-## Not verified
+### Not verified
 
 - **Every item of the task on the host**, and both-peer items: same N, no stuck WAIT, the host's new room id and
   empty ready list, the second Start and its hashdiff. The peers diverge before the end (N58), so none of these can
