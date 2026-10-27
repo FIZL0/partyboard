@@ -1989,3 +1989,27 @@ static void UpdateTeamResult(omObjData *object)
 		HuSprGrpPosSet(work->group[1], object->rot.x, object->rot.y);
 	}
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the last-five event's objects end themselves, so these
+ * still name the old board's freed models, windows and objects. Set back to their initial values at the match's overlay
+ * start (netplay_match.c). */
+void BoardLast5NetplayReset(void)
+{
+    s32 i;
+    stopWin = -1;
+    wheelMdl = -1;
+    lbl_801D3854 = -1;
+    focusMdl = -1;
+    hostMdl = 0;
+    last5RouletteObj = NULL;
+    last5Proc = NULL;
+    teamResultObj = NULL;
+    hostMoveObj = NULL;
+    lotteryDrawObj = NULL;
+    lotteryDrawWheelObj = NULL;
+    for (i = 0; i < 4; i++) {
+        lotteryTicketObj[i] = NULL;
+    }
+}
+#endif

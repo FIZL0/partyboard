@@ -788,3 +788,12 @@ s32 BoardComFarPlayerFind(void) {
     }
     return far_player;
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a COM's item choice (ChooseUseItem) is kept until the next one; one made on the old board would be
+ * used on the next. Set back to its initial value at the match's overlay start (netplay_match.c). */
+void BoardComNetplayReset(void)
+{
+    itemUse = -1;
+}
+#endif

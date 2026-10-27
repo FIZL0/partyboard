@@ -834,3 +834,15 @@ static void SetBattleCoinValue(void) {
     }
     battleCoinIdx = var_r27;
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the battle event's objects end themselves, so these still
+ * name the old board's freed objects and process. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardBattleNetplayReset(void)
+{
+    explodeObj = NULL;
+    battleObj = NULL;
+    battleProc = NULL;
+}
+#endif

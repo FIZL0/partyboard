@@ -560,3 +560,16 @@ static void WaitItemGive(void) {
         HuPrcVSleep();
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the boxes end themselves, so these still name the old
+ * board's freed models, objects and process. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardMushroomNetplayReset(void)
+{
+    boxObj[0] = boxObj[1] = NULL;
+    itemMdl = -1;
+    itemGiveObj = NULL;
+    mushroomProc = NULL;
+}
+#endif

@@ -1249,3 +1249,15 @@ static s32 CreateBoardModelMotion(BoardModel *model, s32 count, s32 *data_num)
     model->mot_count = count + 1;
     return 0;
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before BoardModelKillAll (DestroyBoard) runs, so these still name
+ * the old board's freed model list (omOvlKill freed it) and manager object. Set back to their initial values at the
+ * match's overlay start (netplay_match.c). */
+void BoardModelNetplayReset(void)
+{
+    modelMgrObj = NULL;
+    modelDataList = NULL;
+    modelDataNum = 0;
+}
+#endif

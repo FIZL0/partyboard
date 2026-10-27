@@ -1994,3 +1994,37 @@ void BoardLotteryTutorialExec(void)
     HuAudFXPlay(0x32F);
     KillModel();
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before BoardLotteryKill (DestroyBoard) and the lottery's objects
+ * run, so these still name the old board's freed models, sprites, windows, objects and coin slots (coinF: a slot left
+ * taken is never used again). Set back to their initial values at the match's overlay start (netplay_match.c). */
+void BoardLotteryNetplayReset(void)
+{
+    s32 i;
+    for (i = 0; i < 6; i++) {
+        lotteryMdl[i] = 0;
+    }
+    for (i = 0; i < 10; i++) {
+        coinMdl[i] = 0;
+    }
+    for (i = 0; i < 12; i++) {
+        coinF[i] = 0;
+        ticketObj[i] = NULL;
+        ticketPrize[i] = 0;
+    }
+    handUpdateF = 0;
+    lotteryTicketPickObj = NULL;
+    lotteryProc = NULL;
+    hostMdl = -1;
+    for (i = 0; i < 4; i++) {
+        lotteryMot[i] = -1;
+        ballMdl[i] = -1;
+    }
+    lotterySpr = -1;
+    lotteryInstWin = -1;
+    gripMdl[0] = gripMdl[1] = 0;
+    turnMot = loseMot = -1;
+    ticketSprGrp = -1;
+}
+#endif

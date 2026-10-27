@@ -731,3 +731,15 @@ static void CoinChgDisappear(omObjData* object, coinChg* coin_chg) {
         coin_chg->kill = 1;
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the coin counters end themselves, so these still name the
+ * old board's freed objects. Set back to their initial values at the match's overlay start (netplay_match.c). */
+void BoardBasicSpaceNetplayReset(void)
+{
+    s32 i;
+    for (i = 0; i < 4; i++) {
+        coinChgObj[i] = NULL;
+    }
+}
+#endif

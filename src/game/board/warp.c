@@ -247,3 +247,13 @@ static void WarpImpact(s32 player) {
     }
     warpState = 6;
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the warp ends, so these still name the old board's freed
+ * models and process. Set back to their initial values at the match's overlay start (netplay_match.c). */
+void BoardWarpNetplayReset(void)
+{
+    warpProcess = NULL;
+    warpSpringMdl = warpImpactMdl = -1;
+}
+#endif

@@ -1180,3 +1180,22 @@ void BoardSpaceDestroy(void)
     GXDestroyTexObj(&spaceTex);
 #endif
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before BoardSpaceDestroy (DestroyBoard) runs: its textures
+ * (omOvlKill freed their data) are destroyed here as there, and the models set back to their initial values at the
+ * match's overlay start (netplay_match.c). */
+void BoardSpaceNetplayReset(void)
+{
+    if (spaceHiliteTexData != NULL || spaceTexData != NULL) {
+        GXDestroyTexObj(&spaceHiliteTex);
+        GXDestroyTexObj(&spaceTex);
+    }
+    spaceHiliteTexData = NULL;
+    spaceTexData = NULL;
+    spaceDrawMdl = -1;
+    starPlatMdl = -1;
+    /* the old board overlay's event hooks */
+    landEventFunc = walkMiniEventFunc = walkEventFunc = NULL;
+}
+#endif

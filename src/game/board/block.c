@@ -488,3 +488,21 @@ static void PopupCoinExec(omObjData *obj)
 
     BoardModelRotSetV(work->model, &coin_rot);
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the hidden block's objects end themselves, so these still
+ * name the old board's freed models, coins and objects. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardBlockNetplayReset(void)
+{
+    s32 i;
+    jumpMot = -1;
+    starMdl = -1;
+    blockObj = NULL;
+    blockProc = NULL;
+    for (i = 0; i < 10; i++) {
+        coinMdl[i] = (i < 4) ? -1 : 0;
+        coinF[i] = 0;
+    }
+}
+#endif

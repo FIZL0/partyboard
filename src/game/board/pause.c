@@ -1578,3 +1578,24 @@ static void RotateBox(float arg0, float arg1, Mtx arg2)
     MTXConcat(sp50, sp20, sp20);
     MTXConcat(sp80, sp20, arg2);
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the pause screen ends, so these still name the old board's
+ * freed models, sprites, windows, object and processes. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardPauseNetplayReset(void)
+{
+    s32 i;
+    hostMdl = 0;
+    configObj = NULL;
+    quitProcess = NULL;
+    mainProcess = NULL;
+    pausePad = -1;
+    pauseSprGrp = padConfigSprGrp = -1;
+    pauseCursorPos = -1;
+    settingsControlWin = controlWin = quitWin = settingsWin = -1;
+    for (i = 0; i < 8; i++) {
+        boxModelID[i] = -1;
+    }
+}
+#endif

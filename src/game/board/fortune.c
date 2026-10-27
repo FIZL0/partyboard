@@ -409,3 +409,13 @@ static void ComFortuneSwapStar(s32 player1, s32 player2)
 	GWStarsSet(player1, GWStarsGet(player2));
 	GWStarsSet(player2, temp);
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the fortune event ends, so these still name the old
+ * board's freed object and process. Set back to their initial values at the match's overlay start (netplay_match.c). */
+void BoardFortuneNetplayReset(void)
+{
+    fortunePlatformObj = NULL;
+    fortuneProc = NULL;
+}
+#endif

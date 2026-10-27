@@ -602,3 +602,20 @@ static void WaitOverheadView(void)
         HuPrcVSleep();
     }
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the view's object ends itself, so these still name the old
+ * board's freed model, window, object and process. Set back to their initial values at the match's overlay start
+ * (netplay_match.c). */
+void BoardViewNetplayReset(void)
+{
+    viewControls = 0;
+    viewMoveF = 0;
+    focusDestroyF = 0;
+    pauseDisableF = 0;
+    overheadObj = NULL;
+    viewProc = NULL;
+    buttonWin = -1;
+    focusMdl = -1;
+}
+#endif

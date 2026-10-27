@@ -3109,3 +3109,28 @@ void BoardPlayerCopyMat(s32 arg0)
     memcpy(temp_r3, temp_r31->material, temp_r31->materialNum * sizeof(HSFMATERIAL));
     playerMatCopy[arg0] = temp_r3;
 }
+
+#ifdef TARGET_PC
+/* Netplay (N66): a reload mid-turn replaces the board before the players' objects end themselves, so these still name
+ * the old board's freed objects, models and material copies (omOvlKill freed them). Set back to their initial values at
+ * the match's overlay start (netplay_match.c). */
+void BoardPlayerNetplayReset(void)
+{
+    s32 i;
+    for (i = 0; i < 4; i++) {
+        playerMatCopy[i] = NULL;
+        diceJumpObj[i] = NULL;
+        motDoneF[i] = NULL;
+        megaSquishObj[i] = NULL;
+    }
+    moveAwayObj = NULL;
+    rollObj = NULL;
+    junctionObj = NULL;
+    bowserSuitObj = NULL;
+    megaDoubleDiceF = 0;
+    suitMdl = suitPlayerMdl = suitCurrMot = -1;
+    for (i = 0; i < 5; i++) {
+        bowserSuitMot[i] = -1;
+    }
+}
+#endif
