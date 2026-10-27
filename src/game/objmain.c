@@ -9,6 +9,9 @@
 #include "game/printfunc.h"
 #include "game/minigame_seq.h"
 #include "game/window.h"
+#ifdef TARGET_PC
+#include "port/netplay.h"
+#endif
 
 #define OM_OVL_HIS_MAX 16
 #define OM_MAX_GROUPS 10
@@ -89,6 +92,11 @@ static void omWatchOverlayProc(void)
                 HuMemHeapDump(HuMemHeapPtrGet(HEAP_DVD), -1);
                 OSReport("objman>Used Memory Size:%08x\n", HuMemUsedMallocSizeGet(HEAP_SYSTEM));
                 OSReport("objman>Used Memory Cnt:%d\n", HuMemUsedMallocBlockGet(HEAP_SYSTEM));
+#ifdef TARGET_PC
+                if (netplay_active()) {
+                    netplay_ovl_start(omnextovl);
+                }
+#endif
                 OSReport("objman>Init esp\n");
                 espInit();
                 OSReport("objman>Call objectsetup\n");

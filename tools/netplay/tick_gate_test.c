@@ -15,6 +15,10 @@ u16 HuPadBtn[4], HuPadBtnDown[4], HuPadBtnRep[4]; s8 HuPadStkX[4], HuPadStkY[4],
 u8 HuPadTrigL[4], HuPadTrigR[4], HuPadDStk[4], HuPadDStkRep[4]; s8 HuPadErr[4];
 OMOVL omcurovl; s32 rnd_seed; u32 boardRandSeed; BOOL PartyBoard_IsRunning = TRUE; static u32 fseed;
 u32 frandSeedGet(void) { return fseed; } void frandSeedSet(u32 s) { fseed = s; }
+/* netplay_match.c is not linked here (tools/netplay/match_test.c tests it). */
+void netplay_match_tick(void) {} void netplay_match_end(void) {} u64 netplay_heap_hash(void) { return 0; }
+BOOL netplay_match_start(const NetplayMatch *m) { (void)m; return TRUE; }
+BOOL netplay_match_parse_debug(const char *s, NetplayMatch *m, u32 *at) { (void)s; (void)m; (void)at; return FALSE; }
 void OSReport(const char *fmt, ...) { va_list a; va_start(a, fmt); vprintf(fmt, a); va_end(a); }
 
 static PADStatus phys[4]; static int padread_calls;

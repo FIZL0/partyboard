@@ -39,4 +39,13 @@ size_t HuMemMemorySizeGet(void *ptr);
 size_t HuMemMemoryAllocSizeGet(size_t size);
 void HuMemHeapDump(void *heap_ptr, s16 status);
 
+#ifdef TARGET_PC
+/* One block of a heap for HuMemHeapWalk: offset from the heap start, block size (header included), used or
+ * free, its num, and its data (size - header bytes). */
+typedef void (*HuMemWalkFunc)(void *user, uintptr_t offset, s32 size, BOOL used, uintptr_t num, void *data,
+    size_t data_size);
+/* Calls func for every block of the heap, in address order (netplay: heap census, scrubbing free blocks). */
+void HuMemHeapWalk(void *heap_ptr, HuMemWalkFunc func, void *user);
+#endif
+
 #endif

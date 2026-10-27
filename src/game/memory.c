@@ -226,3 +226,16 @@ size_t HuMemMemorySizeGet(void *ptr)
         return 0;
     }
 }
+
+#ifdef TARGET_PC
+void HuMemHeapWalk(void *heap_ptr, HuMemWalkFunc func, void *user)
+{
+    struct memory_block *block = heap_ptr;
+    do {
+        struct memory_block *next = block->next;
+        func(user, (uintptr_t)block - (uintptr_t)heap_ptr, block->size, block->flag != 0, block->num, BLOCK_GET_DATA(block),
+            (size_t)block->size - BLOCK_ALIGNMENT);
+        block = next;
+    } while (block != heap_ptr);
+}
+#endif

@@ -30,6 +30,10 @@ void HuPadRead(void);
 void HuPadRumbleSet(s16 pad, s16 duration, s16 off, s16 on);
 void HuPadRumbleStop(s16 pad);
 void HuPadRumbleAllStop(void);
+#ifdef TARGET_PC
+/* Netplay match start: every peer's pad state (HuPad* and pad.c's own) back to idle, connected pads. */
+void HuPadNetplayReset(void);
+#endif
 s16 HuPadStatGet(s16 pad);
 u32 HuPadRumbleGet(void);
 
