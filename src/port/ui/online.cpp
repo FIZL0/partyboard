@@ -133,12 +133,16 @@ namespace {
         std::function<bool()> mIsDisabled;
     };
 
-    // A text field that can be disabled by a getter.
+    // A text field that can be disabled by a getter. When the label shows a shortened value or a placeholder,
+    // getInput gives the full value to edit: the input starts out with it (and a phone's soft keyboard with it),
+    // so "(none)" or a "..." code would otherwise be committed as typed.
     class TextButton : public StringButton {
     public:
-        TextButton(Rml::Element *parent, StringButton::Props props, std::function<bool()> isDisabled)
+        TextButton(Rml::Element *parent, StringButton::Props props, std::function<bool()> isDisabled,
+            std::function<Rml::String()> getInput = {})
             : StringButton(parent, std::move(props))
             , mIsDisabled(std::move(isDisabled))
+            , mGetInput(std::move(getInput))
         {
         }
 
@@ -147,8 +151,15 @@ namespace {
             return mIsDisabled && mIsDisabled();
         }
 
+    protected:
+        Rml::String input_value() override
+        {
+            return mGetInput ? mGetInput() : StringButton::input_value();
+        }
+
     private:
         std::function<bool()> mIsDisabled;
+        std::function<Rml::String()> mGetInput;
     };
 
     void help(Pane &left, Pane &right, Component &control, Rml::String text)
@@ -177,6 +188,15 @@ namespace {
     }
 
     const char *const kTeamNames[2] = { "Team A", "Team B" };
+
+    // Not std::chrono::clock_cast: the NDK's and Apple's libc++ don't have it. Off by the few microseconds
+    // between the two now() calls, which a minute-resolution date doesn't show.
+    std::chrono::system_clock::time_point file_time_to_system(std::filesystem::file_time_type t)
+    {
+        using std::chrono::system_clock;
+        return system_clock::now()
+            + std::chrono::duration_cast<system_clock::duration>(t - std::filesystem::file_time_type::clock::now());
+    }
 
 } // namespace
 
@@ -209,16 +229,18 @@ OnlineWindow::OnlineWindow()
 
         left.add_section("Join by Code");
         help(left, right,
-            left.add_child<StringButton>(StringButton::Props {
-                .key = "Code",
-                .getValue = [this] { return mProfile.lastCode.empty() ? Rml::String("(none)") : shorten(mProfile.lastCode, 20); },
-                .setValue =
-                    [this](Rml::String value) {
-                        mProfile.lastCode = trim(std::move(value));
-                        save();
-                    },
-                .maxLength = 1024,
-            }),
+            left.add_child<TextButton>(
+                StringButton::Props {
+                    .key = "Code",
+                    .getValue = [this] { return mProfile.lastCode.empty() ? Rml::String("(none)") : shorten(mProfile.lastCode, 20); },
+                    .setValue =
+                        [this](Rml::String value) {
+                            mProfile.lastCode = trim(std::move(value));
+                            save();
+                        },
+                    .maxLength = 1024,
+                },
+                nullptr, [this] { return mProfile.lastCode; }),
             "The code the host sent you: a short code, a long code or a link.");
         help(left, right, left.add_button("Paste Code").on_pressed([this] {
             if (char *text = SDL_GetClipboardText()) {
@@ -257,8 +279,7 @@ OnlineWindow::OnlineWindow()
             left.add_text("No saved online matches. A match is saved after every minigame.");
         }
         for (const auto &save : saves) {
-            const std::time_t when = std::chrono::system_clock::to_time_t(
-                std::chrono::time_point_cast<std::chrono::system_clock::duration>(std::chrono::clock_cast<std::chrono::system_clock>(save.modified)));
+            const std::time_t when = std::chrono::system_clock::to_time_t(file_time_to_system(save.modified));
             std::tm local {};
             if (const std::tm *tm = std::localtime(&when)) {
                 local = *tm;
@@ -348,7 +369,7 @@ OnlineWindow::OnlineWindow()
                         },
                     .maxLength = 256,
                 },
-                [this] { return mProfile.relay != "own"; }),
+                [this] { return mProfile.relay != "own"; }, [this] { return mProfile.relayUrl; }),
             "The https:// address of your own relay server.");
         left.finalize();
     });
