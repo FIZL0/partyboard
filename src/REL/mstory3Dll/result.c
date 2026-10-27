@@ -330,6 +330,11 @@ void fn_1_165C8(void) {
 s32 fn_1_16924(void) {
     s32 var_r31;
     s32 var_r30;
+#ifdef TARGET_PC
+    // N69: GC returned what r3 held: START HuAudFXPlay(1)'s result, the timeout 1 (HuPrcVSleep resumes from
+    // gcsetjmp with 1), A the window fn_1_1834 makes below (0 opens the detail pages, fn_1_16AD4).
+    s32 ret = 1;
+#endif
 
     var_r31 = 0;
     var_r30 = 0;
@@ -340,7 +345,11 @@ s32 fn_1_16924(void) {
                 HuAudFXPlay(0x1C);
                 break;
             } else if (HuPadBtnDown[lbl_1_bss_1A0C.unk38[lbl_1_bss_1A0C.unk04].unk14] & PAD_BUTTON_MENU) {
+#ifdef TARGET_PC
+                ret = HuAudFXPlay(1);
+#else
                 HuAudFXPlay(1);
+#endif
                 var_r31 = 1;
                 break;
             }
@@ -374,8 +383,13 @@ s32 fn_1_16924(void) {
             fn_1_938();
         }
         lbl_1_bss_1A0C.unk10 = fn_1_1834(-1, 1);
+#ifdef TARGET_PC
+        ret = lbl_1_bss_1A0C.unk10;
+#endif
     }
-    // TODO PC return value
+#ifdef TARGET_PC
+    return ret;
+#endif
 }
 
 void fn_1_16AD4(void) {

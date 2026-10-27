@@ -1122,6 +1122,13 @@ void fn_1_38F0(omObjData *object)
             }
         }
     }
+#ifdef TARGET_PC
+    /* N69: no cell found. sp20[0].unk2 is stale stack then, and the code below indexes the grid with it (column -1)
+     * and writes there. Every way through it ends without moving the COM (the sp20[0].unk0 >= 0 check below). */
+    if (sp20[0].unk0 < 0) {
+        return;
+    }
+#endif
     temp_r23 = lbl_1_bss_14[sp20[0].unk2][sp20[0].unk0].unk8;
     if (temp_r23 == 1) {
         if (lbl_1_bss_14[sp20[3].unk2][sp20[3].unk0].unkC > 0.8f) {

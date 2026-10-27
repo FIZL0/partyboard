@@ -1585,7 +1585,11 @@ s16 fn_1_66AC(void)
     // Hu3DShadowData was copied by GXCopyTex and Aurora doesn't actually copy it there
     // it just holds a reference to the pointer
     // TODO PC does this fix cause issues?
+    // N69: it did: the anim's kill freed the shadow buffer, which Hu3DAllKill then freed again ('memory free error'
+    // at every m415 end). The anim does not own the buffer; its own block goes now.
+    HuMemDirectFree(temp_r31->data);
     temp_r31->data = Hu3DShadowData.buf;
+    (*var_r29)->bmpNum &= ~ANIM_BMP_ALLOC;
 #else
     memcpy(temp_r31->data, Hu3DShadowData.buf, var_r28);
 #endif

@@ -63,7 +63,12 @@ f32 lbl_1_bss_30;
 s8 lbl_1_bss_2C;
 Process *lbl_1_bss_28;
 
+#ifdef TARGET_PC
+// main.c declares this s32 and fn_1_AF8 tests the result. GC returned what BoardRollDispSet(1) left in r3 (N69).
+s32 fn_1_12C8(void)
+#else
 void fn_1_12C8(void)
+#endif
 {
     BoardRollDispSet(0);
     lbl_1_bss_28 = HuPrcChildCreate(&fn_1_1358, 0x2003, 0x2000, 0, boardMainProc);
@@ -74,6 +79,9 @@ void fn_1_12C8(void)
     }
 
     BoardRollDispSet(1);
+#ifdef TARGET_PC
+    return BoardRollDispSetResult(1);
+#endif
 }
 
 void fn_1_1358(void)

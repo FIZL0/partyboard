@@ -593,6 +593,9 @@ void Hu3DModelKill(s16 arg0) {
             HuMemDirectFreeNum(HEAP_DATA, temp_r31->mallocNo);
             if ((temp_r31->attr & HU3D_ATTR_PARTICLE_KILL) != 0) {
                 copy = temp_r31->hookData;
+#ifdef TARGET_PC
+                temp_r31->hsf = NULL; /* not a user of its anim any more (Hu3DParticleAnimUseCheck) */
+#endif
                 HuSprAnimKill(copy->anim);
             }
             temp_r31->hsf = NULL;
@@ -666,6 +669,22 @@ void Hu3DModelKill(s16 arg0) {
         }
     }
 }
+
+#ifdef TARGET_PC
+/* N69: TRUE if a live particle model draws with anim (HuSprAnimKill keeps it for that model's kill). */
+BOOL Hu3DParticleAnimUseCheck(ANIMDATA *anim) {
+    HU3DMODEL *model;
+    s16 i;
+
+    for (i = 0, model = Hu3DData; i < HU3D_MODEL_MAX; i++, model++) {
+        if (model->hsf != NULL && (model->attr & HU3D_ATTR_HOOKFUNC) && (model->attr & HU3D_ATTR_PARTICLE_KILL)
+            && model->hookData != NULL && ((HU3DPARTICLE *)model->hookData)->anim == anim) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+#endif
 
 void Hu3DModelAllKill(void) {
     HU3DMODEL* var_r30;

@@ -706,7 +706,12 @@ void fn_1_1BF8(void) {
 void fn_1_1CE0(UnkM447Struct_00* arg0) {
     s32 i;
 
+#ifdef TARGET_PC
+    /* N69: [25] is unk66, heap bytes nobody set: espDispOff indexed esprite with them and set a sprite's attr */
+    for (i = 0; i < 25; i++) {
+#else
     for (i = 0; i <= 25; i++) {
+#endif
         espDispOff(arg0->unk34[i]);
     }
 }

@@ -1201,6 +1201,10 @@ s32 fn_1_46D8(float arg0, float arg1) {
     s32 sp8[] = { 90, 5, 70, 30, 50, 1, 100, 10 };
     s32 var_r31;
 
+#ifdef TARGET_PC
+    /* N69: a single wrap can leave exactly 360.0f (-tiny + 360), which no range below takes; it is 0 degrees */
+    var_r31 = sp8[0];
+#endif
     if (arg0 >= 0.0f && arg0 < 45.0f) {
         var_r31 = sp8[0];
     } else if (arg0 >= 45.0f && arg0 < 90.0f) {

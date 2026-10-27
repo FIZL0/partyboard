@@ -467,6 +467,14 @@ void HuSprKill(s16 sprite)
 void HuSprAnimKill(ANIMDATA *anim)
 {
     if(--anim->useNum <= 0) {
+#ifdef TARGET_PC
+        /* N69: a minigame's own end (m456 fn_1_8C68) kills anims its particles still draw with. The particle's kill
+         * (Hu3DModelKill at the overlay's end) then killed them again: five 'memory free error's per anim, and a
+         * free of whatever reused a block in between. Keep the anim for the particle; its kill frees it. */
+        if(Hu3DParticleAnimUseCheck(anim)) {
+            return;
+        }
+#endif
         if(anim->bmpNum & ANIM_BMP_ALLOC) {
             if(anim->bmp->data) {
                 HuMemDirectFree(anim->bmp->data);
@@ -478,7 +486,9 @@ void HuSprAnimKill(ANIMDATA *anim)
 #ifdef OPTIMIZED_TEXTURE_LOADING
         int i;
         int j;
-        for(i=0; i<anim->bmpNum; i++) {
+        /* N69: without the mask a HuSprAnimMake anim (bmpNum 1|ANIM_BMP_ALLOC) walked 0x8001 bitmaps past its block
+         * and destroyed the texture objects of whatever lay there (and zeroed their ids) */
+        for(i=0; i<(anim->bmpNum & ANIM_BMP_NUM_MASK); i++) {
             for (j = 0; j < sizeof(anim->bmp[0].texData) / sizeof(anim->bmp[0].texData[0]); j++) {
                 AnimTexData *tex = &anim->bmp[i].texData[j];
                 if (tex->tex_initialized) {

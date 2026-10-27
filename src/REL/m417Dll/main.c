@@ -247,6 +247,10 @@ void fn_1_17C0(omObjData *object)
             var_r30->unk_1C = 30;
             var_r30->unk_20 = REFRESH_RATE;
             lbl_1_bss_12 = MGSeqCreate(3, 0);
+#ifdef TARGET_PC
+            /* N69: GC read a stale stack slot here (sp+8 of this frame); out of 0..7 MGSeqPosSet does nothing */
+            sp8 = -1;
+#endif
             MGSeqPosSet(sp8, 320.0f, 240.0f);
             var_r30->unk_14 = 1;
             var_r30->unk_18 = 0;

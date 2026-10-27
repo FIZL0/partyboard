@@ -500,6 +500,11 @@ void fn_1_53B8(omObjData *object)
     s32 temp_r28;
     temp_r31 = object->data;
     temp_r28 = GWPlayer[lbl_1_bss_86].port;
+#ifdef TARGET_PC
+    /* N69: a COM's buttons on frames it does not press. GC had omMain's r29 there (the objman's address), so
+     * bit 8 of a heap address decided whether the COM pressed A at once. No press. */
+    temp_r29 = 0;
+#endif
     if (--temp_r31->unk1A == 0) {
         temp_r31->unk1A = REFRESH_RATE;
         if (--temp_r31->unk18 >= 0) {

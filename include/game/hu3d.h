@@ -506,6 +506,9 @@ s16 Hu3DModelLink(s16);
 s16 Hu3DHookFuncCreate(HU3DMODELHOOK);
 void Hu3DModelKill(s16);
 void Hu3DModelAllKill(void);
+#ifdef TARGET_PC
+BOOL Hu3DParticleAnimUseCheck(ANIMDATA *anim);
+#endif
 void Hu3DModelPosSet(s16, float, float, float);
 void Hu3DModelPosSetV(s16, HuVecF *);
 void Hu3DModelRotSet(s16, float, float, float);
