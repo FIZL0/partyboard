@@ -7,6 +7,8 @@ if [ -f net/Cargo.toml ]; then
 fi
 # worktrees (slots, merge) start without submodules
 [ -f extern/aurora/CMakeLists.txt ] || git submodule update --init --recursive --quiet
+# netplay lockstep gate and pad injection (C, fake pbnet; no game needed)
+[ ! -x tools/netplay/tick_gate_test.sh ] || tools/netplay/tick_gate_test.sh >/dev/null
 preset=linux-default-relwithdebinfo
 [ -f "build/$preset/build.ninja" ] || cmake --preset "$preset" >/dev/null
 out=$(cmake --build --preset "$preset" 2>&1) || { echo "$out" | grep -E -A5 "error|FAILED" | head -60; exit 1; }

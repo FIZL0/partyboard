@@ -12,6 +12,7 @@
 
 #include <dolphin/types.h>
 #include <dolphin/os.h>
+#include <dolphin/pad.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +42,20 @@ OSTime netplay_time(void);
 
 /* Call once at the end of every game tick while netplay_active(). */
 void netplay_frame_end(void);
+
+/*
+ * Lockstep gate (pbnet): call once per real frame, before the game tick, while netplay_active(). Steps
+ * the pbnet session with this machine's pads and returns FALSE when the frame has to wait for a peer
+ * (skip the game tick, keep pumping events, UI and the frame limiter). TRUE with no lockstep session.
+ */
+BOOL netplay_tick_begin(void);
+/* True while a pbnet lockstep session drives the game. */
+BOOL netplay_lockstep(void);
+/*
+ * The game's PADRead while netplay_active(): the scripted pads (--script), the pads of the last frame
+ * pbnet_step made ready (lockstep), else this machine's controllers. Returns no rumble bits.
+ */
+u32 netplay_pad_read(PADStatus *status);
 
 /*
  * 64-bit FNV-1a hash of GWSystem, GWPlayer[4], GWPlayerCfg[4], the random seeds (frand, rand8,

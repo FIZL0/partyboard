@@ -152,6 +152,13 @@ void main(void)
         if (exiting) {
             break;
         }
+        if (netplay_active() && !netplay_tick_begin()) {
+            /* Lockstep WAIT: no game tick and no new frame (the window keeps the last one), but events,
+             * UI and the 60 Hz pace go on. */
+            ui_update();
+            frame_limiter();
+            continue;
+        }
 #endif
         retrace = VIGetRetraceCount();
         if (HuSoftResetButtonCheck() != 0 || HuDvdErrWait != 0) {
@@ -202,7 +209,7 @@ void main(void)
         }
         ui_update();
         aurora_end_frame();
-        if (!disableFrameLimiter) {
+        if (!disableFrameLimiter || netplay_lockstep()) {
             frame_limiter();
         }
 #endif
