@@ -139,7 +139,12 @@ impl Save {
         let path = dir.join(file_name(&self.id));
         let tmp = path.with_extension("json.tmp");
         let json = serde_json::to_vec_pretty(self).map_err(io::Error::other)?;
-        fs::write(&tmp, json)?;
+        {
+            // Synced before the rename: a crash or power loss right after it never leaves a short file (N47).
+            let mut f = fs::File::create(&tmp)?;
+            io::Write::write_all(&mut f, &json)?;
+            f.sync_all()?;
+        }
         fs::rename(&tmp, &path)?;
         Ok(path)
     }

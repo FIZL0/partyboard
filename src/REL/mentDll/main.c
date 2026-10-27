@@ -13,6 +13,9 @@
 #include "game/sprite.h"
 #include "game/window.h"
 #include "game/wipe.h"
+#ifdef TARGET_PC
+#include "port/netplay.h"
+#endif
 
 #ifndef __MWERKS__
 extern s32 rand8(void);
@@ -776,6 +779,9 @@ void fn_1_85C8(void)
     fn_1_59A0(lbl_1_bss_33AC[0].unk_00, 1, 1, 0xF, 1);
     fn_1_16AC(var_r31);
     saveExecF = 0;
+#ifdef TARGET_PC
+    netplay_party_offer();
+#endif
     if (GWGameStat.party_continue == 1) {
         var_r31 = fn_1_1434(0, 0, 0);
         while (1) {
