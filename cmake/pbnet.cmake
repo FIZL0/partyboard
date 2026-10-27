@@ -6,7 +6,10 @@ find_program(CARGO_EXECUTABLE cargo HINTS "$ENV{CARGO_HOME}/bin" "$ENV{HOME}/.ca
 # Rust target triple. Empty means the host (desktop builds). Cross builds pick it from the toolchain.
 set(PBNET_CARGO_TARGET "" CACHE STRING "Rust target triple for pbnet (empty: host)")
 if (NOT PBNET_CARGO_TARGET)
-    if (ANDROID)
+    if (Rust_CARGO_TARGET)
+        # Set by the iOS/tvOS/Android CI presets for corrosion (aurora builds nod from source there).
+        set(PBNET_CARGO_TARGET ${Rust_CARGO_TARGET})
+    elseif (ANDROID)
         if (CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
             set(PBNET_CARGO_TARGET aarch64-linux-android)
         elseif (CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
@@ -17,7 +20,9 @@ if (NOT PBNET_CARGO_TARGET)
             set(PBNET_CARGO_TARGET i686-linux-android)
         endif ()
     elseif (IOS)
-        if (CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
+        if (CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator" AND CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
+            set(PBNET_CARGO_TARGET x86_64-apple-ios)
+        elseif (CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
             set(PBNET_CARGO_TARGET aarch64-apple-ios-sim)
         else ()
             set(PBNET_CARGO_TARGET aarch64-apple-ios)
@@ -27,6 +32,19 @@ if (NOT PBNET_CARGO_TARGET)
             set(PBNET_CARGO_TARGET x86_64-apple-darwin)
         else ()
             set(PBNET_CARGO_TARGET aarch64-apple-darwin)
+        endif ()
+    elseif (APPLE AND CMAKE_OSX_ARCHITECTURES MATCHES ";")
+        # A universal build would need one cargo build per arch and a lipo step; not done.
+        message(FATAL_ERROR "pbnet: multi-arch CMAKE_OSX_ARCHITECTURES (${CMAKE_OSX_ARCHITECTURES}) is not supported, "
+                "build one arch per configure")
+    elseif (MSVC)
+        # Explicit so a cross build (e.g. an x64 host with an ARM64 vcvars) does not get the host's lib.
+        if (CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
+            set(PBNET_CARGO_TARGET aarch64-pc-windows-msvc)
+        elseif (CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "X86")
+            set(PBNET_CARGO_TARGET i686-pc-windows-msvc)
+        elseif (CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "x64")
+            set(PBNET_CARGO_TARGET x86_64-pc-windows-msvc)
         endif ()
     endif ()
 endif ()
@@ -62,7 +80,14 @@ add_custom_target(pbnet_cargo
 # ELF: also drop the COMDAT groups (only `DW.ref.rust_eh_personality`): left in, the linker keeps our
 # copy of the group and nod's reference lands on a symbol we just made local.
 if (MSVC)
-    # Not handled yet (see research/journal/2026-10-27-n1-pbnet-crate): link the cargo output as is.
+    # COFF has no `ld -r` + localize, so the cargo .lib is linked as is. That is fine with aurora's
+    # Windows default, nod as a DLL: its import lib defines only nod_* stubs. A static nod_static.lib
+    # carries its own std and the link fails on `rust_eh_personality` (checked with lld-link; see
+    # research/journal/2026-10-27-n13-pbnet-non-linux), so refuse that up front.
+    if (AURORA_NOD_LINKAGE STREQUAL "static")
+        message(FATAL_ERROR "pbnet: AURORA_NOD_LINKAGE=static is not supported with MSVC (two Rust std copies "
+                "in one link, which COFF cannot hide); use the default AURORA_NOD_LINKAGE=shared")
+    endif ()
     set(PBNET_LIB ${PBNET_CARGO_LIB})
     add_custom_target(pbnet_lib DEPENDS pbnet_cargo)
 else ()
@@ -91,7 +116,7 @@ set_target_properties(pbnet PROPERTIES IMPORTED_LOCATION ${PBNET_LIB})
 add_dependencies(pbnet pbnet_lib)
 # System libraries the Rust std needs (`rustc --print native-static-libs`).
 if (WIN32)
-    set_property(TARGET pbnet PROPERTY INTERFACE_LINK_LIBRARIES ws2_32 userenv ntdll bcrypt advapi32 kernel32)
+    set_property(TARGET pbnet PROPERTY INTERFACE_LINK_LIBRARIES ws2_32 userenv ntdll dbghelp bcrypt advapi32 kernel32)
 elseif (APPLE)
     set_property(TARGET pbnet PROPERTY INTERFACE_LINK_LIBRARIES "-framework CoreFoundation" iconv)
 elseif (ANDROID)
