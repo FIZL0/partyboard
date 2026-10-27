@@ -91,6 +91,8 @@ set(PORT_FILES
         src/port/iso_validate.cpp
         src/port/netplay.c
         src/port/netplay_match.c
+        src/port/netplay_dir.cpp
+        src/port/netplay_save.c
         src/port/OS.c
         src/port/portmain.cpp
         src/port/settings.cpp

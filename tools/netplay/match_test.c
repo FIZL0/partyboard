@@ -1,10 +1,12 @@
 /* The match start (src/port/netplay_match.c) against stub game functions and the real heap code
- * (src/game/memory.c). Run with tools/netplay/match_test.sh. */
+ * (src/game/memory.c); the continue and the checkpoint (N9, src/port/netplay_save.c) against a fake SLSaveBoard/
+ * SLLoadBoard and a fake pbnet_save_write. Run with tools/netplay/match_test.sh. */
 #include "dolphin.h"
 #include "game/gamework_data.h"
 #include "game/memory.h"
 #include "game/object.h"
 #include "game/process.h"
+#include "game/saveload.h"
 #include "game/wipe.h"
 #include "port/netplay.h"
 #include <assert.h>
@@ -55,6 +57,50 @@ Process *HuPrcCreate(void (*f)(void), u16 prio, u32 stack, s32 extra)
     proc = f;
     proc_prio = prio;
     return &p;
+}
+
+/* N9: the card buffer and SLSaveBoard/SLLoadBoard as saveload.c has them, without the byte swap. */
+SaveBufAll saveBuf; s32 saveExecF = 1; s32 rnd_seed = 0x1234; u32 boardRandSeed = 0x5678;
+u32 frandSeedGet(void) { return 0x9ABC; }
+u32 netplay_session_seed(void) { return 0xDEF0; }
+const char *netplay_user_dir(void) { return "/tmp/user"; }
+static s32 play_clears;
+void BoardMGSetupPlayClear(void) { play_clears++; }
+#define SAVE_PLAYER(i) &saveBuf.buf[(i) * sizeof(PlayerState) + offsetof(SaveBufData, player)]
+void SLSaveBoard(void)
+{
+    s32 i;
+    memcpy(&saveBuf.data.system, &GWSystem, sizeof(SystemState));
+    for (i = 0; i < 4; i++) {
+        memcpy(SAVE_PLAYER(i), &GWPlayer[i], sizeof(PlayerState));
+    }
+}
+void SLLoadBoard(void)
+{
+    s32 i;
+    memcpy(&GWSystem, &saveBuf.data.system, sizeof(SystemState));
+    for (i = 0; i < 4; i++) {
+        memcpy(&GWPlayer[i], SAVE_PLAYER(i), sizeof(PlayerState));
+        GWPlayerCfg[i].character = GWPlayer[i].character;
+        GWPlayerCfg[i].pad_idx = GWPlayer[i].port;
+        GWPlayerCfg[i].diff = GWPlayer[i].diff;
+        GWPlayerCfg[i].iscom = GWPlayer[i].com;
+        GWPlayerCfg[i].group = GWPlayer[i].team;
+    }
+}
+static struct { s32 calls, ok; char dir[64], room[2048]; u8 blob[NETPLAY_BLOB_MAX]; int len; u32 frame, seeds[4]; } saved;
+int pbnet_save_write(const char *dir, const char *room, const uint8_t *blob, int len, uint32_t frame, const uint32_t *seeds,
+    char *path, int cap)
+{
+    saved.calls++;
+    snprintf(saved.dir, sizeof(saved.dir), "%s", dir);
+    snprintf(saved.room, sizeof(saved.room), "%s", room != NULL ? room : "");
+    memcpy(saved.blob, blob, (size_t)len);
+    saved.len = len;
+    saved.frame = frame;
+    memcpy(saved.seeds, seeds, sizeof(saved.seeds));
+    snprintf(path, (size_t)cap, "%s/online/x.json", dir);
+    return saved.ok;
 }
 
 static u8 heap_mem[2][0x4000];
@@ -209,6 +255,113 @@ int main(void)
     assert(!netplay_match_parse_debug("3@", &m, &at));
     assert(!netplay_match_parse_debug("3@0", &m, &at));
     assert(!netplay_match_parse_debug("3@9x", &m, &at));
+
+    /* N9 checkpoint: during a match, the SLSaveBoard blob of the board state goes to pbnet with the match's room and
+     * the seeds; the card buffer is as it was. */
+    {
+        static u8 card[sizeof(saveBuf)], blob[NETPLAY_BLOB_MAX], back[NETPLAY_BLOB_MAX];
+        u32 size = netplay_board_blob_size();
+        NetplayMatch c;
+        const char *room_path = getenv("MATCH_TEST_ROOM");
+
+        assert(size == sizeof(SystemState) + 4 * sizeof(PlayerState));
+        for (i = 0; i < (s32)sizeof(saveBuf); i++) {
+            saveBuf.buf[i] = (u8)(i * 7);
+        }
+        memcpy(card, &saveBuf, sizeof(saveBuf));
+        netplay_checkpoint(); /* no match: nothing */
+        assert(saved.calls == 0 && netplay_checkpoint_last(back, sizeof(back)) == 0);
+
+        m = base();
+        m.board = 3;
+        proc = NULL;
+        assert(netplay_match_start(&m));
+        netplay_match_tick();
+        /* the match is played up to a checkpoint */
+        GWSystem.turn = 7;
+        GWSystem.max_turn = 25;
+        GWSystem.flag[1][0] = 0x01;
+        for (i = 0; i < 4; i++) {
+            GWPlayer[i].character = 7 - i;
+            GWPlayer[i].port = i;
+            GWPlayer[i].com = i >= 2;
+            GWPlayer[i].diff = i;
+            GWPlayer[i].coins = (s16)(10 * i + 3);
+            GWPlayer[i].team = i % 2;
+        }
+        saved.ok = 1;
+        netplay_checkpoint();
+        assert(saved.calls == 1 && saved.len == (int)size && strcmp(saved.dir, "/tmp/user") == 0);
+        assert(memcmp(saved.blob, &GWSystem, sizeof(SystemState)) == 0);
+        assert(memcmp(saved.blob + sizeof(SystemState) + 2 * sizeof(PlayerState), &GWPlayer[2], sizeof(PlayerState)) == 0);
+        assert(saved.seeds[0] == 0xDEF0 && saved.seeds[1] == 0x9ABC && saved.seeds[2] == 0x1234 && saved.seeds[3] == 0x5678);
+        assert(strstr(saved.room, "\"id\":\"local-1111111122222222\"") && strstr(saved.room, "\"started\":true"));
+        assert(strstr(saved.room, "\"board\":3,\"turns\":25") && strstr(saved.room, "\"key\":\"local-1\""));
+        assert(strstr(saved.room, "\"peer\":\"cpu\",\"name\":\"CPU\",\"key\":\"\""));
+        if (room_path != NULL) { /* match_test.sh checks it is a Room pbnet reads */
+            FILE *f = fopen(room_path, "w");
+            assert(f != NULL);
+            fputs(saved.room, f);
+            fclose(f);
+        }
+        assert(memcmp(card, &saveBuf, sizeof(saveBuf)) == 0);
+        assert(netplay_checkpoint_last(back, sizeof(back)) == size && memcmp(back, saved.blob, size) == 0);
+        saved.ok = 0; /* a failed write: the match goes on, the blob is still kept */
+        netplay_checkpoint();
+        assert(saved.calls == 2 && netplay_checkpoint_last(back, sizeof(back)) == size);
+        memcpy(blob, saved.blob, size);
+        netplay_match_end();
+        assert(netplay_checkpoint_last(back, sizeof(back)) == 0);
+
+        /* Continue: refused for a blob of another size or board; nothing started. */
+        c = base();
+        assert(!netplay_match_continue(&c, blob, size - 1));
+        GWSystem.board = 6;
+        netplay_board_blob_get(back, sizeof(back));
+        assert(netplay_board_blob_board(back, size) == 6 && GWSystem.board == 6);
+        assert(!netplay_match_continue(&c, back, size));
+        assert(!netplay_match_running());
+
+        /* Continue on another peer (stale state, a different card): seat 1 is the CPU's now (its player didn't come
+         * back), seat 2 a person's. */
+        memset(&GWSystem, 0x77, sizeof(GWSystem));
+        memset(GWPlayer, 0x66, sizeof(GWPlayer));
+        memset(GWPlayerCfg, 0x55, sizeof(GWPlayerCfg));
+        for (i = 0; i < (s32)sizeof(saveBuf); i++) {
+            saveBuf.buf[i] = (u8)(i * 13);
+        }
+        memcpy(card, &saveBuf, sizeof(saveBuf));
+        c.board = 0; /* ignored: the save's */
+        c.seats[1].cpu = 1;
+        c.seats[1].difficulty = 3;
+        c.seats[2].cpu = 0;
+        proc = NULL;
+        saveExecF = 1;
+        play_clears = 0;
+        wipe_rgb[0] = 0;
+        assert(netplay_match_continue(&c, blob, size));
+        assert(netplay_match_running() && GWSystem.turn != 7); /* nothing before the tick */
+        assert(!netplay_match_continue(&c, blob, size)); /* already starting */
+        assert(netplay_checkpoint_last(back, sizeof(back)) == size && memcmp(back, blob, size) == 0);
+        party_calls = 0;
+        netplay_match_tick();
+        assert(party_calls == 0 && play_clears == 1 && saveExecF == 0);
+        assert(GWSystem.turn == 7 && GWSystem.max_turn == 25 && GWSystem.board == 3 && GWSystem.flag[1][0] == 0x01);
+        assert(GWSystem.save_mode == 1);
+        for (i = 0; i < 4; i++) {
+            BOOL cpu = i == 1 || i == 3;
+            assert(GWPlayer[i].coins == 10 * i + 3 && GWPlayer[i].character == 7 - i && GWPlayerCfg[i].character == 7 - i);
+            assert(GWPlayerCfg[i].pad_idx == i && GWPlayer[i].port == i);
+            assert(GWPlayerCfg[i].iscom == cpu && GWPlayer[i].com == cpu);
+            assert(GWPlayerCfg[i].group == i % 2);
+        }
+        assert(GWPlayerCfg[1].diff == 3 && GWPlayer[1].diff == 3 && GWPlayerCfg[2].diff == 2);
+        assert(memcmp(card, &saveBuf, sizeof(saveBuf)) == 0);
+        assert(wipe_rgb[0] == 0xFF && proc != NULL);
+        proc();
+        assert(called == DLL_w01dll + 3);
+        netplay_match_end();
+    }
 
     printf("match_test: all checks passed\n");
     return 0;

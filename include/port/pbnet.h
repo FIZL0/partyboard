@@ -60,7 +60,8 @@ uint32_t pbnet_delay_for(uint32_t rtt_ms);
  * setup (JSON) for host and join:
  *   {"build": "<version and commit>", "disc": "GMPE01-00", "players": [{"name": "...", "key": "<stable id>"}, ...],
  *    "relay": "n0" | "own" | "off", "relay_url": "https://..." (own only),
- *    "id": "<match id>" (host, optional), "short": true (host: put a short code online, default true)}
+ *    "id": "<match id>" (host, optional), "short": true (host: put a short code online, default true),
+ *    "resume": "<online save path>" (host, optional: continue that save, N9)}
  * players: this machine's 1..4 local players, in the order they take seats.
  */
 
@@ -102,6 +103,34 @@ int pbnet_lobby_cpu(int seat, int difficulty);
 /* Host: starts once every guest is ready (open seats become CPUs); seed 0: from the clock. 1 if started, else 0
  * and the reason snprintf'd into why/cap (why may be NULL). */
 int pbnet_lobby_start(uint64_t seed, char *why, int cap);
+
+/*
+ * The board checkpoint of a started continue (the online save's SLSaveBoard blob the host sent in the Room, N9):
+ * copies at most cap bytes into buf (NULL: none) and returns the blob's length; 0 if the lobby's started match is a
+ * new one (no checkpoint).
+ */
+int pbnet_lobby_checkpoint(uint8_t *buf, int cap);
+
+/*
+ * Online saves (net/src/save.rs, N9): <user_dir>/online/<match id>.json, one per match, rewritten at every checkpoint.
+ * Thread-safe; file IO on the caller's thread.
+ *
+ * pbnet_save_write: the save of a board checkpoint. The room is the lobby's started one, else room_json (a Room as
+ * JSON, for a match with no lobby); blob/len the SLSaveBoard blob; seeds: session, frand, rand8, BoardRand (NULL: 0).
+ * 1 if written (its path snprintf'd into path/cap, path may be NULL), 0 if not (logged).
+ */
+int pbnet_save_write(const char *user_dir, const char *room_json, const uint8_t *blob, int len, uint32_t frame,
+                     const uint32_t *seeds, char *path, int cap);
+/*
+ * The saves as a JSON array, newest first, snprintf-style (returns the full length):
+ *   [{"id", "path", "time" (Unix s), "board", "turn", "max_turn", "seats": [{"name", "character", "cpu"}]}]
+ * Continue one: pbnet_lobby_host with "resume": "<path>" in the setup.
+ */
+int pbnet_save_list(const char *user_dir, char *buf, int cap);
+/* The blob of the save file at path (copies at most cap bytes, returns its length; 0 if not a readable save). */
+int pbnet_save_blob(const char *path, uint8_t *buf, int cap);
+/* Deletes a save (a path from pbnet_save_list; nothing outside an online/ dir). 1 if deleted. */
+int pbnet_save_delete(const char *path);
 
 #ifdef __ANDROID__
 /*

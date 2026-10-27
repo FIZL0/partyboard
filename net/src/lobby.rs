@@ -14,6 +14,12 @@
 //!   computer's from then on ([`CPU`]), the match seed is set.
 //! - either way [`Msg::Leave`]: a guest leaving frees its seats; the host leaving ends the lobby.
 //!
+//! **Continue** (N9): a host holding an online save ([`crate::save`]) opens the lobby with [`Host::resume`]. The
+//! room is the saved one with the board checkpoint in [`Room::checkpoint`] (so guests need no save of their own),
+//! every seat played by the computer until a player takes it: a player whose key holds a seat gets that seat back,
+//! anyone else takes a free one (seats the computer played in the save first, so absent players' seats stay theirs
+//! as long as possible). Characters, teams and rules are the save's and can't be changed.
+//!
 //! Everything here is sans-IO: [`Host`] and [`Guest`] take messages and return what to send, so the protocol is
 //! tested without a network and the transport task (and the C ABI over it) only moves bytes.
 
@@ -90,6 +96,21 @@ pub struct Room {
     pub ver: u32,
     /// Set in the room sent with [`Msg::Start`].
     pub started: bool,
+    /// A continued match: the board checkpoint it resumes from (None for a new match).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint: Option<Checkpoint>,
+}
+
+/// The board checkpoint a continued match starts from (from an online save, [`crate::save::Save`]).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Checkpoint {
+    /// The `SLSaveBoard` blob (GWSystem + GWPlayer[4], big-endian as on the memory card), hex.
+    pub blob: String,
+    /// The turn the match continues at, and its last.
+    pub turn: u8,
+    pub max_turn: u8,
+    /// When the save was written (Unix seconds).
+    pub time: u64,
 }
 
 impl Room {
@@ -106,7 +127,13 @@ impl Room {
             ready: BTreeSet::new(),
             ver: 0,
             started: false,
+            checkpoint: None,
         }
+    }
+
+    /// A continued match: everything is the save's.
+    pub fn resuming(&self) -> bool {
+        self.checkpoint.is_some()
     }
 
     /// The seats `peer` holds, in seat order.
@@ -126,8 +153,23 @@ impl Room {
         out
     }
 
+    /// Seats a new player can take: open ones, and when resuming the ones the computer plays.
     fn open(&self) -> usize {
-        self.seats.iter().filter(|s| s.is_none()).count()
+        (0..SEATS).filter(|&i| self.takeable(i)).count()
+    }
+
+    fn takeable(&self, i: usize) -> bool {
+        match &self.seats[i] {
+            None => true,
+            Some(s) => self.resuming() && s.peer == CPU,
+        }
+    }
+
+    /// The seat a new player takes: the first open one; when resuming, the first the computer played in the save
+    /// (no key), then an absent player's.
+    fn free_seat(&self) -> Option<usize> {
+        let keyless = (0..SEATS).find(|&i| self.takeable(i) && self.seats[i].as_ref().is_none_or(|s| s.key.is_empty()));
+        keyless.or_else(|| (0..SEATS).find(|&i| self.takeable(i)))
     }
 
     /// The lowest character no seat (other than `except`) has.
@@ -211,14 +253,39 @@ pub enum To {
 pub struct Host {
     room: Room,
     ident: Ident,
+    /// Resuming: the seats as the save has them, every one the computer's (a leaving player's seat goes back to it).
+    saved: Option<Box<[Option<Seat>; SEATS]>>,
 }
 
 impl Host {
     /// A new lobby `id`, its first seats for the host's local players (1 to 4).
     pub fn new(id: String, ident: Ident, players: &[Player]) -> Host {
-        let mut h = Host { room: Room::new(id), ident };
+        let mut h = Host { room: Room::new(id), ident, saved: None };
         h.seat(HOST, players);
         h
+    }
+
+    /// A lobby continuing the saved, started `saved` room from `checkpoint`: same id, characters, teams and rules;
+    /// every seat the computer's (keeping its player's key) until a player takes it, then the host's local players
+    /// seated by key. Err if `saved` isn't a started room with four seats.
+    pub fn resume(saved: &Room, checkpoint: Checkpoint, ident: Ident, players: &[Player]) -> Result<Host, String> {
+        if !saved.started || saved.seats.iter().any(Option::is_none) {
+            return Err("the save's room is not a started match".into());
+        }
+        let seats = saved.seats.clone().map(|s| {
+            s.map(|s| Seat { peer: CPU.into(), name: if s.cpu { s.name } else { format!("{} (CPU)", s.name) }, cpu: true, ..s })
+        });
+        let mut room = Room::new(saved.id.clone());
+        room.seats = seats.clone();
+        room.board = saved.board;
+        room.turns = saved.turns;
+        room.bonus = saved.bonus;
+        room.teams = saved.teams;
+        room.handicaps = saved.handicaps;
+        room.checkpoint = Some(checkpoint);
+        let mut h = Host { room, ident, saved: Some(Box::new(seats)) };
+        h.seat(HOST, players);
+        Ok(h)
     }
 
     pub fn room(&self) -> &Room {
@@ -237,9 +304,19 @@ impl Host {
                 self.room.ready.remove(&s.peer);
                 s.peer = peer.into();
                 s.name = p.name.clone();
+                // resuming: the player takes it back from the computer
+                s.cpu = false;
                 continue;
             }
-            let Some(i) = (0..SEATS).find(|&i| self.room.seats[i].is_none()) else { return };
+            let Some(i) = self.room.free_seat() else { return };
+            if let Some(s) = self.room.seats[i].as_mut() {
+                // resuming: the seat is this player's from now on (the next save gives it back by this key)
+                s.peer = peer.into();
+                s.name = p.name.clone();
+                s.key = p.key.clone();
+                s.cpu = false;
+                continue;
+            }
             let character = self.room.free_character(None);
             self.room.seats[i] = Some(Seat {
                 peer: peer.into(),
@@ -286,7 +363,7 @@ impl Host {
                 self.seat(peer, &players);
                 self.changed()
             }
-            Msg::Picks(picks) if seated && !self.room.started => {
+            Msg::Picks(picks) if seated && !self.room.started && !self.room.resuming() => {
                 if self.pick(peer, &picks) {
                     self.changed()
                 } else {
@@ -344,14 +421,14 @@ impl Host {
             return vec![];
         }
         for i in seats {
-            self.room.seats[i] = None;
+            self.room.seats[i] = self.saved.as_ref().and_then(|s| s[i].clone());
         }
         self.changed()
     }
 
     /// The host's own picks for its seats.
     pub fn picks(&mut self, picks: &[Pick]) -> Vec<(To, Msg)> {
-        if self.room.started || !self.pick(HOST, picks) {
+        if self.room.started || self.room.resuming() || !self.pick(HOST, picks) {
             return vec![];
         }
         self.changed()
@@ -359,7 +436,7 @@ impl Host {
 
     /// The host changes the rules (out-of-range values are clamped to what the game offers).
     pub fn settings(&mut self, board: u8, turns: u8, bonus: bool, teams: bool, handicaps: [u8; SEATS]) -> Vec<(To, Msg)> {
-        if self.room.started {
+        if self.room.started || self.room.resuming() {
             return vec![];
         }
         let r = &mut self.room;
@@ -377,10 +454,16 @@ impl Host {
     }
 
     /// The host puts the computer in seat `i` (`difficulty` its level) or opens it again (`None`). A guest's seat
-    /// can't be taken from it here.
+    /// can't be taken from it here. Resuming, every free seat is the computer's: only its level changes.
     pub fn cpu(&mut self, i: usize, difficulty: Option<u8>) -> Vec<(To, Msg)> {
         if self.room.started || i >= SEATS || self.room.seats[i].as_ref().is_some_and(|s| s.human()) {
             return vec![];
+        }
+        if self.room.resuming() {
+            let Some(d) = difficulty else { return vec![] };
+            let s = self.room.seats[i].as_mut().unwrap();
+            s.difficulty = d.min(DIFFICULTIES - 1);
+            return self.changed();
         }
         self.room.seats[i] = difficulty.map(|d| self.cpu_seat(i, d));
         self.changed()
@@ -681,6 +764,112 @@ mod tests {
         assert_eq!(n.guests["g1"].seats(), [1]);
         n.host.cpu(2, None);
         assert!(n.host.room().seats[2].is_none());
+    }
+
+    /// A started room: host "h" in seat 0, guests g1 (character 5) and g2 in seats 1 and 2, the computer in 3.
+    fn played_match() -> Room {
+        let mut n = Net::new();
+        n.join("g1", ident(), vec![player("g1")]);
+        n.join("g2", ident(), vec![player("g2")]);
+        n.send("g1", Msg::Picks(vec![Pick { character: 5, team: 1 }]));
+        let out = n.host.settings(4, 35, false, true, [1, 0, 2, 0]);
+        n.deliver(out);
+        let out = n.host.cpu(3, Some(2));
+        n.deliver(out);
+        n.ready("g1");
+        n.ready("g2");
+        n.host.start(11).unwrap();
+        n.host.room().clone()
+    }
+
+    fn checkpoint() -> Checkpoint {
+        Checkpoint { blob: "00ff".into(), turn: 12, max_turn: 35, time: 1 }
+    }
+
+    /// A Net whose host continues `saved` (players: the host's local ones).
+    fn resumed(saved: &Room, host_players: &[Player]) -> Net {
+        let host = Host::resume(saved, checkpoint(), ident(), host_players).unwrap();
+        Net { host, guests: BTreeMap::new(), heard: vec![] }
+    }
+
+    #[test]
+    fn continue_gives_seats_back_by_key() {
+        let saved = played_match();
+        // g2 hosts the continue this time; the old host and g1 join from new endpoints
+        let mut n = resumed(&saved, &[player("g2")]);
+        let r = n.host.room().clone();
+        assert!(r.resuming() && !r.started && r.seed == 0);
+        assert_eq!((r.id.as_str(), r.board, r.turns, r.teams), (saved.id.as_str(), 4, 35, true));
+        assert_eq!(r.seats_of(HOST), [2], "g2's key holds seat 2");
+        assert!(r.seats[0].as_ref().unwrap().cpu && r.seats[1].as_ref().unwrap().cpu, "absent players: the computer");
+        assert_eq!(r.seats[0].as_ref().unwrap().key, "key-h", "kept for its player");
+        n.join("new-h", ident(), vec![player("h")]);
+        n.join("new-g1", ident(), vec![player("g1")]);
+        assert_eq!(n.guests["new-h"].seats(), [0]);
+        assert_eq!(n.guests["new-g1"].seats(), [1]);
+        let r = n.host.room();
+        for i in 0..SEATS {
+            let (a, b) = (r.seats[i].as_ref().unwrap(), saved.seats[i].as_ref().unwrap());
+            assert_eq!((a.character, a.team, a.cpu), (b.character, b.team, b.cpu), "seat {i} as saved");
+        }
+        assert_eq!(r.seats[1].as_ref().unwrap().character, 5);
+        // the guests see the checkpoint (they need no save of their own)
+        assert_eq!(n.guests["new-g1"].room.as_ref().unwrap().checkpoint, Some(checkpoint()));
+        n.ready("new-h");
+        n.ready("new-g1");
+        let out = n.host.start(99).unwrap();
+        n.deliver(out);
+        let r = n.host.room().clone();
+        assert!(r.started && r.seed == 99 && r.checkpoint.is_some());
+        assert_eq!(n.guests["new-h"].room.as_ref(), Some(&r));
+    }
+
+    #[test]
+    fn continue_unclaimed_seats_go_to_anyone_or_stay_cpu() {
+        let saved = played_match();
+        let mut n = resumed(&saved, &[player("h")]);
+        // a stranger takes the seat the computer played (3) before an absent player's (1, 2)
+        n.join("s1", ident(), vec![player("stranger")]);
+        assert_eq!(n.guests["s1"].seats(), [3]);
+        // a second stranger: an absent player's seat, which is now theirs (their key)
+        n.join("s2", ident(), vec![player("other")]);
+        assert_eq!(n.guests["s2"].seats(), [1]);
+        assert_eq!(n.host.room().seats[1].as_ref().unwrap().key, "key-other");
+        assert_eq!(n.host.room().seats[1].as_ref().unwrap().character, 5, "the save's character");
+        // characters, teams and rules are the save's
+        let before = n.host.room().clone();
+        n.send("s2", Msg::Picks(vec![Pick { character: 0, team: 0 }]));
+        assert!(n.host.settings(0, 10, true, false, [0; SEATS]).is_empty());
+        assert!(n.host.picks(&[Pick { character: 7, team: 0 }]).is_empty());
+        assert_eq!(n.host.room(), &before);
+        // the host sets the level of the computer in seat 2 (g2 didn't come back), can't open it
+        assert!(n.host.cpu(2, None).is_empty());
+        let out = n.host.cpu(2, Some(3));
+        n.deliver(out);
+        assert_eq!(n.host.room().seats[2].as_ref().unwrap().difficulty, 3);
+        assert!(n.host.cpu(1, Some(0)).is_empty(), "a player's seat");
+        // s2 leaves: seat 1 is the save's again (g1's key, the computer)
+        n.send("s2", Msg::Leave);
+        let s1 = n.host.room().seats[1].as_ref().unwrap();
+        assert_eq!((s1.peer.as_str(), s1.key.as_str(), s1.cpu), (CPU, "key-g1", true));
+        // g1 is back and takes it; the lobby is then full for one more
+        n.join("g1b", ident(), vec![player("g1")]);
+        assert_eq!(n.guests["g1b"].seats(), [1]);
+        n.join("late", ident(), vec![player("x"), player("y")]);
+        assert!(matches!(n.last("late"), Some(Event::Refused(w)) if w.contains("full")));
+        for g in ["s1", "g1b"] {
+            n.ready(g);
+        }
+        n.host.start(5).unwrap();
+        let r = n.host.room();
+        assert!(r.seats[2].as_ref().unwrap().cpu, "nobody took seat 2: the computer plays it");
+        assert_eq!(r.seats.iter().flatten().filter(|s| s.human()).count(), 3);
+    }
+
+    #[test]
+    fn continue_needs_a_started_room() {
+        let n = Net::new();
+        assert!(Host::resume(n.host.room(), checkpoint(), ident(), &[player("h")]).is_err());
     }
 
     #[test]

@@ -67,3 +67,53 @@ uint32_t pbnet_delay_for(uint32_t rtt_ms)
     }
     return (uint32_t)frames;
 }
+
+/* N9 online saves: no lobby, so no continue and nothing written; netplay_checkpoint logs the failed write. */
+int pbnet_lobby_checkpoint(uint8_t *buf, int cap)
+{
+    (void)buf;
+    (void)cap;
+    return 0;
+}
+
+int pbnet_save_write(const char *user_dir, const char *room_json, const uint8_t *blob, int len, uint32_t frame,
+                     const uint32_t *seeds, char *path, int cap)
+{
+    (void)user_dir;
+    (void)room_json;
+    (void)blob;
+    (void)len;
+    (void)frame;
+    (void)seeds;
+    (void)path;
+    (void)cap;
+    return 0;
+}
+
+int pbnet_save_list(const char *user_dir, char *buf, int cap)
+{
+    static const char empty[] = "[]";
+    int i;
+    (void)user_dir;
+    if (buf != NULL && cap > 0) {
+        for (i = 0; i < cap - 1 && i < 2; i++) {
+            buf[i] = empty[i];
+        }
+        buf[i] = '\0';
+    }
+    return 2;
+}
+
+int pbnet_save_blob(const char *path, uint8_t *buf, int cap)
+{
+    (void)path;
+    (void)buf;
+    (void)cap;
+    return 0;
+}
+
+int pbnet_save_delete(const char *path)
+{
+    (void)path;
+    return 0;
+}

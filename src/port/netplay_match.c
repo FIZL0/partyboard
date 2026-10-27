@@ -12,6 +12,9 @@
  *     and calls the board, as mentDll does. Two frames later, when the board overlay starts
  *     (netplay_ovl_start), every heap's free memory is zeroed, so reads of memory the game did not write see
  *     the same bytes on every peer, and the heaps' layout is logged.
+ *
+ * A continue (netplay_match_continue, N9) is the same with the board state of an online save's checkpoint (the
+ * SLSaveBoard blob, loaded with SLLoadBoard as mentDll's continue does) instead of a new party.
  */
 
 #include "dolphin.h"
@@ -27,10 +30,13 @@
 #include "game/wipe.h"
 #include "port/netplay.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 SHARED_SYM extern GameStat GWGameStatDefault;
+SHARED_SYM extern s32 saveExecF;
+void BoardMGSetupPlayClear(void);
 SHARED_SYM extern u32 GlobalCounter;
 void HuSysVWaitSet(s16 vcount);
 
@@ -41,7 +47,10 @@ static struct {
     BOOL running; /* netplay_match_start .. netplay_end */
     BOOL pending; /* started; netplay_match_tick has not applied it yet */
     BOOL scrub;   /* applied; the board overlay has not started yet */
+    BOOL resume;  /* a continue: the board state is `blob` */
     NetplayMatch m;
+    u8 blob[NETPLAY_BLOB_MAX];
+    u32 blob_size;
 } match;
 
 static GameStat own_stat;
@@ -97,11 +106,47 @@ BOOL netplay_match_start(const NetplayMatch *m)
     match.running = TRUE;
     match.pending = TRUE;
     match.scrub = FALSE;
+    match.resume = FALSE;
+    match.blob_size = 0;
+    netplay_checkpoint_set(NULL, 0);
     /* A --script run keeps its session (and frame numbers); its seed already makes two runs alike. */
     if (!netplay_debug_scripted()) {
         netplay_begin((u32)m->seed ^ (u32)(m->seed >> 32));
     }
     OSReport("netplay: match start: board %d, %d turns, bonus %d, teams %d\n", m->board, m->turns, m->bonus, m->teams);
+    return TRUE;
+}
+
+BOOL netplay_match_continue(const NetplayMatch *m, const void *blob, u32 size)
+{
+    NetplayMatch c;
+    s32 board;
+
+    if (blob == NULL || size != netplay_board_blob_size() || size > sizeof(match.blob)) {
+        OSReport("netplay: cannot continue: a checkpoint of %u bytes, this build's are %u\n", (unsigned)size,
+            (unsigned)netplay_board_blob_size());
+        return FALSE;
+    }
+    if (match.pending) {
+        OSReport("netplay: cannot continue: a match is already starting\n");
+        return FALSE;
+    }
+    board = netplay_board_blob_board(blob, size);
+    if (board < 0 || board >= NETPLAY_BOARDS) {
+        OSReport("netplay: cannot continue: the checkpoint is on board %d\n", (int)board);
+        return FALSE;
+    }
+    /* The board is the save's (the overlay to call and the wipe colour); the rest of the state comes with the blob. */
+    c = *m;
+    c.board = (u8)board;
+    if (!netplay_match_start(&c)) {
+        return FALSE;
+    }
+    memcpy(match.blob, blob, size);
+    match.blob_size = size;
+    match.resume = TRUE;
+    netplay_checkpoint_set(match.blob, size);
+    OSReport("netplay: the match continues from a checkpoint\n");
     return TRUE;
 }
 
@@ -190,6 +235,36 @@ static void party_config(const NetplayMatch *m)
     BoardSaveInit(m->board);
 }
 
+/* A continue: mentDll's party continue (main.c:798-805, SLLoadBoard) from the checkpoint, then who plays each seat now. */
+static void resume_config(const NetplayMatch *m)
+{
+    s32 i;
+
+    memset(&GWSystem, 0, sizeof(GWSystem));
+    memset(GWPlayer, 0, sizeof(GWPlayer));
+    memset(GWPlayerCfg, 0, sizeof(GWPlayerCfg));
+    netplay_board_blob_set(match.blob, match.blob_size);
+    /* The checkpoint was taken online, so it is "don't save" already; set anyway (the local card stays untouched). */
+    GWSaveModeSet(1);
+    for (i = 0; i < 4; i++) {
+        /* Seat i still plays with lockstep pad i; a seat nobody took back is the CPU's now (and the reverse). */
+        GWPlayerCfg[i].pad_idx = i;
+        GWPlayer[i].port = i;
+        GWPlayerCfg[i].iscom = m->seats[i].cpu ? 1 : 0;
+        GWPlayer[i].com = m->seats[i].cpu ? 1 : 0;
+        if (m->seats[i].cpu) {
+            GWPlayerCfg[i].diff = m->seats[i].difficulty;
+            GWPlayer[i].diff = m->seats[i].difficulty;
+        }
+    }
+    /* The checkpoint has flag (1,0) set, so the board does not clear its "recently played minigames" lists
+     * (BoardObjectSetup, board/main.c:102): dol statics, which differ between a peer that played the match up to here
+     * and one that did not. Cleared here, as a continue after a power-off of the console has them. */
+    BoardMGSetupPlayClear();
+    /* mentDll's continue sets it to 1, and mstory3dll then writes the local card at the end of the party. */
+    saveExecF = 0;
+}
+
 /* Frame 0, first process to run: mentDll fn_1_C174(3) without its wipe-out. */
 static void MatchStartProc(void)
 {
@@ -220,7 +295,11 @@ void netplay_match_tick(void)
     match.pending = FALSE;
     HuPadNetplayReset();
     game_stat_canned();
-    party_config(&match.m);
+    if (match.resume) {
+        resume_config(&match.m);
+    } else {
+        party_config(&match.m);
+    }
     wipe_reset();
     GlobalCounter = 0;
     HuSysVWaitSet(1);
@@ -320,6 +399,38 @@ void netplay_match_end(void)
         own_stat_saved = FALSE;
     }
     memset(&match, 0, sizeof(match));
+    netplay_checkpoint_set(NULL, 0);
+}
+
+/* A Room (net/src/lobby.rs) of the match for an online save when no lobby runs: --match debug runs. */
+int netplay_match_room_json(char *buf, int cap)
+{
+    const NetplayMatch *m = &match.m;
+    char seats[4][160];
+    s32 i;
+
+    if (!match.running) {
+        if (buf != NULL && cap > 0) {
+            buf[0] = '\0';
+        }
+        return 0;
+    }
+    for (i = 0; i < 4; i++) {
+        const NetplaySeat *st = &m->seats[i];
+        char name[16], key[16];
+        /* Humans are this machine's players ("host"), keyed by seat; a CPU seat has no key. */
+        snprintf(name, sizeof(name), st->cpu ? "CPU" : "Player %d", (int)i + 1);
+        snprintf(key, sizeof(key), st->cpu ? "" : "local-%d", (int)i + 1);
+        snprintf(seats[i], sizeof(seats[i]),
+            "{\"peer\":\"%s\",\"name\":\"%s\",\"key\":\"%s\",\"character\":%u,\"cpu\":%s,\"difficulty\":%u,\"team\":%u}",
+            st->cpu ? "cpu" : "host", name, key, st->character, st->cpu ? "true" : "false", st->difficulty, st->team);
+    }
+    return snprintf(buf, buf != NULL ? (size_t)cap : 0,
+        "{\"id\":\"local-%016llX\",\"seats\":[%s,%s,%s,%s],\"board\":%u,\"turns\":%u,\"bonus\":%s,\"teams\":%s,"
+        "\"handicaps\":[%u,%u,%u,%u],\"seed\":%llu,\"ready\":[],\"ver\":0,\"started\":true}",
+        (unsigned long long)m->seed, seats[0], seats[1], seats[2], seats[3], m->board, m->turns, m->bonus ? "true" : "false",
+        m->teams ? "true" : "false", m->seats[0].handicap, m->seats[1].handicap, m->seats[2].handicap, m->seats[3].handicap,
+        (unsigned long long)m->seed);
 }
 
 BOOL netplay_match_parse_debug(const char *spec, NetplayMatch *m, u32 *at_frame)

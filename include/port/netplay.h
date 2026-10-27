@@ -67,8 +67,9 @@ u64 netplay_hash(void);
  * Debug: parse `--script <file>` and `--hash-log <file>` from the command line. With --script the
  * game starts a local session at boot and plays the scripted pads; with --hash-log every frame's
  * netplay_hash() is written as "<frame> <hash> <section>=<value>...". `--match <board>@<frame>` (with
- * --script) starts a match on that board after that frame (netplay_match_parse_debug). Returns FALSE (and
- * logs why) if a file or argument can't be used.
+ * --script) starts a match on that board after that frame (netplay_match_parse_debug); with `--continue <online
+ * save .json>` that match continues the save instead (N9). Returns FALSE (and logs why) if a file or argument
+ * can't be used.
  */
 BOOL netplay_debug_init(int argc, char *argv[]);
 /* True if --script was given (the prelaunch UI is skipped so runs need no clicks). */
@@ -118,6 +119,41 @@ void netplay_match_end(void);
 u64 netplay_heap_hash(void);
 /* "--match <board>@<frame>": parse a debug match (seat 1P human, 2P-4P CPU) for a --script run. */
 BOOL netplay_match_parse_debug(const char *spec, NetplayMatch *m, u32 *at_frame);
+
+/*
+ * Continue (N9, netplay_match.c): as netplay_match_start, but the board state is the checkpoint `blob` (an online
+ * save's SLSaveBoard blob: the save file's or the lobby's, pbnet_lobby_checkpoint) instead of a new party. Board,
+ * turn, characters, teams and coins/stars are the blob's; from `m` only the seed and each seat's cpu and difficulty
+ * (who plays the seat now: unclaimed seats are the CPU's) are used. Every peer must pass the same `m` and blob. FALSE
+ * (and logs why) if the blob is not a board checkpoint of this build or `m` is refused by netplay_match_start.
+ */
+BOOL netplay_match_continue(const NetplayMatch *m, const void *blob, u32 size);
+
+/*
+ * Online saves (N9, src/port/netplay_save.c). The checkpoint blob is what SLSaveBoard writes into the card buffer
+ * (GWSystem + GWPlayer[4], big-endian), taken and given back without changing the local card's buffer.
+ */
+#define NETPLAY_BLOB_MAX 1024
+u32 netplay_board_blob_size(void);
+/* SLSaveBoard of the current state into out (cap bytes); its size, 0 if cap is too small. */
+u32 netplay_board_blob_get(u8 *out, u32 cap);
+/* SLLoadBoard of blob (GWSystem, GWPlayer, GWPlayerCfg from it); FALSE if size is not netplay_board_blob_size(). */
+BOOL netplay_board_blob_set(const u8 *blob, u32 size);
+/* GWSystem.board of blob without loading it (backs up and restores the state); -1 if it is no board blob. */
+s32 netplay_board_blob_board(const u8 *blob, u32 size);
+/*
+ * resultDll, at the board checkpoint (where SaveExec writes the card), while netplay_active(): during a match, every
+ * peer writes <user dir>/online/<match id>.json (pbnet_save_write) and keeps the blob (netplay_checkpoint_last).
+ */
+void netplay_checkpoint(void);
+/* The last checkpoint's blob of this match into out (cap bytes): its size, 0 if none yet. */
+u32 netplay_checkpoint_last(u8 *out, u32 cap);
+/* netplay_match.c: forget the last checkpoint (size 0: a match starts or ends) or take `blob` as it (a continue). */
+void netplay_checkpoint_set(const u8 *blob, u32 size);
+/* The user dir (config, saves), UTF-8; never NULL ("" before it is known). src/port/netplay_dir.cpp. */
+const char *netplay_user_dir(void);
+/* The Room JSON for a save when no lobby runs (a --match debug run): from the match, id "local-<seed>". */
+int netplay_match_room_json(char *buf, int cap);
 
 /* Seed accessors for the hash and session start (frand_seed is static in src/game/frand.c). */
 u32 frandSeedGet(void);
