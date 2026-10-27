@@ -252,6 +252,9 @@ pub enum Msg {
     /// N10, host → all: every peer reloads `room`'s checkpoint (none: the match's start) and runs a new lockstep
     /// session, numbered `epoch`, on `room`'s line-up.
     Reload { room: Room, epoch: u32 },
+    /// N44, host → all: going back to the last save point did not mend a desync (the same point desynced again), so
+    /// the game holds `secs` seconds before the next try ([`crate::desync::Resync::delay`]).
+    Held { secs: u32 },
 }
 
 /// Where the host sends a message.
