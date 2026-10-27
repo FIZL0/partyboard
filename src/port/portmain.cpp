@@ -543,7 +543,9 @@ extern "C" int port_main(int argc, char* argv[]) {
     PartyBoard_IsGameLaunched = true;
 
     if (!partyboard::getSettings().backend.wasPresetChosen) {
-        partyboard::ui::push_document(std::make_unique<partyboard::ui::PresetWindow>());
+        partyboard::ui::applyPresetPartyBoard();
+        partyboard::getSettings().backend.wasPresetChosen.setValue(true);
+        partyboard::config::Save();
     }
 
     partyboard::version::init();
