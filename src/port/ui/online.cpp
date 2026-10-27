@@ -116,6 +116,25 @@ namespace {
         Rml::String mText = "\x01";
     };
 
+    // Live text that tells its owner when the tab it is on closes.
+    class WatchedText : public LiveText {
+    public:
+        WatchedText(Rml::Element *parent, std::function<Rml::String()> getText, std::function<void()> onGone)
+            : LiveText(parent, std::move(getText))
+            , mOnGone(std::move(onGone))
+        {
+        }
+        ~WatchedText() override
+        {
+            if (mOnGone) {
+                mOnGone();
+            }
+        }
+
+    private:
+        std::function<void()> mOnGone;
+    };
+
     // A button that can be disabled by a getter.
     class ActionButton : public Button {
     public:
@@ -321,12 +340,48 @@ OnlineWindow::OnlineWindow()
 
     add_tab("LAN", [this](Rml::Element *content) {
         auto &left = add_child<Pane>(content, Pane::Type::Controlled);
-        add_child<Pane>(content, Pane::Type::Uncontrolled);
+        auto &right = add_child<Pane>(content, Pane::Type::Uncontrolled);
+
+        const int state = pbnet_lobby_state();
+        if (state == Connecting || state == Open) {
+            left.add_section("Lobby");
+            help(left, right, left.add_button("Back to Lobby").on_pressed([this] { open_lobby(); }),
+                "Go back to the lobby you are in.");
+            left.add_text("Leave the lobby to find games on this network.");
+            left.finalize();
+            return;
+        }
+
+        // Browses until the tab closes (the status line goes with it); update() polls and rebuilds the list.
+        if (mLan.state.empty()) {
+            poll_lan();
+        }
+        mLanOpen = true;
+        mLanLeft = &left;
+        mLanKey = lan_key(mLan);
+        mLanButtons.clear();
 
         left.add_section("Games on This Network");
-        left.add_text("Finding games on this network is not available in this build yet.");
-        left.add_text("Ask the host for the code and use Join. Hosting with the relay off works on a "
-                      "shared network without internet.");
+        left.add_child<WatchedText>([this] { return lan_status(); }, [this] {
+            mLanOpen = false;
+            mLanLeft = nullptr;
+            mLanButtons.clear();
+        });
+        for (const auto &game : mLan.games) {
+            const Rml::String name = game.name.empty() ? Rml::String("Game") : shorten(game.name, 20);
+            const Rml::String seats = game.open == 1 ? Rml::String("1 seat open") : fmt::format("{} seats open", game.open);
+            auto &button = left.add_select_button({
+                .key = name,
+                .getValue = [seats] { return seats; },
+                .isDisabled = [open = game.open] { return open == 0; },
+            });
+            button.on_pressed([this, code = game.code] { join_lan(code); });
+            help(left, right, button,
+                fmt::format("<b>{}</b>'s lobby: {}.<br/><br/>Press to join it.", escape(name), seats));
+            mLanButtons.emplace_back(game.code, &button);
+        }
+        left.add_text("A lobby hosted on this network shows up here while it waits for players. If it doesn't, ask "
+                      "the host for the code and use Join.");
         left.finalize();
     });
 
@@ -481,6 +536,109 @@ void OnlineWindow::rejoin()
         return;
     }
     open_lobby();
+}
+
+OnlineWindow::~OnlineWindow()
+{
+    // The LAN tab's status line resets mLan* as it goes: let it go while they are still there.
+    clear_content();
+    if (mBrowsing) {
+        pbnet_lan_stop();
+    }
+}
+
+void OnlineWindow::update()
+{
+    if (mLanOpen) {
+        // Twice a second is enough for a list that changes when a host opens or closes a lobby.
+        if (++mLanTick % 30 == 0) {
+            poll_lan();
+        }
+        if (lan_key(mLan) != mLanKey) {
+            rebuild_lan();
+        }
+    }
+    else if (mBrowsing) {
+        pbnet_lan_stop();
+        mBrowsing = false;
+        mLan = {};
+        mLanKey.clear();
+    }
+    Window::update();
+}
+
+void OnlineWindow::poll_lan()
+{
+    // Not while in a lobby: it took the browse's endpoint, and a poll would bind another.
+    const int state = pbnet_lobby_state();
+    if (state == Connecting || state == Open || state == Started) {
+        return;
+    }
+    const std::string setup = setup_json(mProfile, build_id(), disc_id(), false);
+    int len = pbnet_lan_browse(setup.c_str(), nullptr, 0);
+    mBrowsing = true;
+    if (len <= 0) {
+        return;
+    }
+    std::string json(static_cast<size_t>(len) + 1, '\0');
+    len = pbnet_lan_browse(setup.c_str(), json.data(), static_cast<int>(json.size()));
+    json.resize(static_cast<size_t>(std::clamp(len, 0, static_cast<int>(json.size()) - 1)));
+    parse_lan(json, mLan);
+}
+
+void OnlineWindow::rebuild_lan()
+{
+    // Keep the player on the game they were on (or in the list) across the rebuild.
+    auto *context = mDocument != nullptr ? mDocument->GetContext() : nullptr;
+    auto *focused = context != nullptr ? context->GetFocusElement() : nullptr;
+    const bool inList = focused != nullptr && mLanLeft != nullptr && mLanLeft->contains(focused);
+    std::string focusedCode;
+    for (const auto &[code, button] : mLanButtons) {
+        if (inList && button->contains(focused)) {
+            focusedCode = code;
+        }
+    }
+    refresh_active_tab();
+    if (!inList || mLanLeft == nullptr) {
+        return;
+    }
+    for (const auto &[code, button] : mLanButtons) {
+        if (code == focusedCode && button->focus()) {
+            return;
+        }
+    }
+    mLanLeft->focus();
+}
+
+void OnlineWindow::join_lan(const std::string &code)
+{
+    save();
+    set_recover_dir();
+    const std::string setup = setup_json(mProfile, build_id(), disc_id(), false);
+    if (!pbnet_lobby_join(setup.c_str(), code.c_str())) {
+        show_message(*this, "Can't Join", "That game can't be joined. Check the relay setting in the Players tab.");
+        return;
+    }
+    // The lobby took the browse's endpoint.
+    mBrowsing = false;
+    open_lobby();
+}
+
+std::string OnlineWindow::lan_status() const
+{
+    if (mLan.state == "closed") {
+        return mLan.error.empty() ? "Can't look for games on this network." : mLan.error;
+    }
+    if (mLan.state != "open") {
+        return "Looking for games...";
+    }
+    if (!mLan.lan) {
+        return "This device can't look for games on the network. Ask the host for the code and use Join.";
+    }
+    if (mLan.games.empty()) {
+        return "No games found yet.";
+    }
+    return "Press a game to join it.";
 }
 
 void update_online_match()

@@ -284,4 +284,43 @@ std::vector<Save> list_saves(const std::filesystem::path &dir)
     return saves;
 }
 
+bool parse_lan(std::string_view json, LanList &list)
+{
+    const auto j = nlohmann::json::parse(json.begin(), json.end(), nullptr, false);
+    if (!j.is_object() || !j.contains("state")) {
+        return false;
+    }
+    LanList l;
+    l.state = str(j, "state");
+    l.lan = flag(j, "lan", false);
+    l.error = str(j, "error");
+    if (auto it = j.find("games"); it != j.end() && it->is_array()) {
+        for (const auto &g : *it) {
+            if (!g.is_object()) {
+                continue;
+            }
+            LanGame game {
+                .code = str(g, "code"),
+                .id = str(g, "id"),
+                .name = str(g, "name"),
+                .open = std::clamp(num(g, "open", 0), 0, kSeats),
+            };
+            if (!game.code.empty()) {
+                l.games.push_back(std::move(game));
+            }
+        }
+    }
+    list = std::move(l);
+    return true;
+}
+
+std::string lan_key(const LanList &list)
+{
+    std::string key;
+    for (const auto &g : list.games) {
+        key += g.code + '\n' + g.id + '\n' + g.name + '\n' + std::to_string(g.open) + '\n';
+    }
+    return key;
+}
+
 } // namespace partyboard::online

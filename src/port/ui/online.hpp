@@ -6,16 +6,21 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace partyboard::ui {
 
+class Component;
 class Pane;
 
 // Online menu: Host / Join by code / LAN games / Continue saved game, and this device's players.
 class OnlineWindow : public Window {
 public:
     OnlineWindow();
+    ~OnlineWindow() override;
+
+    void update() override;
 
 private:
     void save();
@@ -23,8 +28,21 @@ private:
     void join();
     void rejoin();
     void open_lobby();
+    void poll_lan();
+    void rebuild_lan();
+    void join_lan(const std::string &code);
+    std::string lan_status() const;
 
     online::Profile mProfile;
+
+    // N28: the LAN tab browses (pbnet_lan_browse) while it is open.
+    bool mLanOpen = false;
+    bool mBrowsing = false;
+    int mLanTick = 0;
+    online::LanList mLan;
+    std::string mLanKey;
+    Pane *mLanLeft = nullptr;
+    std::vector<std::pair<std::string, Component *>> mLanButtons;
 };
 
 // The lobby (pbnet_lobby_*): seats, this device's characters, the rules (host only), ready and start.

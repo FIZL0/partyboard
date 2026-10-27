@@ -112,4 +112,27 @@ struct Save {
 // Newest first; no directory: none.
 std::vector<Save> list_saves(const std::filesystem::path &dir);
 
+// A lobby heard on the LAN (pbnet_lan_browse).
+struct LanGame {
+    // The host's endpoint ID: pass to pbnet_lobby_join.
+    std::string code;
+    std::string id;
+    std::string name;
+    int open = 0;
+};
+
+// pbnet_lan_browse, parsed.
+struct LanList {
+    // "binding", "open" or "closed" ("" before the first answer).
+    std::string state;
+    bool lan = false;
+    std::string error;
+    std::vector<LanGame> games;
+};
+
+// False (and list untouched) if json is not a LAN list. Games without a code are left out.
+bool parse_lan(std::string_view json, LanList &list);
+// Changes when a game comes, goes or changes its name or open seats.
+std::string lan_key(const LanList &list);
+
 } // namespace partyboard::online
