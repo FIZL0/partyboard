@@ -483,8 +483,8 @@ void netplay_ovl_start(s32 ovl)
     }
     match.scrub = FALSE;
     match.board = TRUE;
-    OSReport("netplay: board overlay %d starts at frame %u, heaps %016llX\n", ovl, netplay_frame(),
-        (unsigned long long)heap_walk(TRUE, TRUE));
+    OSReport("netplay: board overlay %d starts at frame %u, turn %d/%d, heaps %016llX\n", ovl, netplay_frame(),
+        GWSystem.turn, GWSystem.max_turn, (unsigned long long)heap_walk(TRUE, TRUE));
 }
 
 BOOL netplay_match_over(void)
