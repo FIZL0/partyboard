@@ -594,6 +594,10 @@ impl Shared {
         if let Some(Role::Guest(g)) = &mut self.role {
             g.back();
         }
+        // N39: a finished match is never offered to rejoin (under the lock, so the keep tick can't write it again)
+        if let Some(dir) = recover::user_dir() {
+            recover::forget(&dir);
+        }
         if self.peers.contains_key(HOST) {
             self.phase = Phase::Open;
             self.bump();
@@ -1111,7 +1115,9 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
             tokio::select! {
                 Some(d) = dgrams.recv() => p.send_datagram(d),
                 _ = keep.tick() => {
-                    if let (Some(dir), true) = (recover::user_dir(), lock(&sh).phase == Phase::Started) {
+                    // the lock is held while it writes: a match over (Shared::back forgets the record) stays over
+                    let s = lock(&sh);
+                    if let (Some(dir), true) = (recover::user_dir(), s.phase == Phase::Started) {
                         recover::keep(&dir, &mut kept);
                     }
                 }

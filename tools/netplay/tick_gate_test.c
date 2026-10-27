@@ -89,6 +89,9 @@ void pbnet_lockstep_finish(void) { finish_calls++; on = 0; }
 int pbnet_lobby_back(void) { back_calls++; if (lobby_state != PBNET_LOBBY_STARTED) return 0; lobby_state = PBNET_LOBBY_OPEN; return 1; }
 static int stop_calls;
 void pbnet_lockstep_stop(void) { stop_calls++; on = 0; }
+/* N39: the rejoin record is forgotten when the match is over (never when it is left mid-way). */
+static int forget_calls;
+void pbnet_rejoin_forget(void) { forget_calls++; }
 
 /* N25: the match is over (netplay_match_over) at the end of a frame: the lockstep finishes, the session ends and the
  * lobby goes back to open, once, at the end of that frame; the UI hears it once. */
@@ -98,15 +101,15 @@ static void match_end_checks(void)
     netplay_begin(9);
     on = 1;
     lobby_state = PBNET_LOBBY_STARTED;
-    finish_calls = back_calls = match_ends = still_drops = 0;
+    finish_calls = back_calls = match_ends = still_drops = forget_calls = 0;
     netplay_frame_end();
-    assert(netplay_active() && finish_calls == 0 && !netplay_lobby_returned());
+    assert(netplay_active() && finish_calls == 0 && forget_calls == 0 && !netplay_lobby_returned());
     over = 1;
     at = netplay_frame();
     netplay_frame_end();
     assert(netplay_frame() == at + 1);
     assert(!netplay_active() && !netplay_lockstep() && finish_calls == 1 && match_ends == 1 && still_drops == 1);
-    assert(back_calls == 1 && lobby_state == PBNET_LOBBY_OPEN);
+    assert(back_calls == 1 && lobby_state == PBNET_LOBBY_OPEN && forget_calls == 1);
     assert(netplay_lobby_returned() && !netplay_lobby_returned());
     /* Back on local controllers. */
     phys[0].button = PAD_BUTTON_START;
@@ -122,6 +125,7 @@ static void match_end_checks(void)
     over = 1;
     netplay_frame_end();
     assert(!netplay_active() && back_calls == 1 && !netplay_lobby_returned());
+    assert(forget_calls == 2); /* the lobby closed meanwhile: still forgotten */
 }
 
 static char fixture[4096];
@@ -241,7 +245,7 @@ static void match_left_checks(void)
         netplay_begin(9);
         on = 1;
         running = 1;
-        stop_calls = leaves = match_ends = still_drops = 0;
+        stop_calls = leaves = match_ends = still_drops = forget_calls = 0;
         netplay_lobby_poll();
         assert(stop_calls == 0 && leaves == 0 && netplay_active());
         lobby_state = gone[i];
@@ -249,6 +253,7 @@ static void match_left_checks(void)
         netplay_lobby_poll();
         assert(leave_polls == polls + 1);
         assert(stop_calls == 1 && leaves == 1 && match_ends == 1 && still_drops == 1);
+        assert(forget_calls == 0); /* left mid-way: the guest may still rejoin */
         assert(!netplay_active() && !netplay_lockstep());
         netplay_lobby_poll();
         assert(stop_calls == 1 && leaves == 1);

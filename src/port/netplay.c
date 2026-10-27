@@ -513,6 +513,8 @@ static void match_finish(void)
     OSReport("netplay: match over at frame %u, hash %016llX: session ends\n", frame, (unsigned long long)netplay_hash());
     pbnet_lockstep_finish();
     netplay_end();
+    /* N39: a guest never offers to rejoin a finished match (also when its lobby closed meanwhile). */
+    pbnet_rejoin_forget();
     if (lockstep && pbnet_lobby_state() != PBNET_LOBBY_NONE) {
         pbnet_lobby_back();
         lobby_returned = TRUE;
