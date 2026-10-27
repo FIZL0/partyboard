@@ -176,11 +176,32 @@ s32 netplay_board_blob_board(const u8 *blob, u32 size);
  */
 void netplay_checkpoint(void);
 /*
- * board/main.c MainFunc, at the start of each player's turn, while netplay_active() (N46): during a lockstep match the
- * board state (the SLSaveBoard blob) becomes this machine's newest desync resync point (pbnet_resync_point; in memory
- * only). src/port/netplay_resync.c.
+ * board/main.c MainFunc, at the start of each player's turn, while netplay_turn_hooks() (N46, N47): during a match
+ * every peer writes the online save (netplay_checkpoint: <user dir>/online/<match id>.json), and during a lockstep
+ * match the same blob becomes this machine's newest desync resync point (pbnet_resync_point). Outside a match, a
+ * local party writes its autosave (netplay_party_autosave). src/port/netplay_resync.c.
  */
 void netplay_turn_checkpoint(void);
+/* The guard of the board's turn hooks: netplay_active(), or a party (GWSystem.party) that autosaves offline (N47). */
+BOOL netplay_turn_hooks(void);
+/*
+ * N47, offline party autosave (src/port/netplay_autosave.c): <user dir>/local/party.json, the SLSaveBoard blob at
+ * the start of every player's turn, written to a temporary file and renamed over the last one.
+ *  - netplay_party_autosave: from netplay_turn_checkpoint, in a party outside a match (not the tutorial).
+ *  - netplay_party_offer: mentDll, before the party menu asks whether to continue: a readable autosave goes into the
+ *    card buffer's party board (what that Continue's SLLoadBoard reads) and turns the question on; the board then
+ *    resumes the saved player's turn (netplay_turn_resume_arm).
+ *  - netplay_party_finish: mstory3Dll, when a party's results end it: the autosave is deleted.
+ */
+void netplay_party_autosave(void);
+void netplay_party_offer(void);
+void netplay_party_finish(void);
+/* <dir>/<name> written whole to a temporary file, synced and renamed over it (src/port/netplay_dir.cpp); 1 if done. */
+int netplay_file_replace(const char *dir, const char *name, const void *data, u32 size);
+/* The file's bytes into buf (cap bytes): its size, -1 if it can't be read or is larger than cap. */
+int netplay_file_read(const char *path, void *buf, u32 cap);
+/* Removes the file; 1 if it was there. */
+int netplay_file_remove(const char *path);
 /*
  * A turn's resync point resumes that turn (N46). The board resets every player's space and items and starts at player
  * 0 unless BoardStartCheck says it comes back mid-round (after a minigame, a Bowser or battle event). A continue arms

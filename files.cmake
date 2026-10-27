@@ -90,6 +90,7 @@ set(PORT_FILES
         src/port/io.cpp
         src/port/iso_validate.cpp
         src/port/netplay.c
+        src/port/netplay_autosave.c
         src/port/netplay_match.c
         src/port/netplay_dir.cpp
         src/port/netplay_resync.c

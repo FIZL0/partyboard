@@ -4,7 +4,8 @@
  * A desync has every peer reload the host's newest resync point (net/src/desync.rs). Before N46 that was only the
  * online save after each minigame (netplay_checkpoint, N9), up to a whole turn back. MainFunc (board/main.c) now hands
  * the state at each player's turn start here: the same SLSaveBoard blob, kept by pbnet in memory as the host's next
- * resync point (pbnet_resync_point). Nothing is written to disk.
+ * resync point (pbnet_resync_point). N47 also writes it as the online save (netplay_checkpoint), and outside a match
+ * as the local party's autosave (netplay_autosave.c).
  *
  * The board re-enters a turn from GWSystem/GWPlayer alone: the loop of MainFunc starts at GWSystem.player_curr, as it
  * does whenever the board overlay comes back mid-round. Every peer reloads the same blob, so they run on alike.
@@ -16,15 +17,26 @@
 #include "port/netplay.h"
 #include "port/pbnet.h"
 
+BOOL netplay_turn_hooks(void)
+{
+    return netplay_active() || GWPartyGet() == 1;
+}
+
 void netplay_turn_checkpoint(void)
 {
     static u8 blob[NETPLAY_BLOB_MAX];
     u32 size;
 
-    if (!netplay_match_running() || !pbnet_lockstep_active()) {
+    if (!netplay_match_running()) {
+        netplay_party_autosave();
         return;
     }
-    size = netplay_board_blob_get(blob, sizeof(blob));
+    /* N47: every peer's online save follows every turn, so a crash or a quit continues from this turn. */
+    netplay_checkpoint();
+    if (!pbnet_lockstep_active()) {
+        return;
+    }
+    size = netplay_checkpoint_last(blob, sizeof(blob));
     if (size == 0) {
         return;
     }

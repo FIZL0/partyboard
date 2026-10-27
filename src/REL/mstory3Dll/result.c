@@ -19,6 +19,9 @@
 #include "game/sprite.h"
 #include "game/window.h"
 #include "game/wipe.h"
+#ifdef TARGET_PC
+#include "port/netplay.h"
+#endif
 
 extern s32 rand8(void);
 
@@ -618,6 +621,9 @@ void fn_1_17570(void) {
         lbl_1_bss_18F4[i].unk04 = NULL;
     }
     if (GWPartyGet() == 1) {
+#ifdef TARGET_PC
+        netplay_party_finish();
+#endif
         HuPrcChildCreate(fn_1_1712C, 100, 0x2000, 0, HuPrcCurrentGet());
         do {
             fn_1_938();

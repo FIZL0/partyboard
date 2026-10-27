@@ -11,6 +11,8 @@ fi
 [ ! -x tools/netplay/tick_gate_test.sh ] || tools/netplay/tick_gate_test.sh >/dev/null
 # netplay match start (C, stub game functions, real heap code; no game needed)
 [ ! -x tools/netplay/match_test.sh ] || tools/netplay/match_test.sh >/dev/null
+# N47 per-turn saves and the local party autosave (C, fake pbnet, real file helpers; no game needed)
+[ ! -x tools/netplay/autosave_test.sh ] || tools/netplay/autosave_test.sh >/dev/null
 preset=linux-default-relwithdebinfo
 [ -f "build/$preset/build.ninja" ] || cmake --preset "$preset" >/dev/null
 out=$(cmake --build --preset "$preset" 2>&1) || { echo "$out" | grep -E -A5 "error|FAILED" | head -60; exit 1; }

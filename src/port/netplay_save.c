@@ -113,8 +113,8 @@ void netplay_checkpoint(void)
     }
     if (pbnet_save_write(netplay_user_dir(), room[0] != '\0' ? room : NULL, last_blob, (int)size, netplay_frame(), seeds,
             path, sizeof(path))) {
-        OSReport("netplay: checkpoint at frame %u, turn %d/%d: %s\n", netplay_frame(), GWSystem.turn, GWSystem.max_turn,
-            path);
+        OSReport("netplay: checkpoint at frame %u, turn %d/%d, player %d: %s\n", netplay_frame(), GWSystem.turn,
+            GWSystem.max_turn, GWSystem.player_curr, path);
         snprintf(last_path, sizeof(last_path), "%s", path);
     } else {
         /* The match goes on: the save is a convenience, the blob is still kept for a reload. */
