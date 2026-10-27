@@ -271,3 +271,13 @@ int pbnet_recover_cpu(int index)
     (void)index;
     return 0;
 }
+
+#ifdef __ANDROID__
+/* No HTTPS without the crate, so no certificate check to set up. */
+int pbnet_android_init_tls(void *env, void *activity)
+{
+    (void)env;
+    (void)activity;
+    return 0;
+}
+#endif
