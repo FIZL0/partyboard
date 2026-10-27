@@ -166,6 +166,22 @@ s32 netplay_board_blob_board(const u8 *blob, u32 size);
  * peer writes <user dir>/online/<match id>.json (pbnet_save_write) and keeps the blob (netplay_checkpoint_last).
  */
 void netplay_checkpoint(void);
+/*
+ * board/main.c MainFunc, at the start of each player's turn, while netplay_active() (N46): during a lockstep match the
+ * board state (the SLSaveBoard blob) becomes this machine's newest desync resync point (pbnet_resync_point; in memory
+ * only). src/port/netplay_resync.c.
+ */
+void netplay_turn_checkpoint(void);
+/*
+ * A turn's resync point resumes that turn (N46). The board resets every player's space and items and starts at player
+ * 0 unless BoardStartCheck says it comes back mid-round (after a minigame, a Bowser or battle event). A continue arms
+ * netplay_turn_resume_arm (netplay_match_continue); while the board is created from a blob of a turn start (the board
+ * already started, no event flag), BoardStartCheck answers yes (netplay_turn_resuming), as for a return from an event
+ * with nothing left to run. MainFunc calls netplay_turn_resumed after CreateBoard, which disarms it.
+ */
+void netplay_turn_resume_arm(void);
+BOOL netplay_turn_resuming(void);
+void netplay_turn_resumed(void);
 /* The last checkpoint's blob of this match into out (cap bytes): its size, 0 if none yet. */
 u32 netplay_checkpoint_last(u8 *out, u32 cap);
 /* netplay_match.c: forget the last checkpoint (size 0: a match starts or ends) or take `blob` as it (a continue). */

@@ -235,6 +235,9 @@ static FILE *hash_log;
 /* --match <board>@<frame>: start a debug match after that frame of a --script run. */
 static NetplayMatch debug_match;
 static u32 debug_match_at;
+/* --desync-at: the frame (of a lockstep session) at which this peer flips its frand seed once, to test a resync (N46). */
+static u32 debug_desync_at;
+static BOOL debug_desync_done;
 /* --continue: the online save's checkpoint the --match continues from (N9). */
 static u8 debug_continue[NETPLAY_BLOB_MAX];
 static u32 debug_continue_size;
@@ -440,6 +443,8 @@ BOOL netplay_debug_init(int argc, char *argv[])
                 OSReport("netplay: --match wants <board 0..5>@<frame>, e.g. 0@900\n");
                 return FALSE;
             }
+        } else if (strcmp(argv[i], "--desync-at") == 0 && i + 1 < argc) {
+            debug_desync_at = (u32)strtoul(argv[++i], NULL, 0);
         } else if (strcmp(argv[i], "--continue") == 0 && i + 1 < argc) {
             int n = pbnet_save_blob(argv[++i], debug_continue, (int)sizeof(debug_continue));
             if (n <= 0 || n > (int)sizeof(debug_continue)) {
@@ -523,6 +528,12 @@ void netplay_frame_end(void)
         hash_log_line(hash_log, frame);
     }
     frame++;
+    if (debug_desync_at != 0 && !debug_desync_done && frame == debug_desync_at && pbnet_lockstep_active()) {
+        /* Once per process: a resync restarts the frames, and the same flip again would desync forever. */
+        debug_desync_done = TRUE;
+        frandSeedSet(frandSeedGet() ^ 1);
+        OSReport("netplay: --desync-at %u: frand seed flipped on this peer\n", frame);
+    }
     if (netplay_match_over()) {
         match_finish();
     }
@@ -1096,6 +1107,8 @@ void netplay_lobby_poll(void)
         lobby_handled = FALSE;
         return;
     }
+    /* N46: a resync the host held back (the same point desynced again) goes when its wait is over. */
+    pbnet_resync_poll();
     /* N10: a reload (a rejoin, a CPU stand-in) is a new epoch of the same started lobby: start its room again. */
     epoch = pbnet_recover_epoch();
     if (lobby_handled && epoch == lobby_epoch) {

@@ -165,6 +165,8 @@ BOOL netplay_match_continue(const NetplayMatch *m, const void *blob, u32 size)
     match.blob_size = size;
     match.resume = TRUE;
     netplay_checkpoint_set(match.blob, size);
+    /* N46: a resync point at a turn start resumes that turn (netplay_turn_resuming). */
+    netplay_turn_resume_arm();
     OSReport("netplay: the match continues from a checkpoint\n");
     return TRUE;
 }

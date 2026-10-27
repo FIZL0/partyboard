@@ -57,13 +57,22 @@ void pbnet_set_hash(uint32_t frame, uint64_t hash);
 /* Oldest hash mismatch: 1 and its fields (NULL pointers skipped), or 0 if none. */
 int pbnet_poll_desync(uint32_t *frame, int *peer, uint64_t *ours, uint64_t *theirs);
 /*
- * A mismatch from pbnet_poll_desync (net/src/desync.rs, N11). The first one of a lockstep session writes its input log
- * (pads of the frames run, its hashes) to <user dir>/desync-<match>-<time>-e<epoch>-f<frame>-p<index>.json (the
+ * A mismatch from pbnet_poll_desync (net/src/desync.rs, N11, N46). The first one of a lockstep session writes its input
+ * log (pads of the frames run, its hashes) to <user dir>/desync-<match>-<time>-e<epoch>-f<frame>-p<index>.json (the
  * current directory without pbnet_recover_set_dir); both sides of a mismatch see it, so both write theirs. On the
- * host it also has every peer reload the last checkpoint (pbnet_recover_epoch moves, as any N10 reload), at most 3
- * times from one checkpoint. 1 if a reload was asked; later mismatches of the same session do nothing.
+ * host it also has every peer resync: reload the newest resync point (pbnet_resync_point, or the last online save;
+ * pbnet_recover_epoch moves, as any N10 reload). Never refused: one more from the same point holds the game 2, 4, 8,
+ * 16 s first and goes from pbnet_resync_poll. A guest shows "Resyncing with <host>..." and waits for the host.
+ * 1 if a resync was asked now; mismatches while one is under way do nothing.
  */
 int pbnet_desync_recover(uint32_t frame, int peer, uint64_t ours, uint64_t theirs);
+/* N46: call once per loop on the game thread (netplay_lobby_poll does): a held-back resync goes when its wait is over. */
+int pbnet_resync_poll(void);
+/*
+ * N46: blob (SLSaveBoard, len bytes; turn/max_turn of GWSystem) is the board state at the start of a player's turn:
+ * this machine's newest resync point of the started match (memory only). 1 if taken, 0 without a started lobby.
+ */
+int pbnet_resync_point(const uint8_t *blob, int len, int turn, int max_turn);
 
 /* Input delay (frames, 2..15) for a round trip of rtt_ms: one-way 60 Hz frames + 1. */
 uint32_t pbnet_delay_for(uint32_t rtt_ms);
@@ -187,8 +196,10 @@ void pbnet_lan_stop(void);
  * pbnet_rejoin_record: the match this machine can rejoin (JSON {"code","id","token","at"}, snprintf-style), 0 if none.
  * pbnet_rejoin_forget: forget it. pbnet_lobby_rejoin: rejoin it (setup as pbnet_lobby_join), 1 if dialling.
  * pbnet_recover_json: {"running","host","epoch","waiting":[{"index","name","seats","quiet_ms"}],"reconnecting",
- *   "host_left","reloading","message"}, snprintf-style. waiting: peers silent for 3 s (the lockstep holds on its own);
+ *   "host_left","reloading","message","resync","resyncs"}, snprintf-style. waiting: peers silent for 3 s (the lockstep holds on its own);
  *   message: "Waiting for <name>" or, on a guest, "Host left: the match is saved, any player can host Continue".
+ *   resync (N46): "Resyncing with <host>..." while a desync is mended (a notice: play goes on), else ""; resyncs: the
+ *   host's count of resyncs asked.
  * pbnet_recover_epoch: 0 from the start, one more per reload. When it moves while the lobby is started, start the
  *   room again (pbnet_lobby_checkpoint has the checkpoint) and call pbnet_recover_go(epoch): until then every
  *   pbnet_step returns PBNET_WAIT. pbnet_recover_go returns 1 if that epoch's lockstep runs (or nothing was held).

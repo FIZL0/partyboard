@@ -195,6 +195,11 @@ struct Shared {
     host_left: bool,
     /// Host (N11): desync reloads from the last checkpoint so far.
     resync: desync::Resync,
+    /// N46: a desync is being mended (the host's or a guest's own mismatch): "Resyncing with <host>..." until the
+    /// next session runs.
+    resyncing: bool,
+    /// N46, host: a resync held back by [`desync::Resync::delay`] goes when this passes ([`Shared::resync_poll`]).
+    resync_due: Option<std::time::Instant>,
 }
 
 impl Shared {
@@ -232,6 +237,8 @@ impl Shared {
             host_lost: false,
             host_left: false,
             resync: desync::Resync::default(),
+            resyncing: false,
+            resync_due: None,
         }
     }
 
@@ -405,6 +412,7 @@ impl Shared {
             return false;
         }
         self.reload_pending = false;
+        self.resyncing = false;
         self.lockstep();
         self.bump();
         true
@@ -424,19 +432,43 @@ impl Shared {
         self.begin_reload(room, epoch);
     }
 
-    /// Host (N11): the running session's hashes differ from a peer's: every peer reloads the last checkpoint, unless
-    /// a reload is under way or the reloads from that checkpoint ran out ([`desync::Resync`]). Whether it reloads.
+    /// N11, N46: the running session's hashes differ from a peer's. The host has every peer reload the last resync
+    /// point, unless a reload is under way; one more from the same point holds the game first
+    /// ([`desync::Resync::delay`], fired by [`Shared::resync_poll`]). A guest only shows the resync and waits for the
+    /// host's reload. Whether a reload was asked now.
     fn desync(&mut self) -> bool {
-        if self.phase != Phase::Started || self.reload_pending || self.inbox.is_none() {
+        if self.phase != Phase::Started || self.reload_pending || self.inbox.is_none() || self.resync_due.is_some() {
             return false;
+        }
+        if !self.resyncing {
+            self.resyncing = true;
+            self.bump();
         }
         let Some(Role::Host(h)) = &self.role else { return false };
         let room = recover::reload_room(h.room(), recover::last_checkpoint(&h.room().id));
-        if !self.resync.allow(room.checkpoint.as_ref()) {
-            eprintln!("pbnet: desync again from the same checkpoint: no more reloads from it, the match runs on");
+        let wait = self.resync.delay(room.checkpoint.as_ref());
+        if !wait.is_zero() {
+            eprintln!("pbnet: desync again from the same point: the game holds {} s, then everyone resyncs", wait.as_secs());
+            (self.hold)();
+            self.resync_due = Some(std::time::Instant::now() + wait);
             return false;
         }
-        eprintln!("pbnet: desync at epoch {}: everyone reloads", self.book.epoch);
+        eprintln!("pbnet: desync at epoch {}: everyone resyncs", self.book.epoch);
+        self.host_reload();
+        true
+    }
+
+    /// N46, host: a held-back resync whose wait is over goes now. Whether it went.
+    fn resync_poll(&mut self) -> bool {
+        let Some(at) = self.resync_due else { return false };
+        if std::time::Instant::now() < at {
+            return false;
+        }
+        self.resync_due = None;
+        if self.phase != Phase::Started || self.reload_pending {
+            return false;
+        }
+        eprintln!("pbnet: desync at epoch {}: everyone resyncs", self.book.epoch);
         self.host_reload();
         true
     }
@@ -509,6 +541,10 @@ impl Shared {
             reloading: self.reload_pending,
             ..Status::default()
         };
+        if let (true, Some(room)) = (self.resyncing, self.room()) {
+            st.resync = desync::resync_text(room, HOST);
+        }
+        st.resyncs = self.resync.done;
         if let (true, Some(room)) = (running, self.room()) {
             if self.inbox.is_some() {
                 st.waiting = recover::waiting(room, &self.lineup, &self.me, |p| (self.quiet)(p));
@@ -811,6 +847,11 @@ impl Lobby {
     /// guest never does: the host sees every mismatch too).
     pub fn desync(&self) -> bool {
         lock(&self.shared).desync()
+    }
+
+    /// N46, host: a resync held back by its wait goes once the wait is over. Whether it went.
+    pub fn resync_poll(&self) -> bool {
+        lock(&self.shared).resync_poll()
     }
 
     /// Leaves: the host closes the lobby for everyone, a guest frees its seats. The tasks wind down on their own.
@@ -2045,10 +2086,11 @@ mod tests {
         });
     }
 
-    /// N11: a desync has every peer reload on a new epoch, decided by the host alone (a guest's `desync` does
-    /// nothing), never twice for one session, and at most `RELOADS_PER_CHECKPOINT` times from one checkpoint.
+    /// N11, N46: a desync has every peer resync on a new epoch, decided by the host alone (a guest's `desync` only
+    /// shows "Resyncing with <host>..."), never twice for one session. The resyncs never run out: one more from the
+    /// same point holds first and goes from `resync_poll` once its wait is over.
     #[test]
-    fn a_desync_reloads_everyone_until_the_reloads_run_out() {
+    fn a_desync_resyncs_everyone_and_repeats_wait_longer() {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
             let net = Testnet::new(3).await.unwrap();
@@ -2068,21 +2110,36 @@ mod tests {
             got(&hrx);
             got(&arx);
             assert!(!a.desync(), "a guest waits for the host");
+            assert_eq!(a.status().resync, "Resyncing with h...", "but says so");
             assert_eq!(a.epoch(), 0);
-            for epoch in 1..=desync::RELOADS_PER_CHECKPOINT {
-                assert!(host.desync(), "reload {epoch}");
+            for epoch in 1..=3u32 {
+                if epoch == 1 {
+                    assert!(host.desync(), "the first resync goes at once");
+                } else {
+                    let t0 = std::time::Instant::now();
+                    assert!(!host.desync(), "resync {epoch} from the same start waits");
+                    assert!(!host.desync(), "asked once");
+                    assert_eq!(host.status().resync, "Resyncing with h...");
+                    assert!(!host.resync_poll(), "not yet");
+                    while !host.resync_poll() {
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                    }
+                    let waited = t0.elapsed();
+                    let want = desync::BACKOFF_FIRST * (1 << (epoch - 2));
+                    assert!(waited >= want && waited < want + Duration::from_secs(2), "{waited:?} for {want:?}");
+                }
                 assert_eq!(host.epoch(), epoch);
-                assert!(!host.desync(), "one reload at a time");
+                assert!(!host.desync(), "one resync at a time");
                 until(&a, "a reloads", |_| a.epoch() == epoch && a.status().reloading).await;
                 let room = a.snapshot().room.unwrap();
-                assert_eq!(room.checkpoint, None, "no checkpoint yet: the match start");
+                assert_eq!(room.checkpoint, None, "no resync point yet: the match start");
                 assert_eq!(room.peers(), host.snapshot().room.unwrap().peers());
                 assert!(host.go(epoch) && a.go(epoch));
+                assert_eq!(host.status().resync, "", "play goes on");
                 got(&hrx);
                 got(&arx);
             }
-            assert!(!host.desync(), "the same start desyncs every time: the match runs on");
-            assert_eq!(host.epoch(), desync::RELOADS_PER_CHECKPOINT);
+            assert_eq!(host.status().resyncs, 3);
             assert!(!host.status().reloading);
             host.leave();
             a.leave();

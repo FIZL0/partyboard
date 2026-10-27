@@ -246,6 +246,12 @@ pub fn checkpoint_written(s: &Save) {
     *LAST.lock().unwrap_or_else(|e| e.into_inner()) = Some((s.id.clone(), s.checkpoint()));
 }
 
+/// N46: the host's resync point of match `id` at the start of a turn (`pbnet_resync_point`): a reload takes it as
+/// it takes the last online save.
+pub fn point_taken(id: &str, c: Checkpoint) {
+    *LAST.lock().unwrap_or_else(|e| e.into_inner()) = Some((id.to_string(), c));
+}
+
 /// The last checkpoint saved for match `id`.
 pub fn last_checkpoint(id: &str) -> Option<Checkpoint> {
     LAST.lock().unwrap_or_else(|e| e.into_inner()).as_ref().filter(|(i, _)| i == id).map(|(_, c)| c.clone())
@@ -319,6 +325,10 @@ pub struct Status {
     pub reloading: bool,
     /// What to tell the player, if anything.
     pub message: String,
+    /// N46: a desync is being mended: "Resyncing with <host>..." (a short notice, play goes on), else empty.
+    pub resync: String,
+    /// N46, host: resyncs asked so far in this lobby (a new one is a new notice).
+    pub resyncs: u32,
 }
 
 /// The peers of a running match's `lineup` silent for [`SILENCE_MS`]: `quiet` gives a line-up index's silence (ms).

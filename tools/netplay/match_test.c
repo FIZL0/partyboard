@@ -25,6 +25,7 @@ u32 netplay_frame(void) { return 0; }
 BOOL netplay_debug_scripted(void) { return scripted; }
 static int reseeded;
 void netplay_reseed(void) { reseeded++; }
+void netplay_turn_resume_arm(void) {}
 
 static s32 party_args[8], party_calls, save_board = -1, vwait, pad_resets, motions[4], nmotions, ended;
 static u8 wipe_rgb[3];
