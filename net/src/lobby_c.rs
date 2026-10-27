@@ -16,6 +16,10 @@
 //! ([`Room::peers`]), guest to guest through the host. The host picks the input delay from its connections' round
 //! trips and puts it in the final room; every peer then hands its [`Config`] and [`Wire`] to the [`Starter`]
 //! (`lockstep_c::start` in C). A drop after the start is N10's.
+//!
+//! On a shared network an open host lobby puts a [`Listing`] in its endpoint's mDNS record
+//! ([`Transport::set_lan_listing`]), kept to the room's open seats and taken down at the start or close. A [`Browse`]
+//! binds an endpoint with no lobby to hear them ([`Transport::lan`]); a join then takes that endpoint over.
 
 use std::collections::BTreeMap;
 use std::ffi::{c_char, CStr};
@@ -31,7 +35,7 @@ use crate::codes;
 use crate::lobby::{Event, Guest, Host, Ident, Msg, Pick, Player, Room, To, CPU, HOST, SEATS};
 use crate::lockstep::{self, delay_for, Config, NO_PEER};
 use crate::lockstep_c;
-use crate::transport::{datagram, undatagram, Incoming, Peer, Relay, Transport};
+use crate::transport::{datagram, undatagram, Incoming, LanHost, Peer, Relay, Transport};
 
 /// No lobby.
 pub const PBNET_LOBBY_NONE: i32 = 0;
@@ -138,6 +142,11 @@ struct Shared {
     inbox: Option<mpsc::UnboundedSender<(u8, Vec<u8>)>>,
     start: Starter,
     gen: u32,
+    /// Host: the endpoint whose mDNS record carries the LAN listing (and the runtime to set it on), the listing it
+    /// carries now, and the name it gives.
+    lan: Option<(Arc<Transport>, Handle)>,
+    listed: Option<String>,
+    host_name: String,
 }
 
 impl Shared {
@@ -157,11 +166,39 @@ impl Shared {
             inbox: None,
             start,
             gen: 0,
+            lan: None,
+            listed: None,
+            host_name: String::new(),
         }
     }
 
     fn bump(&mut self) {
         self.gen = self.gen.wrapping_add(1);
+        self.relist();
+    }
+
+    /// Host: the LAN listing for the room as it is now (None unless open).
+    fn listing(&self) -> Option<String> {
+        let Some(Role::Host(h)) = &self.role else { return None };
+        if self.phase != Phase::Open {
+            return None;
+        }
+        let room = h.room();
+        Listing { id: room.id.clone(), name: self.host_name.clone(), open: room.seats.iter().filter(|s| s.is_none()).count() as u8 }.fit()
+    }
+
+    /// Host: puts the listing in the mDNS record when it changed (none once started or closed).
+    fn relist(&mut self) {
+        let Some((t, rt)) = &self.lan else { return };
+        let l = self.listing();
+        if l != self.listed {
+            // the endpoint republishes on its runtime; the menu's commands come from the caller's thread
+            let _g = rt.enter();
+            if let Err(e) = t.set_lan_listing(l.as_deref()) {
+                eprintln!("pbnet: LAN listing: {e}");
+            }
+            self.listed = l;
+        }
     }
 
     fn close(&mut self, why: &str) {
@@ -476,6 +513,8 @@ async fn run_host<B: Future<Output = Result<Transport, String>>>(bind: B, sh: Sh
         });
         s.role = Some(Role::Host(Host::new(id, setup.ident(), &setup.players)));
         s.me = HOST.into();
+        s.host_name = setup.players.first().map(|p| p.name.clone()).unwrap_or_default();
+        s.lan = Some((t.clone(), Handle::current()));
         s.ticket = t.ticket();
         s.phase = Phase::Open;
         s.bump();
@@ -704,6 +743,132 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
     t.close().await;
 }
 
+// ---------------------------------------------------------------- LAN
+
+/// What an open host lobby says about itself on the LAN (JSON in its mDNS record).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Listing {
+    /// The room's match id.
+    pub id: String,
+    /// The host's first player's name.
+    pub name: String,
+    /// Seats nobody has taken (the computer's are taken).
+    pub open: u8,
+}
+
+/// How much of the mDNS record's user data a listing may fill (iroh's `UserData::MAX_LENGTH`, less its tag).
+const LISTING_MAX: usize = 245 - 3;
+
+impl Listing {
+    /// As JSON short enough for the record: the name shortened if need be; None if even an empty name won't fit.
+    fn fit(mut self) -> Option<String> {
+        loop {
+            let j = serde_json::to_string(&self).ok()?;
+            if j.len() <= LISTING_MAX {
+                return Some(j);
+            }
+            if self.name.pop().is_none() {
+                eprintln!("pbnet: LAN listing: match id too long to list");
+                return None;
+            }
+        }
+    }
+}
+
+/// A lobby heard on the LAN: its host's endpoint ID (a join code) and listing.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct LanGame {
+    pub code: String,
+    #[serde(flatten)]
+    pub listing: Listing,
+}
+
+/// What a [`Browse`] hears (`pbnet_lan_browse`).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct LanList {
+    /// `binding` (no endpoint yet), `open` (listening) or `closed` (it couldn't bind: `error` says why).
+    pub state: &'static str,
+    /// mDNS is on (false: this device can't hear the LAN, e.g. an iPhone without the multicast entitlement).
+    pub lan: bool,
+    pub error: String,
+    /// In endpoint ID order. Hosts whose record isn't a listing are left out.
+    pub games: Vec<LanGame>,
+}
+
+fn lan_games(hosts: Vec<LanHost>) -> Vec<LanGame> {
+    hosts
+        .into_iter()
+        .filter_map(|h| Some(LanGame { code: h.id.to_string(), listing: serde_json::from_str(&h.listing).ok()? }))
+        .collect()
+}
+
+type Slot = Arc<tokio::sync::Mutex<Option<Result<Transport, String>>>>;
+
+/// An endpoint bound with no lobby, to hear the LAN's lobbies; a join takes it over ([`Browse::take`]), so the
+/// host it heard is dialled from the endpoint that heard it. Dropped untaken, it closes the endpoint.
+pub struct Browse {
+    pub relay: Relay,
+    rt: Handle,
+    /// Locked while binding; None once taken.
+    slot: Slot,
+}
+
+impl Browse {
+    /// Binds the endpoint `bind` makes (relay setting `relay`) on `rt`.
+    pub fn new<B>(rt: &Handle, relay: Relay, bind: B) -> Browse
+    where
+        B: Future<Output = Result<Transport, String>> + Send + 'static,
+    {
+        let slot: Slot = Arc::new(tokio::sync::Mutex::new(None));
+        let mut binding = slot.clone().try_lock_owned().expect("a new mutex is free");
+        rt.spawn(async move { *binding = Some(bind.await) });
+        Browse { relay, rt: rt.clone(), slot }
+    }
+
+    /// The lobbies heard now. Never waits.
+    pub fn list(&self) -> LanList {
+        let (state, lan, error, games) = match self.slot.try_lock().as_deref() {
+            Err(_) => ("binding", false, String::new(), vec![]),
+            Ok(Some(Ok(t))) => ("open", t.has_lan(), String::new(), lan_games(t.lan())),
+            Ok(Some(Err(e))) => ("closed", false, format!("Couldn't go online: {e}"), vec![]),
+            Ok(None) => ("closed", false, "taken by a join".into(), vec![]),
+        };
+        LanList { state, lan, error, games }
+    }
+
+    /// The endpoint, once bound, for a lobby to use (None if it couldn't bind).
+    pub fn take(mut self) -> impl Future<Output = Option<Transport>> + Send + 'static {
+        // the drop below closes nothing: the endpoint goes with the future
+        let slot = std::mem::replace(&mut self.slot, Arc::new(tokio::sync::Mutex::new(None)));
+        async move { slot.lock().await.take().and_then(Result::ok) }
+    }
+
+    /// A lobby's endpoint: `browse`'s if there is one with `relay` and it bound, else a new one.
+    pub fn or_bind(browse: Option<Browse>, relay: Relay) -> impl Future<Output = Result<Transport, String>> + Send + 'static {
+        let browse = browse.filter(|b| b.relay == relay);
+        let taken = browse.map(Browse::take);
+        async move {
+            if let Some(t) = taken {
+                if let Some(t) = t.await {
+                    return Ok(t);
+                }
+            }
+            Transport::bind(&relay).await
+        }
+    }
+}
+
+impl Drop for Browse {
+    fn drop(&mut self) {
+        let slot = self.slot.clone();
+        self.rt.spawn(async move {
+            if let Some(Ok(t)) = slot.lock().await.take() {
+                t.close().await;
+            }
+        });
+    }
+}
+
 // ---------------------------------------------------------------- C ABI
 
 /// The process's runtime for the lobby's tasks (two worker threads, made on first use).
@@ -720,9 +885,14 @@ fn rt() -> &'static Runtime {
 }
 
 static LOBBY: Mutex<Option<Lobby>> = Mutex::new(None);
+static BROWSE: Mutex<Option<Browse>> = Mutex::new(None);
 
 fn global() -> std::sync::MutexGuard<'static, Option<Lobby>> {
     LOBBY.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn browse() -> std::sync::MutexGuard<'static, Option<Browse>> {
+    BROWSE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// A C string argument as UTF-8 (None: null or not UTF-8).
@@ -758,13 +928,15 @@ fn setup(json: &str) -> Option<(Setup, Relay)> {
 pub unsafe extern "C" fn pbnet_lobby_host(setup_json: *const c_char) -> i32 {
     // SAFETY: the caller's contract on `setup_json`.
     let Some((s, relay)) = (unsafe { arg(setup_json) }).and_then(setup) else { return 0 };
+    // a host doesn't browse: its own endpoint is the one listed
+    browse().take();
     let l = Lobby::host(rt().handle(), async move { Transport::bind(&relay).await }, s, global_starter());
     *global() = Some(l);
     1
 }
 
 /// Joins the lobby at `code` (replacing one that runs): 1 if it is dialling, 0 if `setup` isn't valid or `code`
-/// is empty.
+/// is empty. It dials from the LAN browse's endpoint when one runs with the same relay setting (ending the browse).
 ///
 /// # Safety
 ///
@@ -774,7 +946,8 @@ pub unsafe extern "C" fn pbnet_lobby_join(setup_json: *const c_char, code: *cons
     // SAFETY: the caller's contract on both strings.
     let (s, code) = unsafe { (arg(setup_json), arg(code)) };
     let (Some((s, relay)), Some(code)) = (s.and_then(setup), code.filter(|c| !c.trim().is_empty())) else { return 0 };
-    let l = Lobby::join(rt().handle(), async move { Transport::bind(&relay).await }, s, code, global_starter());
+    let bind = Browse::or_bind(browse().take(), relay);
+    let l = Lobby::join(rt().handle(), bind, s, code, global_starter());
     *global() = Some(l);
     1
 }
@@ -910,6 +1083,51 @@ pub unsafe extern "C" fn pbnet_lobby_start(seed: u64, why: *mut c_char, cap: i32
             0
         }
     }
+}
+
+/// The relay setting in a setup JSON (any other fields ignored).
+#[derive(Deserialize)]
+struct RelaySetup {
+    #[serde(default)]
+    relay: String,
+    #[serde(default)]
+    relay_url: String,
+}
+
+/// The lobbies heard on the LAN, as JSON snprintf'd into `buf`/`cap` (see `pbnet.h`); the first call (or one with
+/// another relay setting) binds the browse endpoint. Returns the JSON's full length, or -1 if `setup` isn't JSON.
+///
+/// # Safety
+///
+/// `setup` is null or a valid NUL-terminated UTF-8 string, read during the call only; `buf` is null or points to
+/// `cap` writable bytes, used during the call only. Thread-safe.
+#[no_mangle]
+pub unsafe extern "C" fn pbnet_lan_browse(setup_json: *const c_char, buf: *mut c_char, cap: i32) -> i32 {
+    // SAFETY: the caller's contract on `setup_json`.
+    let relay = match unsafe { arg(setup_json) } {
+        None => Relay::parse("", ""),
+        Some(j) => match serde_json::from_str::<RelaySetup>(j) {
+            Ok(r) => Relay::parse(&r.relay, &r.relay_url),
+            Err(e) => {
+                eprintln!("pbnet: LAN browse setup: {e}");
+                return -1;
+            }
+        },
+    };
+    let mut b = browse();
+    if b.as_ref().is_none_or(|b| b.relay != relay) {
+        let r = relay.clone();
+        *b = Some(Browse::new(rt().handle(), relay, async move { Transport::bind(&r).await }));
+    }
+    let json = serde_json::to_string(&b.as_ref().map(Browse::list)).unwrap_or_default();
+    // SAFETY: the caller's contract on `buf` and `cap`.
+    unsafe { put(&json, buf, cap) }
+}
+
+/// Ends the LAN browse (closing its endpoint), if one runs. Safe to call any time, from any thread.
+#[no_mangle]
+pub extern "C" fn pbnet_lan_stop() {
+    browse().take();
 }
 
 #[cfg(test)]
@@ -1126,6 +1344,106 @@ mod tests {
         assert_eq!(delay_of(&[40, 150, 100]), delay_for(250));
     }
 
+    #[test]
+    fn listing_fits_the_mdns_record() {
+        let l = Listing { id: "m1".into(), name: "Ryan".into(), open: 3 };
+        assert_eq!(l.clone().fit().unwrap(), r#"{"id":"m1","name":"Ryan","open":3}"#);
+        let long = Listing { name: "é".repeat(300), ..l.clone() }.fit().unwrap();
+        assert!(long.len() <= LISTING_MAX && long.contains("éé"), "{long}");
+        assert_eq!(Listing { id: "x".repeat(300), ..l.clone() }.fit(), None);
+        // heard back: only real listings, by their endpoint
+        let id = iroh::SecretKey::generate().public();
+        let games = lan_games(vec![LanHost { id, listing: l.clone().fit().unwrap() }, LanHost { id, listing: "not json".into() }]);
+        assert_eq!(games, [LanGame { code: id.to_string(), listing: l }]);
+        assert_eq!(serde_json::to_string(&games[0]).unwrap(), format!(r#"{{"code":"{id}","id":"m1","name":"Ryan","open":3}}"#));
+    }
+
+    #[test]
+    fn browse_states() {
+        let rt = Runtime::new().unwrap();
+        let binding = Browse::new(rt.handle(), Relay::Off, std::future::pending());
+        let failed = Browse::new(rt.handle(), Relay::Off, async { Err("no network".to_string()) });
+        rt.block_on(async { tokio::time::sleep(Duration::from_millis(50)).await });
+        assert_eq!(binding.list(), LanList { state: "binding", lan: false, error: String::new(), games: vec![] });
+        let f = failed.list();
+        assert_eq!((f.state, f.error.as_str()), ("closed", "Couldn't go online: no network"));
+        assert!(rt.block_on(failed.take()).is_none());
+        assert_eq!(serde_json::to_string(&binding.list()).unwrap(), r#"{"state":"binding","lan":false,"error":"","games":[]}"#);
+    }
+
+    /// A join takes the browse's endpoint over: the guest is seated as that endpoint.
+    #[test]
+    fn join_dials_from_the_browse_endpoint() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(3).await.unwrap();
+            let h = Handle::current();
+            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"), catch().0);
+            let s = until(&host, "host open", |s| s.state == Phase::Open && !s.code.is_empty()).await;
+            let b = Browse::new(&h, Relay::Off, bind(&net));
+            for _ in 0..500 {
+                if b.list().state == "open" {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            assert_eq!(b.list().state, "open");
+            let id = b.slot.lock().await.as_ref().unwrap().as_ref().unwrap().id().to_string();
+            let guest = Lobby::join(&h, Browse::or_bind(Some(b), Relay::Off), setup("g", "GMPE01-00"), &s.code, catch().0);
+            let g = until(&guest, "guest seated", |s| s.state == Phase::Open).await;
+            assert_eq!(g.me, id);
+            host.leave();
+            guest.leave();
+        });
+    }
+
+    /// On the LAN by mDNS: an open host is heard with its listing, joined by the code heard, its open seats follow
+    /// the room and it is gone at the start. Needs multicast (as `transport::lan_listing_heard_by_mdns`): run with
+    /// `cargo test -- --ignored`.
+    #[test]
+    #[ignore]
+    fn lan_lobby_heard_joined_and_unlisted() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(3).await.unwrap();
+            let h = Handle::current();
+            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"), catch().0);
+            until(&host, "host open", |s| s.state == Phase::Open).await;
+            let heard = |b: &Browse, f: &dyn Fn(&[LanGame]) -> bool| {
+                let games = b.list().games;
+                f(&games).then_some(games)
+            };
+            let wait = async |b: &Browse, what: &str, f: &dyn Fn(&[LanGame]) -> bool| {
+                for _ in 0..300 {
+                    if let Some(g) = heard(b, f) {
+                        return g;
+                    }
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+                panic!("{what}: never; last {:?}", b.list());
+            };
+            let b = Browse::new(&h, Relay::Off, bind(&net));
+            let games = wait(&b, "host heard", &|g| g.iter().any(|g| g.listing.id == "m1")).await;
+            let game = games.into_iter().find(|g| g.listing.id == "m1").unwrap();
+            assert_eq!((game.listing.name.as_str(), game.listing.open), ("h", 3));
+            assert!(b.list().lan);
+
+            let guest = Lobby::join(&h, Browse::or_bind(Some(b), Relay::Off), setup("g", "GMPE01-00"), &game.code, catch().0);
+            until(&guest, "guest seated", |s| s.state == Phase::Open).await;
+            let b2 = Browse::new(&h, Relay::Off, bind(&net));
+            wait(&b2, "one seat fewer", &|g| g.iter().any(|g| g.listing.id == "m1" && g.listing.open == 2)).await;
+            assert!(host.cpu(3, Some(1)));
+            wait(&b2, "cpu seat taken", &|g| g.iter().any(|g| g.listing.id == "m1" && g.listing.open == 1)).await;
+
+            assert!(guest.ready(true));
+            until(&host, "guest ready", |s| s.room.as_ref().unwrap().all_ready()).await;
+            host.start(3).unwrap();
+            wait(&b2, "unlisted at the start", &|g| !g.iter().any(|g| g.listing.id == "m1")).await;
+            host.leave();
+            guest.leave();
+        });
+    }
+
     /// The C ABI with no lobby, and bad setups refused (the one test touching the global lobby).
     #[test]
     fn c_abi_without_lobby() {
@@ -1148,6 +1466,10 @@ mod tests {
         assert_eq!(unsafe { pbnet_lobby_host(c"{\"build\":\"b\",\"disc\":\"d\",\"players\":[]}".as_ptr()) }, 0);
         assert_eq!(unsafe { pbnet_lobby_join(c"{}".as_ptr(), c"ABCD".as_ptr()) }, 0);
         assert_eq!(pbnet_lobby_state(), PBNET_LOBBY_NONE);
+        // a bad browse setup binds nothing
+        assert_eq!(unsafe { pbnet_lan_browse(c"not json".as_ptr(), std::ptr::null_mut(), 0) }, -1);
+        assert!(browse().is_none());
+        pbnet_lan_stop();
     }
 
     #[test]

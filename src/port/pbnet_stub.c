@@ -137,3 +137,13 @@ int pbnet_lobby_start(uint64_t seed, char *why, int cap)
     snprintf(why, why != NULL && cap > 0 ? (size_t)cap : 0, "%s", "netplay is not available in this build");
     return 0;
 }
+
+/* LAN: no endpoint, so never any games. */
+int pbnet_lan_browse(const char *setup, char *buf, int cap)
+{
+    (void)setup;
+    return snprintf(buf, buf != NULL && cap > 0 ? (size_t)cap : 0, "%s",
+                    "{\"state\":\"closed\",\"lan\":false,\"error\":\"netplay is not available in this build\",\"games\":[]}");
+}
+
+void pbnet_lan_stop(void) { }
