@@ -1,0 +1,106 @@
+diff --git i/src/game/malloc.c w/src/game/malloc.c
+index a66cc87d..de7197bf 100644
+--- i/src/game/malloc.c
++++ w/src/game/malloc.c
+@@ -65,7 +65,7 @@ void *HuMemDirectMalloc(HeapID heap, size_t size)
+ void *HuMemDirectMallocNum(HeapID heap, size_t size, uintptr_t num)
+ {
+ #ifdef TARGET_PC
+-    u32 retaddr = 0;
++    uintptr_t retaddr = (uintptr_t)__builtin_return_address(0);
+ #else
+     register u32 retaddr;
+     asm {
+diff --git i/src/port/netplay.c w/src/port/netplay.c
+index ae9e9d05..16ddd0bd 100644
+--- i/src/port/netplay.c
++++ w/src/port/netplay.c
+@@ -174,8 +174,10 @@ static u64 fnv_once(const void *data, size_t len)
+  * heap is netplay_heap_hash() (the heaps' layout): not part of the state hash, it shows whether two runs
+  * that reach the same state also allocate alike.
+  */
++extern u64 n45_raw_hash; extern size_t n45_used[], n45_peak[], n45_minfree[]; extern int n45_dump;
+ static void hash_log_line(FILE *out, u32 at)
+ {
++    { const char *e = getenv("N45_DUMP"); n45_dump = 0; if (e) { u32 a = 0, b = 0; sscanf(e, "%u-%u", &a, &b); n45_dump = at >= a && at <= b; } if (n45_dump) OSReport("n45: frame %u ovl %d\n", at, (int)omcurovl); }
+     Fnv64 pad = { 0xCBF29CE484222325ULL };
+     fnv_bytes(&pad, HuPadBtn, sizeof(HuPadBtn));
+     fnv_bytes(&pad, HuPadBtnDown, sizeof(HuPadBtnDown));
+@@ -190,7 +192,7 @@ static void hash_log_line(FILE *out, u32 at)
+     fnv_bytes(&pad, HuPadDStkRep, sizeof(HuPadDStkRep));
+     fnv_bytes(&pad, HuPadErr, sizeof(HuPadErr));
+     fprintf(out, "%u %016llX ovl=%d sys=%016llX plr0=%016llX plr1=%016llX plr2=%016llX plr3=%016llX cfg=%016llX "
+-                 "frand=%08X rand8=%08X brand=%08X pad=%016llX heap=%016llX\n",
++                 "frand=%08X rand8=%08X brand=%08X pad=%016llX heap=%016llX heapraw=%016llX used=%zx,%zx,%zx,%zx peak=%zx,%zx,%zx,%zx minfree=%zx,%zx,%zx,%zx\n",
+         at, (unsigned long long)netplay_hash(), (int)omcurovl,
+         (unsigned long long)fnv_once(&GWSystem, sizeof(GWSystem)),
+         (unsigned long long)fnv_once(&GWPlayer[0], sizeof(GWPlayer[0])),
+@@ -198,7 +200,7 @@ static void hash_log_line(FILE *out, u32 at)
+         (unsigned long long)fnv_once(&GWPlayer[2], sizeof(GWPlayer[2])),
+         (unsigned long long)fnv_once(&GWPlayer[3], sizeof(GWPlayer[3])),
+         (unsigned long long)fnv_once(GWPlayerCfg, sizeof(GWPlayerCfg)), (unsigned)frandSeedGet(), (unsigned)rnd_seed,
+-        (unsigned)boardRandSeed, (unsigned long long)pad.h, (unsigned long long)netplay_heap_hash());
++        (unsigned)boardRandSeed, (unsigned long long)pad.h, (unsigned long long)netplay_heap_hash(), (unsigned long long)n45_raw_hash, n45_used[0], n45_used[1], n45_used[2], n45_used[3], n45_peak[0], n45_peak[1], n45_peak[2], n45_peak[3], n45_minfree[0], n45_minfree[1], n45_minfree[2], n45_minfree[3]);
+ }
+ 
+ /*
+diff --git i/src/port/netplay_match.c w/src/port/netplay_match.c
+index 06ebc63b..79cbe0fe 100644
+--- i/src/port/netplay_match.c
++++ w/src/port/netplay_match.c
+@@ -407,7 +407,14 @@ typedef struct {
+     size_t used_bytes;
+     size_t scrubbed;
+     BOOL scrub;
++    u64 raw;
++    size_t max_free;
+ } HeapWalk;
++/* N45 TEMP */
++u64 n45_raw_hash;
++size_t n45_used[HEAP_MAX], n45_peak[HEAP_MAX], n45_minfree[HEAP_MAX] = { (size_t)-1, (size_t)-1, (size_t)-1, (size_t)-1, (size_t)-1 };
++int n45_dump;
++#include <dlfcn.h>
+ 
+ static void fnv_word(u64 *h, u64 v)
+ {
+@@ -443,8 +450,18 @@ static void heap_block(void *user, uintptr_t offset, s32 size, BOOL used, uintpt
+         fnv_word(&w->h, (u64)offset);
+         fnv_word(&w->h, (u64)(u32)size);
+         fnv_word(&w->h, heap_num(num));
++        fnv_word(&w->raw, (u64)w->heap); fnv_word(&w->raw, (u64)offset); fnv_word(&w->raw, (u64)(u32)size); fnv_word(&w->raw, (u64)num);
++        if (n45_dump && heap_num(num) != (u64)num) {
++            uintptr_t ra = *(uintptr_t *)((char *)data - 64 + 32);
++            Dl_info di; const char *sym = "?"; uintptr_t off = 0;
++            if (dladdr((void *)ra, &di) && di.dli_sname) { sym = di.dli_sname; off = ra - (uintptr_t)di.dli_saddr; }
++            OSReport("n45: heap %d off %lx size %x num %lx -> %llx ret %s+%lx\n", w->heap, (unsigned long)offset, size, (unsigned long)num, (unsigned long long)heap_num(num), sym, (unsigned long)off);
++        }
+         w->used_blocks++;
+         w->used_bytes += (size_t)size;
++    } else if (!used && (size_t)size > w->max_free) {
++        w->max_free = (size_t)size;
++        if (w->scrub) memset(data, 0, data_size), w->scrubbed += data_size;
+     } else if (w->scrub) {
+         memset(data, 0, data_size);
+         w->scrubbed += data_size;
+@@ -467,8 +484,13 @@ static u64 heap_walk(BOOL scrub, BOOL report)
+         w.h = 0xCBF29CE484222325ULL;
+         w.heap = heap;
+         w.scrub = scrub;
++        w.raw = 0xCBF29CE484222325ULL;
+         HuMemHeapWalk(ptr, heap_block, &w);
+         fnv_word(&h, w.h);
++        fnv_word(&n45_raw_hash, w.raw);
++        n45_used[heap] = w.used_bytes;
++        if (w.used_bytes > n45_peak[heap]) n45_peak[heap] = w.used_bytes;
++        if (w.max_free < n45_minfree[heap]) n45_minfree[heap] = w.max_free;
+         scrubbed += w.scrubbed;
+         if (report) {
+             /* Per heap, so two peers' logs show which heap is laid out differently. */
+@@ -484,6 +506,7 @@ static u64 heap_walk(BOOL scrub, BOOL report)
+ 
+ u64 netplay_heap_hash(void)
+ {
++    n45_raw_hash = 0xCBF29CE484222325ULL;
+     return heap_walk(FALSE, FALSE);
+ }
+ 
