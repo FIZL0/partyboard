@@ -72,6 +72,10 @@ void omOvlHisChg(s32 level, OMOVL o, s32 e, s32 st) { (void)st; his[omovlhisidx 
 static OMOVL called = DLL_NONE;
 void omOvlCallEx(OMOVL o, s16 a, s32 e, s32 st) { (void)a; (void)e; (void)st; called = o; his[++omovlhisidx].ovl = o; }
 void HuPrcEnd(void) { ended++; }
+/* N62: the board's process destructors run (for boardObjMan's tree) before the overlay change frees its models. */
+Process *boardObjMan;
+static Process *dtor_root; static OMOVL dtor_called_before;
+s32 HuPrcChildDtorRun(Process *root) { dtor_root = root; dtor_called_before = called; return 1; }
 /* A process of this program's code (libdol's stand-in) is kept, one of libc's (another module: an overlay's) killed. */
 static void dol_proc(void) {}
 static s32 overlay_kills;
@@ -691,6 +695,34 @@ int main(void)
         omcurovl = DLL_modeseldll;
         netplay_match_leave_poll();
         assert(!netplay_match_leaving());
+    }
+
+    /* N62: a reload while the board runs ends the board's processes (their destructors) before omOvlCallEx; from any
+     * other overlay, or with no board objman, none are run. */
+    {
+        NetplayMatch m = base();
+        Process objman = { 0 };
+
+        dtor_root = NULL;
+        boardObjMan = &objman;
+        omcurovl = DLL_modeseldll;
+        assert(netplay_match_start(&m));
+        netplay_match_tick();
+        proc();
+        assert(dtor_root == NULL);
+        omcurovl = DLL_w01dll + 1;
+        called = DLL_NONE;
+        assert(netplay_match_start(&m));
+        netplay_match_tick();
+        proc();
+        assert(dtor_root == &objman && dtor_called_before == DLL_NONE && called == DLL_w01dll + m.board);
+        dtor_root = NULL;
+        boardObjMan = NULL;
+        assert(netplay_match_start(&m));
+        netplay_match_tick();
+        proc();
+        assert(dtor_root == NULL);
+        netplay_match_end();
     }
 
     printf("match_test: all checks passed\n");

@@ -239,6 +239,37 @@ s32 HuPrcKillIf(BOOL (*pred)(const Process *process, void *user), void *user)
     }
     return n;
 }
+
+/* Runs now the destructors of `root`'s descendants (not `root`'s own), in the order HuPrcCall would end them, and
+ * clears them so their later end runs none; returns how many ran. Each runs as the current process, as in HuPrcEnd.
+ * For an overlay change that frees the 3D, windows and sprites (omOvlKill) before the killed processes end. */
+s32 HuPrcChildDtorRun(Process *root)
+{
+    Process *process;
+    Process *up;
+    Process *cur = processcur;
+    void (*dtor)(void);
+    s32 n = 0;
+restart:
+    for (process = processtop; process != NULL; process = process->next) {
+        if (process == cur || process->dtor == NULL) {
+            continue;
+        }
+        for (up = process->parent; up != NULL && up != root; up = up->parent) { }
+        if (up == NULL) {
+            continue;
+        }
+        dtor = process->dtor;
+        process->dtor = NULL;
+        processcur = process;
+        dtor();
+        processcur = cur;
+        n++;
+        /* A destructor may kill, create or end processes: start over. */
+        goto restart;
+    }
+    return n;
+}
 #endif
 
 void HuPrcEnd()
