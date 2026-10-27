@@ -1096,7 +1096,10 @@ void ObjectSetup(void)
          HuDecodeData(src, dst, size, decode_type);
      }
 #ifdef TARGET_PC
-     HuMemDirectFree(src);
+     /* The block GetRelIncludeData read; src is past its size and type words. Freeing src itself read the
+      * "block header" 8 bytes into the real one, whose magic byte is then byte 4 of the real header's prev
+      * pointer: under ASLR it is 0xA5 (in use) about once in 256 boots, and the free crashed. */
+     HuMemDirectFree(src - 2);
 #endif
      return dst;
  }

@@ -780,6 +780,9 @@ s32 fn_1_140B0(s32 arg0, s32 arg1)
     var_r27 = 0;
     var_r26 = 0;
     var_r29 = arg0;
+#ifdef TARGET_PC
+    var_r28 = 0; /* read before it is set (== 0x3E7) in the loop below; GC had r28's leftover there */
+#endif
     if (arg0 == 3) {
         lbl_1_bss_444 = 1;
     }
