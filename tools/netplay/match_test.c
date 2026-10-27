@@ -43,6 +43,11 @@ void HuPadNetplayReset(void) { pad_resets++; }
 void WipeColorSet(u8 r, u8 g, u8 b) { wipe_rgb[0] = r; wipe_rgb[1] = g; wipe_rgb[2] = b; }
 void CharModelKill(s16 c) { (void)c; }
 void MGSeqKillAll(void) {}
+/* bootDll's one-time init (N41): a match started before it does it. */
+s32 SystemInitF; static s32 sys_inits;
+void CharInit(void) { sys_inits++; }
+void HuWindowInit(void) { sys_inits += 10; }
+void MGSeqInit(void) { sys_inits += 100; }
 void CharMotionInit(s16 c) { motions[nmotions++ % 4] = c; }
 void HuAudSeqAllFadeOut(s32 s) { (void)s; }
 void HuAudSStreamAllFadeOut(s32 s) { (void)s; }
@@ -266,6 +271,7 @@ int main(void)
     assert(his[0].ovl == DLL_bootdll && his[1].ovl == DLL_modeseldll && his[1].event == 1 && his[2].ovl == DLL_mstory3dll);
     assert(nmotions == 4 && motions[0] == 7 && motions[3] == 4 && ended == 1);
     assert(overlay_kills == 7); /* the menu's own processes are killed, libdol's kept */
+    assert(sys_inits == 111 && SystemInitF); /* started before bootDll's init: done here */
 
     /* Another overlay first: no scrub. The board: free memory zeroed, used blocks kept, layout unchanged. */
     netplay_ovl_start(DLL_w01dll + 3);
@@ -445,6 +451,7 @@ int main(void)
         assert(wipe_rgb[0] == 0xFF && proc != NULL);
         proc();
         assert(called == DLL_w01dll + 3);
+        assert(sys_inits == 111); /* the system was up: not again */
         /* N31: the continued match ends before this peer wrote a checkpoint: its save goes by the match's id, and
          * the last match's path is not deleted again. */
         netplay_ovl_start(DLL_w01dll + 3);

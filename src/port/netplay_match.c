@@ -52,7 +52,9 @@ SHARED_SYM extern GameStat GWGameStatDefault;
 SHARED_SYM extern s32 saveExecF;
 void BoardMGSetupPlayClear(void);
 SHARED_SYM extern u32 GlobalCounter;
+SHARED_SYM extern s32 SystemInitF;
 void HuSysVWaitSet(s16 vcount);
+void HuWindowInit(void);
 
 /* Board 5 is Bowser's Gnarly Party (w06): mentDll wipes to black for it, to white for the others. */
 #define BOARD_BOWSER 5
@@ -335,6 +337,16 @@ static void MatchStartProc(void)
      * (priority 0) unloads the DLL, so their destructors still find their code. */
     killed = HuPrcKillIf(overlay_process, (void *)code_module((void (*)(void))netplay_match_tick));
     OSReport("netplay: match start: killed %d menu processes\n", (int)killed);
+    /* bootDll sets up the characters, windows and minigame messages once, after its first wipe-in (frame ~30, or
+     * after the language choice on PAL). A match started before that (N41: --match 0@2 crashed in the board's
+     * HuWinInit, no window data in ARAM) does it here, as bootDll's BootInitForSkippedSequence does. */
+    if (!SystemInitF) {
+        CharInit();
+        HuWindowInit();
+        MGSeqInit();
+        SystemInitF = TRUE;
+        OSReport("netplay: match start: system init done for bootDll\n");
+    }
     CharModelKill(-1);
     MGSeqKillAll();
     for (i = 0; i < 4; i++) {
