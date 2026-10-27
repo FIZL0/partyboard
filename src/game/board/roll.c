@@ -976,3 +976,21 @@ void BoardRollTutorialSet(s16 *arg0)
     }
     tutorialRollF = 1;
 }
+
+#ifdef TARGET_PC
+/* Netplay (N52): a reload mid-roll replaces the board before DiceMain frees its dice on the next frame, so these still
+ * name freed models, particles and objects; the next board's dice then use them (DiceHideEffect crashed). */
+void BoardRollNetplayReset(void)
+{
+    s32 i;
+    for (i = 0; i < 3; i++) {
+        diceMdl[i] = -1;
+        diceEff[i] = -1;
+        diceObj[i] = NULL;
+        diceDigitObj[i] = NULL;
+        diceSndStatus[i] = -1;
+    }
+    rollWin = -1;
+    rollProc = NULL;
+}
+#endif

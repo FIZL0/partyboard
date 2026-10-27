@@ -220,6 +220,18 @@ int netplay_file_remove(const char *path);
 void netplay_turn_resume_arm(void);
 BOOL netplay_turn_resuming(void);
 void netplay_turn_resumed(void);
+/*
+ * N52, a resync point at a minigame's start (src/port/netplay_resync.c). netplay_ovl_start, when instDll starts after
+ * the board's end-of-round minigame setup (mg_setup: flag (1,2)) in a lockstep match: the SLSaveBoard blob, then
+ * NETPLAY_MG_MARK and GWPlayerCfg[0..3].group (mg_setup's sides, which the blob does not have: SLLoadBoard sets them
+ * from GWPlayer.team) becomes the newest resync point. netplay_match_continue sees the mark (netplay_minigame_blob:
+ * the board blob's size, the groups in `groups`; 0 if it has no mark) and resumes into instDll instead of the board.
+ */
+#define NETPLAY_MG_MARK "PBMG"
+#define NETPLAY_MG_MARK_SIZE 4
+#define NETPLAY_MG_TRAILER_SIZE (NETPLAY_MG_MARK_SIZE + 4)
+void netplay_minigame_point(void);
+u32 netplay_minigame_blob(const u8 *blob, u32 size, u8 groups[4]);
 /* The last checkpoint's blob of this match into out (cap bytes): its size, 0 if none yet. */
 u32 netplay_checkpoint_last(u8 *out, u32 cap);
 /* netplay_match.c: forget the last checkpoint (size 0: a match starts or ends) or take `blob` as it (a continue). */

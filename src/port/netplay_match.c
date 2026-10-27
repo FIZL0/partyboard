@@ -57,6 +57,7 @@
 SHARED_SYM extern GameStat GWGameStatDefault;
 SHARED_SYM extern s32 saveExecF;
 void BoardMGSetupPlayClear(void);
+void BoardRollNetplayReset(void);
 SHARED_SYM extern u32 GlobalCounter;
 SHARED_SYM extern s32 SystemInitF;
 void HuSysVWaitSet(s16 vcount);
@@ -72,6 +73,8 @@ static struct {
     BOOL resume;  /* a continue: the board state is `blob` */
     BOOL board;   /* the board overlay started */
     BOOL over;    /* a menu overlay started after the board: the match is over */
+    BOOL minigame; /* N52: a continue from a minigame's start: instDll, not the board, comes first */
+    u8 groups[4];  /* N52: and mg_setup's sides (GWPlayerCfg[].group) */
     NetplayMatch m;
     u8 blob[NETPLAY_BLOB_MAX];
     u32 blob_size;
@@ -131,6 +134,7 @@ BOOL netplay_match_start(const NetplayMatch *m)
     match.pending = TRUE;
     match.scrub = FALSE;
     match.resume = FALSE;
+    match.minigame = FALSE;
     match.blob_size = 0;
     netplay_checkpoint_set(NULL, 0);
     /* A --script run keeps its session (and frame numbers), but the menus it went through used the seeds: they are
@@ -148,7 +152,13 @@ BOOL netplay_match_continue(const NetplayMatch *m, const void *blob, u32 size)
 {
     NetplayMatch c;
     s32 board;
+    u8 groups[4] = { 0 };
+    u32 mg = netplay_minigame_blob(blob, size, groups);
 
+    /* N52: a minigame's resync point is the board blob and a mark; the board state is the blob alone. */
+    if (mg != 0) {
+        size = mg;
+    }
     if (blob == NULL || size != netplay_board_blob_size() || size > sizeof(match.blob)) {
         OSReport("netplay: cannot continue: a checkpoint of %u bytes, this build's are %u\n", (unsigned)size,
             (unsigned)netplay_board_blob_size());
@@ -173,9 +183,13 @@ BOOL netplay_match_continue(const NetplayMatch *m, const void *blob, u32 size)
     match.blob_size = size;
     match.resume = TRUE;
     netplay_checkpoint_set(match.blob, size);
+    match.minigame = mg != 0;
+    memcpy(match.groups, groups, sizeof(match.groups));
     /* N46: a resync point at a turn start resumes that turn (netplay_turn_resuming). */
-    netplay_turn_resume_arm();
-    OSReport("netplay: the match continues from a checkpoint\n");
+    if (!match.minigame) {
+        netplay_turn_resume_arm();
+    }
+    OSReport("netplay: the match continues from a checkpoint%s\n", match.minigame ? " at a minigame's start" : "");
     return TRUE;
 }
 
@@ -290,6 +304,9 @@ static void resume_config(const NetplayMatch *m)
         GWPlayer[i].port = i;
         GWPlayerCfg[i].iscom = m->seats[i].cpu ? 1 : 0;
         GWPlayer[i].com = m->seats[i].cpu ? 1 : 0;
+        if (match.minigame) {
+            GWPlayerCfg[i].group = match.groups[i];
+        }
         if (m->seats[i].cpu) {
             GWPlayerCfg[i].diff = m->seats[i].difficulty;
             GWPlayer[i].diff = m->seats[i].difficulty;
@@ -368,7 +385,16 @@ static void MatchStartProc(void)
     omOvlHisChg(2, DLL_bootdll, 1, 0);
     omOvlHisChg(1, DLL_modeseldll, 1, 0);
     omOvlHisChg(0, DLL_mstory3dll, 0, 0);
-    omOvlCallEx(DLL_w01dll + match.m.board, 1, 0, 0);
+    if (match.minigame) {
+        /* N52: and the board, which called instDll (KillBoardFunc) after mg_setup's white wipe-out. instDll renames its
+         * own entry to resultdll, which returns to the board. */
+        omovlhisidx++;
+        omOvlHisChg(0, DLL_w01dll + match.m.board, 0, 0);
+        WipeColorSet(0xFF, 0xFF, 0xFF);
+        omOvlCallEx(DLL_instdll, 1, 0, 0);
+    } else {
+        omOvlCallEx(DLL_w01dll + match.m.board, 1, 0, 0);
+    }
     HuPrcEnd();
 }
 
@@ -498,7 +524,10 @@ void netplay_ovl_start(s32 ovl)
         netplay_checkpoint_finish();
         return;
     }
-    if (!match.scrub || ovl != DLL_w01dll + match.m.board) {
+    if (match.board && !match.scrub && ovl == DLL_instdll) {
+        netplay_minigame_point();
+    }
+    if (!match.scrub || ovl != (match.minigame ? DLL_instdll : DLL_w01dll + match.m.board)) {
         return;
     }
     match.scrub = FALSE;
@@ -515,6 +544,8 @@ void netplay_ovl_start(s32 ovl)
     } else {
         party_config(&match.m);
     }
+    /* The old board's dice (N52: a resync from a turn point crashed at the next roll). */
+    BoardRollNetplayReset();
     netplay_reseed();
     OSReport("netplay: board overlay %d starts at frame %u, turn %d/%d, heaps %016llX\n", ovl, netplay_frame(),
         GWSystem.turn, GWSystem.max_turn, (unsigned long long)heap_walk(TRUE, TRUE));

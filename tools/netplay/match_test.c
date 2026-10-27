@@ -127,6 +127,10 @@ u32 netplay_session_seed(void) { return 0xDEF0; }
 const char *netplay_user_dir(void) { return "/tmp/user"; }
 static s32 play_clears;
 void BoardMGSetupPlayClear(void) { play_clears++; }
+/* N52: the dice of an old board are forgotten at the board's (or instDll's) start; instDll's start takes a point. */
+static s32 roll_resets, mg_points;
+void BoardRollNetplayReset(void) { roll_resets++; }
+void netplay_minigame_point(void) { mg_points++; }
 #define SAVE_PLAYER(i) &saveBuf.buf[(i) * sizeof(PlayerState) + offsetof(SaveBufData, player)]
 void SLSaveBoard(void)
 {
@@ -524,6 +528,55 @@ int main(void)
         netplay_ovl_start(DLL_modeseldll);
         assert(finished.calls == 2 && deleted.calls == 0);
         netplay_match_end();
+
+        /* N52: a minigame's resync point (the blob, the mark, mg_setup's sides) resumes into instDll, with the board
+         * under it in the history (instDll -> resultDll -> the board). */
+        {
+            static u8 mg[NETPLAY_BLOB_MAX];
+            static const u8 sides[4] = { 1, 0, 1, 1 };
+            u8 groups[4];
+            u32 mg_size = size + NETPLAY_MG_TRAILER_SIZE;
+
+            memcpy(mg, blob, size);
+            memcpy(mg + size, NETPLAY_MG_MARK, NETPLAY_MG_MARK_SIZE);
+            memcpy(mg + size + NETPLAY_MG_MARK_SIZE, sides, 4);
+            assert(netplay_minigame_blob(mg, mg_size, groups) == size && memcmp(groups, sides, 4) == 0);
+            assert(netplay_minigame_blob(blob, size, groups) == 0); /* a turn's or a save's */
+            mg[size] ^= 1;
+            assert(netplay_minigame_blob(mg, mg_size, groups) == 0 && !netplay_match_continue(&c, mg, mg_size));
+            mg[size] ^= 1;
+            assert(!netplay_match_continue(&c, mg, size + NETPLAY_MG_MARK_SIZE) && !netplay_match_running());
+
+            proc = NULL;
+            roll_resets = mg_points = 0;
+            assert(netplay_match_continue(&c, mg, mg_size));
+            assert(netplay_checkpoint_last(back, sizeof(back)) == size && memcmp(back, blob, size) == 0);
+            netplay_match_tick();
+            assert(GWSystem.turn == 7 && GWPlayer[2].coins == 23);
+            for (i = 0; i < 4; i++) {
+                assert(GWPlayerCfg[i].group == sides[i]);
+            }
+            wipe_rgb[0] = 0;
+            omovlhisidx = 7;
+            proc();
+            assert(called == DLL_instdll && omovlhisidx == 4 && wipe_rgb[0] == 0xFF);
+            assert(his[2].ovl == DLL_mstory3dll && his[3].ovl == DLL_w01dll + 3 && his[3].event == 0);
+            /* The board's start is not the one waited for: instDll's sets the state again (N38), and it takes no point. */
+            GWSystem.turn = 1;
+            GWPlayerCfg[0].group = 0;
+            netplay_ovl_start(DLL_w01dll + 3);
+            assert(GWSystem.turn == 1 && roll_resets == 0);
+            netplay_ovl_start(DLL_instdll);
+            assert(GWSystem.turn == 7 && GWPlayerCfg[0].group == 1 && roll_resets == 1 && mg_points == 0);
+            /* The minigame, the results, the board: the next round's instDll takes a point. */
+            netplay_ovl_start(DLL_m401dll);
+            netplay_ovl_start(DLL_resultdll);
+            netplay_ovl_start(DLL_w01dll + 3);
+            assert(!netplay_match_over() && mg_points == 0 && roll_resets == 1);
+            netplay_ovl_start(DLL_instdll);
+            assert(mg_points == 1);
+            netplay_match_end();
+        }
     }
 
     /* N34: a match left before its end goes back to modeseldll. The board leaves through its own exit once it runs
