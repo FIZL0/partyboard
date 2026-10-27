@@ -134,6 +134,23 @@ int pbnet_save_blob(const char *path, uint8_t *buf, int cap);
 /* Deletes a save (a path from pbnet_save_list; nothing outside an online/ dir). 1 if deleted. */
 int pbnet_save_delete(const char *path);
 
+/*
+ * LAN games (net/src/lobby_c.rs Browse). An open host lobby lists itself by mDNS on the local network: its room id,
+ * host name (first local player) and open seats, kept up to date and taken down at the start or close.
+ *
+ * pbnet_lan_browse lists the lobbies heard, as JSON snprintf-style (as pbnet_lobby_json; returns -1 if setup is not
+ * JSON). Its first call binds an endpoint with no lobby (on pbnet's threads, so it returns at once: poll it); setup is
+ * the lobby setup JSON or NULL, and only its "relay"/"relay_url" are read (another relay setting rebinds). Then
+ *   {"state": "binding"|"open"|"closed", "lan": bool (mDNS works on this device), "error": "<why closed>",
+ *    "games": [{"code": "<host's endpoint ID: pass to pbnet_lobby_join>", "id": "<match id>", "name": "...",
+ *               "open": n}, ...]}
+ * pbnet_lobby_join dials from that endpoint when its relay setting matches, and the browse ends; pbnet_lobby_host
+ * ends it too.
+ */
+int pbnet_lan_browse(const char *setup, char *buf, int cap);
+/* Ends the LAN browse, if one runs. */
+void pbnet_lan_stop(void);
+
 #ifdef __ANDROID__
 /*
  * Android (net/src/android.rs): sets up the phone's certificate check for the short codes' HTTPS. Call once at boot

@@ -187,3 +187,13 @@ int pbnet_save_delete(const char *path)
     (void)path;
     return 0;
 }
+
+/* LAN: no endpoint, so never any games. */
+int pbnet_lan_browse(const char *setup, char *buf, int cap)
+{
+    (void)setup;
+    return snprintf(buf, buf != NULL && cap > 0 ? (size_t)cap : 0, "%s",
+                    "{\"state\":\"closed\",\"lan\":false,\"error\":\"netplay is not available in this build\",\"games\":[]}");
+}
+
+void pbnet_lan_stop(void) { }
