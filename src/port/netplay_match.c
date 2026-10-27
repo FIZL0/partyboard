@@ -330,6 +330,23 @@ static void fnv_word(u64 *h, u64 v)
     }
 }
 
+/*
+ * A block's num as the same value in every run. Some nums are host pointers: hsfman.c tags a model's blocks
+ * with (uintptr_t)hsf, an address in a game heap, which moves with the host's ASLR from run to run
+ * (research/journal/2026-10-27-n15-determinism-run). A num inside a heap becomes (heap, offset in it).
+ */
+static u64 heap_num(uintptr_t num)
+{
+    s32 heap;
+    for (heap = 0; heap < HEAP_MAX; heap++) {
+        uintptr_t base = (uintptr_t)HuMemHeapPtrGet((HeapID)heap);
+        if (base != 0 && num >= base && num - base < HuMemHeapSizeGet((HeapID)heap)) {
+            return 0x8000000000000000ULL | ((u64)heap << 56) | (u64)(num - base);
+        }
+    }
+    return (u64)num;
+}
+
 static void heap_block(void *user, uintptr_t offset, s32 size, BOOL used, uintptr_t num, void *data, size_t data_size)
 {
     HeapWalk *w = user;
@@ -337,7 +354,7 @@ static void heap_block(void *user, uintptr_t offset, s32 size, BOOL used, uintpt
         fnv_word(&w->h, (u64)w->heap);
         fnv_word(&w->h, (u64)offset);
         fnv_word(&w->h, (u64)(u32)size);
-        fnv_word(&w->h, (u64)num);
+        fnv_word(&w->h, heap_num(num));
         w->used_blocks++;
         w->used_bytes += (size_t)size;
     } else if (w->scrub) {
