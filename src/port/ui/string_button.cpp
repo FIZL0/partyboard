@@ -12,6 +12,7 @@ BaseStringButton::BaseStringButton(Rml::Element *parent, Props props)
     : BaseControlledSelectButton(parent, { std::move(props.key) })
     , mType(std::move(props.type))
     , mMaxLength(props.maxLength)
+    , mCode(props.code)
 {
     mInputListeners.reserve(3);
 }
@@ -112,7 +113,9 @@ void BaseStringButton::focus_input()
         return;
     }
 
-    aurora::rmlui::set_input_type(mType == "number" ? aurora::rmlui::InputType::Number : aurora::rmlui::InputType::Text);
+    aurora::rmlui::set_input_type(mType == "number" ? aurora::rmlui::InputType::Number
+            : mCode                                 ? aurora::rmlui::InputType::Code
+                                                    : aurora::rmlui::InputType::Text);
 
     if (mInputElem->Focus(true)) {
         const int end = static_cast<int>(Rml::StringUtilities::LengthUTF8(mInputElem->GetValue()));
@@ -149,7 +152,7 @@ void BaseStringButton::stop_editing(bool commit, bool refocusRoot)
 }
 
 StringButton::StringButton(Rml::Element *parent, Props props)
-    : BaseStringButton(parent, { .key = std::move(props.key), .maxLength = props.maxLength })
+    : BaseStringButton(parent, { .key = std::move(props.key), .maxLength = props.maxLength, .code = props.code })
     , mGetValue(std::move(props.getValue))
     , mSetValue(std::move(props.setValue))
 {
