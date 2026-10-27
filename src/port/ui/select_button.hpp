@@ -27,6 +27,8 @@ public:
     virtual bool modified() const;
     void set_modified(bool value);
     void set_value_label(const Rml::String &value);
+    // N59: an image after the value (a button glyph's source, port/ui/button_glyphs.hpp); empty hides it
+    void set_glyph(const Rml::String &src);
     SelectButton &on_pressed(SelectButtonCallback callback);
 
 protected:
@@ -37,6 +39,8 @@ protected:
     Rml::Element *mKeyElem = nullptr;
     Rml::Element *mIconElem = nullptr;
     Rml::Element *mValueElem = nullptr;
+    Rml::Element *mGlyphElem = nullptr;
+    Rml::String mGlyph;
 };
 
 class BaseControlledSelectButton : public SelectButton {
@@ -50,6 +54,7 @@ public:
 
 protected:
     virtual Rml::String format_value() = 0;
+    virtual Rml::String format_glyph() { return {}; }
 };
 
 class ControlledSelectButton : public BaseControlledSelectButton {
@@ -60,6 +65,8 @@ public:
         std::function<bool()> isDisabled;
         std::function<bool()> isModified;
         bool submit = true;
+        // N59: the glyph image source shown after the value (button_glyph_src)
+        std::function<Rml::String()> getGlyph;
     };
 
     ControlledSelectButton(Rml::Element *parent, Props props)
@@ -71,6 +78,7 @@ public:
         , mGetValue(std::move(props.getValue))
         , mIsDisabled(std::move(props.isDisabled))
         , mIsModified(std::move(props.isModified))
+        , mGetGlyph(std::move(props.getGlyph))
     {
     }
 
@@ -79,10 +87,12 @@ public:
 
 protected:
     Rml::String format_value() override;
+    Rml::String format_glyph() override;
 
     std::function<Rml::String()> mGetValue;
     std::function<bool()> mIsDisabled;
     std::function<bool()> mIsModified;
+    std::function<Rml::String()> mGetGlyph;
 };
 
 } // namespace partyboard::ui

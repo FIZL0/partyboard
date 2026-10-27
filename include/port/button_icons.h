@@ -48,6 +48,25 @@ int pb_button_icon_for_window(int entry, u32 pad_mask, struct AnimData_s **anim,
  * Returns 0 on success. */
 int pb_button_icons_dump_sheet(const char *path);
 
+/* N59: single glyphs for our RmlUi menus. A glyph id names a control by position (south face button, left
+ * trigger, ...), the same for every family; pb_button_icons_glyph_rgba draws it in a family's art. */
+#define PB_GLYPH_SIZE 48
+#define PB_GLYPH_NONE (-1)
+enum {
+    PB_GLYPH_BACK = 4, /* the select/back/view/minus button */
+};
+/* Number of glyph ids (0 .. count-1). */
+int pb_button_icons_glyph_count(void);
+/* The glyph of an SDL gamepad button / axis (as aurora's mappings store them), or PB_GLYPH_NONE. */
+int pb_button_icons_glyph_for_native_button(s32 sdl_button);
+int pb_button_icons_glyph_for_native_axis(s32 sdl_axis);
+/* The glyph that message icon `entry` (0-12) shows for pad port `port`, by its bindings; PB_GLYPH_NONE when the
+ * port's family is GameCube (the game keeps its own icon) or the entry is not a button icon. */
+int pb_button_icons_glyph_for_entry(int port, int entry);
+/* Draws `glyph` in `family`'s art as PB_GLYPH_SIZE x PB_GLYPH_SIZE straight-alpha RGBA8 into `out`
+ * (PB_GLYPH_SIZE * PB_GLYPH_SIZE * 4 bytes). Returns 0, or -1 for GameCube (no art of ours) or a bad id. */
+int pb_button_icons_glyph_rgba(PbIconFamily family, int glyph, u8 *out);
+
 #ifdef __cplusplus
 }
 #endif

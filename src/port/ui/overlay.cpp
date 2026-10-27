@@ -1,9 +1,11 @@
 // Credits: TwilitRealm
 
 #include "overlay.hpp"
+#include "button_glyphs.hpp"
 
 #include "aurora/lib/logging.hpp"
 #include "port/achievements.h"
+#include "port/button_icons.h"
 #include "magic_enum.hpp"
 #include "window.hpp"
 
@@ -144,6 +146,14 @@ namespace {
         append(row, "span")->SetInnerRML(kMenuNotificationPrefix);
         auto *icon = append(row, "icon");
         icon->SetClass("controller", true);
+        // N59: the back button's glyph, for a pad on port 1 (the GameCube adapter's chord has none)
+        auto *gamepad = gamepad_for_port(PAD_CHAN0);
+        if (gamepad != nullptr && SDL_GetGamepadType(gamepad) != SDL_GAMEPAD_TYPE_GAMECUBE) {
+            const Rml::String glyph = button_glyph_rml(PAD_CHAN0, PB_GLYPH_BACK);
+            if (!glyph.empty()) {
+                append(row, "span")->SetInnerRML(glyph);
+            }
+        }
         append(row, "span")->SetInnerRML(escape(back_button_name()));
         append(row, "span")->SetInnerRML("to open menu");
 

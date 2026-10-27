@@ -1,0 +1,27 @@
+N59: attached virtual joystick 5 (That operation is not supported)
+[INFO | aurora::input] Added controller 'N59 virtual pad' (instance 5, vid 045e, pid 028e, type 2)
+N59: PADCount 1
+N59: port0 index 0 name N59 virtual pad type 2
+N59: provider pbicon://2/4
+N59: provider pbicon://2/0
+N59: provider pbicon://2/1
+N59: provider pbicon://2/2
+N59: provider pbicon://2/3
+N59: provider pbicon://2/6
+N59: provider pbicon://2/10
+N59: provider pbicon://2/11
+N59: provider pbicon://2/12
+N59: provider pbicon://2/13
+N59: provider pbicon://2/14
+N59: preview <div class="glyph-preview">Xbox:<br/><img class="glyph" src="pbicon://2/0"/>&nbsp;A<br/><img class="glyph" src="pbicon://2/1"/>&nbsp;B<br/><img class="glyph" src="pbicon://2/2"/>&nbsp;X<br/><img class="glyph" src="pbicon://2/3"/>&nbsp;Y<br/><img class="glyph" src="pbicon://2/10"/>&nbsp;Z<br/><img class="glyph" src="pbicon://2/6"/>&nbsp;Start<br/><img class="glyph" src="pbicon://2/15"/>&nbsp;L<br/><img class="glyph" src="pbicon://2/16"/>&nbsp;R<br/><img class="glyph" src="pbicon://2/17"/>&nbsp;Control Stick<br/><img class="glyph" src="pbicon://2/18"/>&nbsp;C Stick<br/><img class="glyph" src="pbicon://2/19"/>&nbsp;D-Pad</div>
+N59: doc 2 img src=res/logo.png class= intrinsic 1614x256 box 721.5x114.4 visible 1 parent=<div class="eyebrow"><span>Mario Party R&amp;D</span> presents</div><img src="res/logo.png" />
+N59: doc 3 img src=pbicon://2/0 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>A</key><icon /><value>A</value><img src="pbicon://2/0" />
+N59: doc 3 img src=pbicon://2/1 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>B</key><icon /><value>B</value><img src="pbicon://2/1" />
+N59: doc 3 img src=pbicon://2/2 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>X</key><icon /><value>X</value><img src="pbicon://2/2" />
+N59: doc 3 img src=pbicon://2/3 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Y</key><icon /><value>Y</value><img src="pbicon://2/3" />
+N59: doc 3 img src=pbicon://2/6 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Start</key><icon /><value>Start</value><img src="pbicon://2/6" />
+N59: doc 3 img src=pbicon://2/10 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Z</key><icon /><value>RB</value><img src="pbicon://2/10" />
+N59: doc 3 img src=pbicon://2/11 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Up</key><icon /><value>D-pad up</value><img src="pbicon://2/11" />
+N59: doc 3 img src=pbicon://2/12 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Down</key><icon /><value>D-pad down</value><img src="pbicon://2/12" />
+N59: doc 3 img src=pbicon://2/13 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Left</key><icon /><value>D-pad left</value><img src="pbicon://2/13" />
+N59: doc 3 img src=pbicon://2/14 class=glyph intrinsic 77x77 box 38.4x38.4 visible 1 parent=<key>Right</key><icon /><value>D-pad right</value><img src="pbicon://2/14" />

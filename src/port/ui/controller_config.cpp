@@ -4,6 +4,7 @@
 
 #include "bool_button.hpp"
 #include "button.hpp"
+#include "button_glyphs.hpp"
 #include "number_button.hpp"
 #include "pane.hpp"
 #include "port/button_icons.h"
@@ -193,6 +194,15 @@ const std::vector<ButtonNames> kGamepadButtonNames = {
         }
 
         return "Not bound";
+    }
+
+    // N59: the glyph of what an axis mapping is bound to (a native axis, else a native button)
+    int axis_mapping_glyph(const PADAxisMapping &mapping)
+    {
+        if (mapping.nativeAxis.nativeAxis != -1) {
+            return pb_button_icons_glyph_for_native_axis(mapping.nativeAxis.nativeAxis);
+        }
+        return pb_button_icons_glyph_for_native_button(mapping.nativeButton);
     }
 
     bool is_dpad_button(PADButton button)
@@ -388,10 +398,11 @@ void ControllerConfigWindow::build_port_tab(Rml::Element *content, int port)
                                   .key = "Button Icons",
                                   .getValue = [port] { return Rml::String(pb_button_icons_family_name(pb_button_icons_family(port))); },
                               }),
-        rightPane, [](Pane &pane) {
+        rightPane, [port](Pane &pane) {
             pane.clear();
             pane.add_text("The controller buttons the game's prompts show for this port, by its controller's type and "
                           "the bindings above. Change the rule in Settings > Input > Button Icons.");
+            pane.add_rml(button_glyph_preview_rml(port));
         });
 
     leftPane.add_section("Options");
@@ -555,6 +566,13 @@ void ControllerConfigWindow::render_page(Pane &pane, int port, Page page)
                                                    }
                                                    return native_button_name(gamepad, mapping.nativeButton);
                                                },
+                                           .getGlyph =
+                                               [this, port, &mapping] {
+                                                   if (mPendingButtonMapping == &mapping) {
+                                                       return Rml::String {};
+                                                   }
+                                                   return button_glyph_src(port, pb_button_icons_glyph_for_native_button(static_cast<s32>(mapping.nativeButton)));
+                                               },
                                        })
                     .on_pressed([this, port, &mapping] {
                         cancel_pending_binding();
@@ -579,6 +597,13 @@ void ControllerConfigWindow::render_page(Pane &pane, int port, Page page)
                                                        return pending_button_label();
                                                    }
                                                    return native_button_name(gamepad, mapping.nativeButton);
+                                               },
+                                           .getGlyph =
+                                               [this, port, &mapping] {
+                                                   if (mPendingButtonMapping == &mapping) {
+                                                       return Rml::String {};
+                                                   }
+                                                   return button_glyph_src(port, pb_button_icons_glyph_for_native_button(static_cast<s32>(mapping.nativeButton)));
                                                },
                                        })
                     .on_pressed([this, port, &mapping] {
@@ -687,6 +712,13 @@ void ControllerConfigWindow::render_page(Pane &pane, int port, Page page)
                                                        }
                                                        return native_axis_name(mapping, gamepad);
                                                    },
+                                               .getGlyph =
+                                                   [this, port, &mapping] {
+                                                       if (mPendingAxisMapping == &mapping) {
+                                                           return Rml::String {};
+                                                       }
+                                                       return button_glyph_src(port, axis_mapping_glyph(mapping));
+                                                   },
                                            })
                         .on_pressed([this, port, &mapping] {
                             cancel_pending_binding();
@@ -712,6 +744,13 @@ void ControllerConfigWindow::render_page(Pane &pane, int port, Page page)
                                                            return pending_button_label();
                                                        }
                                                        return native_button_name(gamepad, mapping.nativeButton);
+                                                   },
+                                               .getGlyph =
+                                                   [this, port, &mapping] {
+                                                       if (mPendingButtonMapping == &mapping) {
+                                                           return Rml::String {};
+                                                       }
+                                                       return button_glyph_src(port, pb_button_icons_glyph_for_native_button(static_cast<s32>(mapping.nativeButton)));
                                                    },
                                            })
                         .on_pressed([this, port, &mapping] {
@@ -822,6 +861,13 @@ void ControllerConfigWindow::render_page(Pane &pane, int port, Page page)
                                                        return pending_axis_label();
                                                    }
                                                    return native_axis_name(mapping, gamepad);
+                                               },
+                                           .getGlyph =
+                                               [this, port, &mapping] {
+                                                   if (mPendingAxisMapping == &mapping) {
+                                                       return Rml::String {};
+                                                   }
+                                                   return button_glyph_src(port, axis_mapping_glyph(mapping));
                                                },
                                        })
                     .on_pressed([this, port, &mapping] {

@@ -61,6 +61,25 @@ void SelectButton::set_value_label(const Rml::String &value)
     }
 }
 
+void SelectButton::set_glyph(const Rml::String &src)
+{
+    if (mGlyph == src) {
+        return;
+    }
+    if (mGlyphElem == nullptr) {
+        mGlyphElem = append(mRoot, "img");
+        mGlyphElem->SetClass("glyph", true);
+    }
+    if (src.empty()) {
+        mGlyphElem->SetProperty(Rml::PropertyId::Display, Rml::Property(Rml::Style::Display::None));
+    }
+    else {
+        mGlyphElem->RemoveProperty(Rml::PropertyId::Display);
+        mGlyphElem->SetAttribute("src", src);
+    }
+    mGlyph = src;
+}
+
 SelectButton &SelectButton::on_pressed(SelectButtonCallback callback)
 {
     if (!callback) {
@@ -108,6 +127,7 @@ void BaseControlledSelectButton::update()
 {
     set_disabled(disabled());
     set_value_label(format_value());
+    set_glyph(format_glyph());
     set_modified(modified());
     SelectButton::update();
 }
@@ -134,6 +154,11 @@ Rml::String ControlledSelectButton::format_value()
         return "";
     }
     return mGetValue();
+}
+
+Rml::String ControlledSelectButton::format_glyph()
+{
+    return mGetGlyph ? mGetGlyph() : Rml::String {};
 }
 
 } // namespace partyboard::ui
