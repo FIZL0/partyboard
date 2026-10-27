@@ -7,6 +7,7 @@
 pub mod android;
 pub mod codes;
 pub mod lobby;
+pub mod lobby_c;
 pub mod lockstep;
 pub mod lockstep_c;
 pub mod transport;
