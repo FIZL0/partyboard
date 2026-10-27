@@ -26,6 +26,9 @@
 #include "game/board/tutorial.h"
 #include "game/board/ui.h"
 #include "game/board/window.h"
+#ifdef TARGET_PC
+#include "port/netplay.h"
+#endif
 
 #include "dolphin.h"
 #include "ext_math.h"
@@ -312,6 +315,13 @@ static void CreatePlayerStart(void) {
     s8 i;
 
     BoardModelPosGet(camFocus, &boardPos);
+#ifdef TARGET_PC
+    if (netplay_active()) {
+        /* N56: the last board start's rolls stay here, and PlayerDiceRoll's redraw compares with them: a peer that ran
+         * a board start before (an earlier match, a resync) drew BoardRand differently from a fresh one. */
+        memset(playerOrderNew, 0, sizeof(playerOrderNew));
+    }
+#endif
     for (i = 0; i < 4; i++) {
         playerOrderOld[i] = i;
         boardObj = omAddObjEx(boardObjMan, 0x100, 0, 0, -1, ExecPlayerStart);

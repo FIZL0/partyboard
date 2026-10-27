@@ -307,6 +307,12 @@ int main(void)
     /* Before the first READY: idle, connected. */
     netplay_pad_read(got);
     assert(got[0].button == 0 && got[0].err == PAD_ERR_NONE);
+    /* N56: a session with no match yet (--hash-log in the menus, the lobby's start not applied): the lockstep is
+     * not stepped, so its frame 0 is the match's frame 0 on every peer. */
+    phys[0].button = PAD_BUTTON_X;
+    assert(netplay_tick_begin());
+    assert(fr == 0 && hash_calls == 0 && taken_for == 0xFFFFFFFF);
+    running = 1;
     /* Frame 0 ready, hash for frame 0 sent once. */
     phys[0].button = PAD_BUTTON_X;
     phys[1].err = PAD_ERR_NO_CONTROLLER; phys[1].button = 0x55;
