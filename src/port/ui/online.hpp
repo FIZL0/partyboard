@@ -28,6 +28,10 @@ private:
     void join();
     void rejoin();
     void open_lobby();
+    // N29: Continue tab.
+    void pick_save(const online::SaveInfo &save);
+    void confirm_delete_save(const std::string &path, const Rml::String &title);
+    void host_continue(const std::string &path);
     void poll_lan();
     void rebuild_lan();
     void join_lan(const std::string &code);
