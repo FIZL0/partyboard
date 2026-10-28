@@ -2802,6 +2802,9 @@ void BoardItemNetplayReset(void)
     booBallMdl = 0;
     genieParticleAnim = NULL;
     itemProc = NULL;
+    /* N78: the Bowser suit's motions (RestoreItemBowser reads them without creating them). */
+    suitMot[0] = suitMot[1] = 0;
+    suitCommonMot[0] = suitCommonMot[1] = 0;
 }
 #endif
 

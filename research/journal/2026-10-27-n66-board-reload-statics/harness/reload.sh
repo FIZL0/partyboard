@@ -4,6 +4,7 @@
 # first turn point after it dump the board statics to $OUT/dump.txt. EVENT=none: no reload (the fresh baseline).
 # FORCE=<file>: more gdb commands (steer the run to an event). DUMPLINE: netplay_match.c line after the scrub.
 # Dumps: preN just before N66's reset (BoardRollNetplayReset), startN after the scrub, turnN at the first turn point.
+# BOARD=<0..5>: the --match board (default 0, w01). TMO: gdb run timeout in seconds (default 400).
 # usage: reload.sh <outdir> <EVENT> <DELAY> [MODE]
 set -e
 H=$(cd "$(dirname "$0")" && pwd)
@@ -59,7 +60,7 @@ commands
   eval "pbdump $OUT/dump.txt pre%d", \$epoch + 1
   continue
 end
-break netplay_match.c:${DUMPLINE:-727}
+break netplay_match.c:${DUMPLINE:-748}
 commands
   silent
   set \$epoch = \$epoch + 1
@@ -86,6 +87,6 @@ quit
 G
 cd "$B"
 PB_SYMS=$H/syms.txt HOME=$OUT/home XDG_DATA_HOME=$OUT/home/.local/share timeout -s KILL ${TMO:-400} \
-  gdb -q -batch -x "$OUT/run.gdb" --args ./partyboard --script "$R/tools/netplay/mash-a.script" --match 0@900 --turbo \
+  gdb -q -batch -x "$OUT/run.gdb" --args ./partyboard --script "$R/tools/netplay/mash-a.script" --match ${BOARD:-0}@900 --turbo \
   > "$OUT/log.txt" 2>&1 || true
 grep -E "^GDB|netplay: (match|board)|SIGSEGV|SIGABRT" "$OUT/log.txt" | head -60

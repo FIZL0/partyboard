@@ -1,0 +1,92 @@
+w02-blue 1 cont BoardLandBlueExec 30
+w02-walk 1 cont BoardSpaceWalkExec 5
+w02-mgsetup 1 cont BoardMGSetupExec 120
+w02-happen 1 cont HuAudFXPlay~if~$landset==1 90 force-land.sh 6 0
+w02-happen300 1 cont HuAudFXPlay~if~$landset==1 300 force-land.sh 6 0
+w02-bowser 1 cont BoardBowserExec 200 force-land.sh 3 0
+w02-battle 1 cont BoardBattleExec 200 force-land.sh 5 0
+w02-star 1 cont BoardStarExec 150 force-star.sh 0
+w03-blue 2 cont BoardLandBlueExec 30
+w03-walk 2 cont BoardSpaceWalkExec 5
+w03-mgsetup 2 cont BoardMGSetupExec 120
+w03-happen 2 cont HuAudFXPlay~if~$landset==1 90 force-land.sh 6 0
+w03-happen300 2 cont HuAudFXPlay~if~$landset==1 300 force-land.sh 6 0
+w03-bowser 2 cont BoardBowserExec 200 force-land.sh 3 0
+w03-battle 2 cont BoardBattleExec 200 force-land.sh 5 0
+w03-star 2 cont BoardStarExec 150 force-star.sh 0
+w04-blue 3 cont BoardLandBlueExec 30
+w04-walk 3 cont BoardSpaceWalkExec 5
+w04-mgsetup 3 cont BoardMGSetupExec 120
+w04-happen 3 cont HuAudFXPlay~if~$landset==1 90 force-land.sh 6 0
+w04-happen300 3 cont HuAudFXPlay~if~$landset==1 300 force-land.sh 6 0
+w04-bowser 3 cont BoardBowserExec 200 force-land.sh 3 0
+w04-battle 3 cont BoardBattleExec 200 force-land.sh 5 0
+w04-star 3 cont BoardStarExec 150 force-star.sh 0
+w05-blue 4 cont BoardLandBlueExec 30
+w05-walk 4 cont BoardSpaceWalkExec 5
+w05-mgsetup 4 cont BoardMGSetupExec 120
+w05-happen 4 cont HuAudFXPlay~if~$landset==1 90 force-land.sh 6 0
+w05-happen300 4 cont HuAudFXPlay~if~$landset==1 300 force-land.sh 6 0
+w05-bowser 4 cont BoardBowserExec 200 force-land.sh 3 0
+w05-battle 4 cont BoardBattleExec 200 force-land.sh 5 0
+w05-star 4 cont BoardStarExec 150 force-star.sh 0
+w06-blue 5 cont BoardLandBlueExec 30
+w06-walk 5 cont BoardSpaceWalkExec 5
+w06-mgsetup 5 cont BoardMGSetupExec 120
+w06-happen 5 cont HuAudFXPlay~if~$landset==1 90 force-land.sh 6 0
+w06-happen300 5 cont HuAudFXPlay~if~$landset==1 300 force-land.sh 6 0
+w06-bowser 5 cont BoardBowserExec 200 force-land.sh 3 0
+w06-battle 5 cont BoardBattleExec 200 force-land.sh 5 0
+w06-star 5 cont BoardStarExec 150 force-star.sh 0
+w01-item0-30 0 cont BoardItemStart 30 force-item.sh 0
+w01-item0-150 0 cont BoardItemStart 150 force-item.sh 0
+w02-item0 1 cont BoardItemStart 90 force-item.sh 0
+w01-item1-30 0 cont BoardItemStart 30 force-item.sh 1
+w01-item1-150 0 cont BoardItemStart 150 force-item.sh 1
+w03-item1 2 cont BoardItemStart 90 force-item.sh 1
+w01-item2-30 0 cont BoardItemStart 30 force-item.sh 2
+w01-item2-150 0 cont BoardItemStart 150 force-item.sh 2
+w04-item2 3 cont BoardItemStart 90 force-item.sh 2
+w01-item3-30 0 cont BoardItemStart 30 force-item.sh 3
+w01-item3-150 0 cont BoardItemStart 150 force-item.sh 3
+w05-item3 4 cont BoardItemStart 90 force-item.sh 3
+w01-item4-30 0 cont BoardItemStart 30 force-item.sh 4
+w01-item4-150 0 cont BoardItemStart 150 force-item.sh 4
+w06-item4 5 cont BoardItemStart 90 force-item.sh 4
+w01-item5-30 0 cont BoardItemStart 30 force-item.sh 5
+w01-item5-150 0 cont BoardItemStart 150 force-item.sh 5
+w02-item5 1 cont BoardItemStart 90 force-item.sh 5
+w01-item6-30 0 cont BoardItemStart 30 force-item.sh 6
+w01-item6-150 0 cont BoardItemStart 150 force-item.sh 6
+w03-item6 2 cont BoardItemStart 90 force-item.sh 6
+w01-item7-30 0 cont BoardItemStart 30 force-item.sh 7
+w01-item7-150 0 cont BoardItemStart 150 force-item.sh 7
+w04-item7 3 cont BoardItemStart 90 force-item.sh 7
+w01-item8-30 0 cont BoardItemStart 30 force-item.sh 8
+w01-item8-150 0 cont BoardItemStart 150 force-item.sh 8
+w05-item8 4 cont BoardItemStart 90 force-item.sh 8
+w01-item9-30 0 cont BoardItemStart 30 force-item.sh 9
+w01-item9-150 0 cont BoardItemStart 150 force-item.sh 9
+w06-item9 5 cont BoardItemStart 90 force-item.sh 9
+w01-item10-30 0 cont BoardItemStart 30 force-item.sh 10
+w01-item10-150 0 cont BoardItemStart 150 force-item.sh 10
+w02-item10 1 cont BoardItemStart 90 force-item.sh 10
+w01-last5-60 0 cont BoardLast5Exec 60 force-last5.sh 6
+w01-last5-400 0 cont BoardLast5Exec 400 force-last5.sh 6
+w06-last5-60 5 cont BoardLast5Exec 60 force-last5.sh 6
+w06-last5-400 5 cont BoardLast5Exec 400 force-last5.sh 6
+w01-pause-20 0 cont BoardPauseStart 20 force-pause.sh 3700
+w01-pause-90 0 cont BoardPauseStart 90 force-pause.sh 3700
+w04-pause-40 3 cont BoardPauseStart 40 force-pause.sh 3700
+w01-battleret-30 0 cont BoardBattleExec~if~_CheckFlag(0x10004) 30 force-land.sh 5 0;force-allcom.sh
+w01-battleret-200 0 cont BoardBattleExec~if~_CheckFlag(0x10004) 200 force-land.sh 5 0;force-allcom.sh
+w01-bowserret-30 0 cont BoardBowserExec~if~_CheckFlag(0x10003) 30 force-land.sh 3 0;force-bowser.sh 437
+w01-bowserret-200 0 cont BoardBowserExec~if~_CheckFlag(0x10003) 200 force-land.sh 3 0;force-bowser.sh 437
+w03-battleret-30 2 cont BoardBattleExec~if~_CheckFlag(0x10004) 30 force-land.sh 5 0;force-allcom.sh
+w03-battleret-200 2 cont BoardBattleExec~if~_CheckFlag(0x10004) 200 force-land.sh 5 0;force-allcom.sh
+w03-bowserret-30 2 cont BoardBowserExec~if~_CheckFlag(0x10003) 30 force-land.sh 3 0;force-bowser.sh 437
+w03-bowserret-200 2 cont BoardBowserExec~if~_CheckFlag(0x10003) 200 force-land.sh 3 0;force-bowser.sh 437
+w01-last5start-60 0 start BoardLast5Exec 60 force-last5.sh 5
+w06-last5start-200 5 start BoardLast5Exec 200 force-last5.sh 5
+w01-pause-20-unpause 0 cont BoardPauseStart 20 force-pause.sh 3700;unpause3d.sh 3758
+w04-pause-40-unpause 3 cont BoardPauseStart 40 force-pause.sh 3700;unpause3d.sh 3812
