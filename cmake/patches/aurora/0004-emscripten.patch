@@ -1,0 +1,352 @@
+--- a/cmake/AuroraDawnProvider.cmake
++++ b/cmake/AuroraDawnProvider.cmake
+@@ -84,6 +84,23 @@
+   set(_has_dawn_package TRUE)
+ endif ()
+ 
++# Emscripten: the browser's WebGPU through emdawnwebgpu (Dawn's webgpu.h/webgpu_cpp.h on top of navigator.gpu),
++# an emcc port (--use-port=emdawnwebgpu), so no Dawn build or package.
++if (EMSCRIPTEN AND NOT TARGET dawn::webgpu_dawn)
++  message(STATUS "aurora: Using emdawnwebgpu (Emscripten)")
++  add_library(aurora_emdawnwebgpu INTERFACE)
++  target_compile_options(aurora_emdawnwebgpu INTERFACE "--use-port=emdawnwebgpu")
++  target_link_options(aurora_emdawnwebgpu INTERFACE "--use-port=emdawnwebgpu")
++  # Dawn's native tree has <dawn/webgpu_cpp.h>; the port only <webgpu/webgpu_cpp.h>.
++  set(_aurora_emdawn_compat "${CMAKE_BINARY_DIR}/aurora-emdawnwebgpu-compat")
++  file(WRITE "${_aurora_emdawn_compat}/dawn/webgpu_cpp.h" "#pragma once\n#include <webgpu/webgpu_cpp.h>\n")
++  target_include_directories(aurora_emdawnwebgpu INTERFACE "${_aurora_emdawn_compat}")
++  add_library(dawn::webgpu_dawn ALIAS aurora_emdawnwebgpu)
++  add_library(dawn::dawncpp_headers ALIAS aurora_emdawnwebgpu)
++  set(AURORA_DAWN_IS_SHARED FALSE PARENT_SCOPE)
++  return()
++endif ()
++
+ # ── Auto: resolve provider based on platform availability ──
+ set(_aurora_dawn_provider "${AURORA_DAWN_PROVIDER}")
+ if (_aurora_dawn_provider STREQUAL "auto")
+--- a/extern/CMakeLists.txt
++++ b/extern/CMakeLists.txt
+@@ -204,10 +204,20 @@
+     )
+     target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
+ 
++    set(_imgui_wgpu_impl ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
++    if (EMSCRIPTEN)
++      # This imgui's Emscripten path is for the old built-in -sUSE_WEBGPU (gone from Emscripten); emdawnwebgpu
++      # is Dawn's API, so build its Dawn path.
++      file(READ ${_imgui_wgpu_impl} _imgui_wgpu_src)
++      string(REPLACE "__EMSCRIPTEN__" "AURORA_IMGUI_OLD_EMSCRIPTEN_WEBGPU" _imgui_wgpu_src "${_imgui_wgpu_src}")
++      set(_imgui_wgpu_impl ${CMAKE_CURRENT_BINARY_DIR}/imgui_impl_wgpu_emdawn.cpp)
++      file(WRITE ${_imgui_wgpu_impl} "${_imgui_wgpu_src}")
++      set_source_files_properties(${_imgui_wgpu_impl} PROPERTIES INCLUDE_DIRECTORIES ${imgui_SOURCE_DIR}/backends)
++    endif ()
+     add_library(imgui_backends STATIC
+       ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+       ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp
+-      ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
++      ${_imgui_wgpu_impl}
+     )
+     target_compile_definitions(imgui_backends PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
+     target_link_libraries(imgui_backends PRIVATE imgui ${AURORA_SDL3_TARGET} dawn::webgpu_dawn)
+--- a/lib/aurora.cpp
++++ b/lib/aurora.cpp
+@@ -22,6 +22,9 @@
+ 
+ #include "system_info.hpp"
+ #include "tracy/Tracy.hpp"
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
+ 
+ namespace aurora {
+ AuroraConfig g_config;
+@@ -40,7 +43,7 @@
+ 
+ #ifdef AURORA_ENABLE_GX
+ constexpr std::array PreferredBackendOrder{
+-#ifdef ENABLE_BACKEND_WEBGPU
++#if defined(ENABLE_BACKEND_WEBGPU) || defined(__EMSCRIPTEN__)
+     BACKEND_WEBGPU,
+ #endif
+ #ifdef DAWN_ENABLE_BACKEND_D3D12
+@@ -191,6 +194,11 @@
+ }
+ 
+ const AuroraEvent* update() noexcept {
++#ifdef __EMSCRIPTEN__
++  // A game loop never returns to the browser: hand it control (events, presenting the canvas) once per frame
++  // (Asyncify unwinds and resumes the loop).
++  emscripten_sleep(0);
++#endif
+   ZoneScoped;
+   if (g_initialFrame) {
+     g_initialFrame = false;
+@@ -325,7 +333,12 @@
+     }
+     if (canPresent && g_surface) {
+       ZoneScopedN("Present");
++#ifdef __EMSCRIPTEN__
++      // The browser presents the canvas's texture itself once it has control again (aurora_update's yield).
++      const auto presentStatus = wgpu::Status::Success;
++#else
+       auto presentStatus = g_surface.Present();
++#endif
+       if (presentStatus != wgpu::Status::Success) {
+         Log.warn("Surface present failed: {}", static_cast<int>(presentStatus));
+         webgpu::release_surface();
+--- a/lib/dawn/BackendBinding.cpp
++++ b/lib/dawn/BackendBinding.cpp
+@@ -1,6 +1,7 @@
+ #include "BackendBinding.hpp"
+ 
+ #include <memory>
++#include <string>
+ 
+ #if !defined(SDL_PLATFORM_MACOS) && !defined(SDL_PLATFORM_IOS) && !defined(SDL_PLATFORM_TVOS)
+ #include <SDL3/SDL_video.h>
+@@ -14,7 +15,16 @@
+   return SetupWindowAndGetSurfaceDescriptorCocoa(window);
+ #else
+   const auto props = SDL_GetWindowProperties(window);
+-#if defined(SDL_PLATFORM_ANDROID)
++#if defined(SDL_PLATFORM_EMSCRIPTEN)
++  // The canvas SDL created the window on, by its CSS selector (SDL's canvas id is one already: "#canvas").
++  static std::string selector;
++  const char* id = SDL_GetStringProperty(props, SDL_PROP_WINDOW_EMSCRIPTEN_CANVAS_ID_STRING, "#canvas");
++  selector = id[0] == '#' ? std::string(id) : std::string("#") + id;
++  std::shared_ptr<wgpu::EmscriptenSurfaceSourceCanvasHTMLSelector> desc =
++      std::make_shared<wgpu::EmscriptenSurfaceSourceCanvasHTMLSelector>();
++  desc->selector = wgpu::StringView(selector.c_str(), selector.size());
++  return std::move(desc);
++#elif defined(SDL_PLATFORM_ANDROID)
+   std::shared_ptr<wgpu::SurfaceSourceAndroidNativeWindow> desc =
+       std::make_shared<wgpu::SurfaceSourceAndroidNativeWindow>();
+   desc->window = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
+--- a/lib/dolphin/dvd/dvd.cpp
++++ b/lib/dolphin/dvd/dvd.cpp
+@@ -345,7 +345,12 @@
+       .close = sdlStreamClose,
+   };
+   const NodDiscOptions options{
++#ifdef __EMSCRIPTEN__
++      // No threads in the browser build; 0 is nod's single-threaded reader.
++      .preloader_threads = 0,
++#else
+       .preloader_threads = 1,
++#endif
+   };
+ 
+   NodHandle* discHandle;
+--- a/lib/gfx/common.cpp
++++ b/lib/gfx/common.cpp
+@@ -29,6 +29,9 @@
+ #include <magic_enum.hpp>
+ 
+ #include "tracy/Tracy.hpp"
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
+ 
+ namespace aurora::gfx {
+ static Module Log("aurora::gfx");
+@@ -979,6 +982,14 @@
+   }
+ }
+ 
++static void process_gpu_events() {
++  g_instance.ProcessEvents();
++#ifdef __EMSCRIPTEN__
++  // The browser settles a buffer map (and so frees a frame slot) only once it has control again.
++  emscripten_sleep(0);
++#endif
++}
++
+ static bool wait_for_staging_buffer(size_t slot) {
+   ZoneScopedN("Wait for buffer map");
+   map_staging_buffer(slot);
+@@ -991,7 +1002,7 @@
+       return false;
+     }
+     if (render_worker::is_idle()) {
+-      g_instance.ProcessEvents();
++      process_gpu_events();
+     } else {
+       std::this_thread::sleep_for(std::chrono::milliseconds{1});
+     }
+@@ -1005,7 +1016,7 @@
+       return *slot;
+     }
+     if (render_worker::is_idle()) {
+-      g_instance.ProcessEvents();
++      process_gpu_events();
+     } else {
+       std::this_thread::sleep_for(std::chrono::microseconds{100});
+     }
+@@ -1023,7 +1034,7 @@
+       return std::nullopt;
+     }
+     if (render_worker::is_idle()) {
+-      g_instance.ProcessEvents();
++      process_gpu_events();
+     } else {
+       std::this_thread::sleep_for(std::chrono::microseconds{100});
+     }
+--- a/lib/gfx/dds_io.cpp
++++ b/lib/gfx/dds_io.cpp
+@@ -293,7 +293,7 @@
+     return std::nullopt;
+   }
+ 
+-  ByteBuffer data{expectedSize};
++  ByteBuffer data{static_cast<size_t>(expectedSize)};
+   std::memcpy(data.data(), bytes.data() + parsedLayout->dataOffset, expectedSize);
+   return ConvertedTexture{
+       .format = parsedLayout->format,
+--- a/lib/gfx/pipeline_cache.cpp
++++ b/lib/gfx/pipeline_cache.cpp
+@@ -1032,6 +1032,13 @@
+   g_pipelineThreadEnd = false;
+   g_gpuCachePrunePending = false;
+ 
++#ifdef __EMSCRIPTEN__
++  // No threads in the browser build, and nowhere lasting to keep a pipeline cache: pipelines are built on
++  // the main thread as they're needed, and nothing is written.
++  g_hasPipelineThread = false;
++  g_pipelineCacheBroken = true;
++  return;
++#endif
+   if (webgpu::g_backendType == wgpu::BackendType::OpenGL || webgpu::g_backendType == wgpu::BackendType::OpenGLES ||
+       webgpu::g_backendType == wgpu::BackendType::WebGPU) {
+     g_hasPipelineThread = false;
+--- a/lib/gfx/render_worker.cpp
++++ b/lib/gfx/render_worker.cpp
+@@ -192,6 +192,10 @@
+ }
+ 
+ void initialize() {
++#ifdef __EMSCRIPTEN__
++  // No threads in the browser build: every item runs where it's enqueued (enqueue's not-running path).
++  return;
++#endif
+   if (g_running.exchange(true, std::memory_order_acq_rel)) {
+     return;
+   }
+@@ -263,7 +267,13 @@
+   sync->cv.wait(lock, [&] { return sync->complete; });
+ }
+ 
+-bool is_worker_thread() noexcept { return g_workerThreadId == std::this_thread::get_id(); }
++bool is_worker_thread() noexcept {
++#ifdef __EMSCRIPTEN__
++  return true;
++#else
++  return g_workerThreadId == std::this_thread::get_id();
++#endif
++}
+ 
+ bool is_idle() noexcept { return g_pendingItems.load(std::memory_order_acquire) == 0; }
+ 
+--- a/lib/gfx/texture_replacement.cpp
++++ b/lib/gfx/texture_replacement.cpp
+@@ -543,7 +543,7 @@
+     return std::nullopt;
+   }
+ 
+-  aurora::ByteBuffer blob{n};
++  aurora::ByteBuffer blob{static_cast<size_t>(n)};
+   uint8_t* const dst = blob.data();
+   uint64_t o = 0;
+   const auto append = [&](const aurora::ByteBuffer& d) noexcept -> bool {
+--- a/lib/rmlui/pipeline.cpp
++++ b/lib/rmlui/pipeline.cpp
+@@ -822,6 +822,10 @@
+     };
+     depthStencilState = {
+         .format = stencilFormat,
++#ifdef __EMSCRIPTEN__
++        // A stencil-only format: the browser validates this (emdawnwebgpu passes Undefined on as true).
++        .depthWriteEnabled = wgpu::OptionalBool::False,
++#endif
+         .stencilFront = face,
+         .stencilBack = face,
+         .stencilReadMask = 0xFF,
+--- a/lib/webgpu/gpu.cpp
++++ b/lib/webgpu/gpu.cpp
+@@ -20,8 +20,10 @@
+ 
+ #ifdef WEBGPU_DAWN
+ #include "../dawn/BackendBinding.hpp"
++#ifndef __EMSCRIPTEN__
+ #include <dawn/native/DawnNative.h>
+ #endif
++#endif
+ 
+ namespace aurora::gx {
+ void clear_copy_texture_cache() noexcept;
+@@ -698,7 +700,7 @@
+         .requiredFeatureCount = requiredInstanceFeatures.size(),
+         .requiredFeatures = requiredInstanceFeatures.data(),
+     };
+-#ifdef WEBGPU_DAWN
++#if defined(WEBGPU_DAWN) && !defined(__EMSCRIPTEN__)
+     dawn::native::DawnInstanceDescriptor dawnInstanceDescriptor;
+     dawnInstanceDescriptor.backendValidationLevel = dawn::native::BackendValidationLevel::Disabled;
+     instanceDescriptor.nextInChain = &dawnInstanceDescriptor;
+@@ -725,7 +727,12 @@
+   {
+     const wgpu::RequestAdapterOptions options{
+         .powerPreference = wgpu::PowerPreference::HighPerformance,
++#ifdef __EMSCRIPTEN__
++        // The browser picks its own backend.
++        .backendType = wgpu::BackendType::Undefined,
++#else
+         .backendType = backend,
++#endif
+         .compatibleSurface = g_surface,
+     };
+     const auto future = g_instance.RequestAdapter(
+@@ -752,6 +759,10 @@
+   if (adapterName.IsUndefined()) {
+     adapterName = wgpu::StringView("Unknown");
+   }
++#ifdef __EMSCRIPTEN__
++  // The browser's adapter is the only one there is (a CPU one is its software fallback).
++  allowCpu = true;
++#endif
+   if (!allowCpu && g_adapterInfo.adapterType == wgpu::AdapterType::CPU) {
+     Log.warn("Ignoring CPU adapter: {}", adapterName);
+     g_adapterInfo = {};
+@@ -825,7 +836,7 @@
+         requiredFeatures.push_back(feature);
+       }
+     }
+-#ifdef WEBGPU_DAWN
++#if defined(WEBGPU_DAWN) && !defined(__EMSCRIPTEN__)
+     wgpu::DawnCacheDeviceDescriptor cacheDescriptor({
+         .isolationKey = nullptr,
+         .loadDataFunction = load_from_cache,
+@@ -859,7 +870,7 @@
+     });
+ #endif
+     wgpu::DeviceDescriptor deviceDescriptor({
+-#ifdef WEBGPU_DAWN
++#if defined(WEBGPU_DAWN) && !defined(__EMSCRIPTEN__)
+         .nextInChain = &togglesDescriptor,
+ #endif
+         .requiredFeatureCount = requiredFeatures.size(),
+@@ -896,6 +907,7 @@
+     if (!g_device) {
+       return false;
+     }
++#ifndef __EMSCRIPTEN__
+     g_device.SetLoggingCallback([](wgpu::LoggingType type, wgpu::StringView message) {
+       AuroraLogLevel level = LOG_FATAL;
+       switch (type) {
+@@ -916,6 +928,7 @@
+       }
+       Log.report(level, "WebGPU message: {}", message);
+     });
++#endif
+   }
+   g_queue = g_device.GetQueue();
+ 
