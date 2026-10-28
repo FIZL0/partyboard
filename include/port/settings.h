@@ -58,6 +58,8 @@ struct UserSettings {
         ConfigVar<bool> lockAspectRatio;
         ConfigVar<bool> enableFpsOverlay;
         ConfigVar<int> fpsOverlayCorner;
+        // N130: Safe Area: 0 Auto (the device's insets), 1..10 a margin of that many % (or the device's, if bigger), -1 Off
+        ConfigVar<int> safeArea;
     } video;
 
     struct {

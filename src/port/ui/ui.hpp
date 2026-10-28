@@ -5,6 +5,7 @@
 #include <RmlUi/Core.h>
 #include <SDL3/SDL_events.h>
 
+#include <array>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -83,6 +84,11 @@ Rml::Element *append(Rml::Element *parent, const Rml::String &tag) noexcept;
 
 NavCommand map_nav_event(const Rml::Event &event) noexcept;
 Insets safe_area_insets(Rml::Context *context) noexcept;
+// N130: the Safe Area setting's insets (left, top, right, bottom; shares of the window) for the device's: 0 Auto keeps
+// them, 1..10 raises each to that many %, -1 Off is none
+std::array<float, 4> safe_area_shares(std::array<float, 4> device, int setting) noexcept;
+// Follows the device's safe area (or PB_SAFE's) and the setting, and fits the game picture inside it (once a frame)
+void update_safe_area() noexcept;
 
 std::vector<std::unique_ptr<Document>> &get_document_stack() noexcept;
 
