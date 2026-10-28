@@ -58,6 +58,8 @@ BOOL HuMemDirectUsedCheck(void *ptr);
 #endif
 /* Sets the block's caller (an allocating helper: its own caller). */
 void HuMemMemoryCallerSet(void *ptr, uintptr_t retaddr);
+/* Sets the block's num (N81: a link's HSFDATA, tagged once its address is known). */
+void HuMemMemoryNumSet(void *ptr, uintptr_t num);
 /* Frees every used block of the heap whose caller pred holds for; returns how many. */
 s32 HuMemMemoryFreeIf(void *heap_ptr, BOOL (*pred)(uintptr_t retaddr, void *user), void *user);
 #endif

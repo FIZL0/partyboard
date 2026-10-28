@@ -236,6 +236,14 @@ void HuMemMemoryCallerSet(void *ptr, uintptr_t retaddr)
     }
 }
 
+void HuMemMemoryNumSet(void *ptr, uintptr_t num)
+{
+    struct memory_block *block = DATA_GET_BLOCK(ptr);
+    if (block->magic == 165) {
+        block->num = num;
+    }
+}
+
 s32 HuMemMemoryFreeIf(void *heap_ptr, BOOL (*pred)(uintptr_t retaddr, void *user), void *user)
 {
     s32 freed = 0;

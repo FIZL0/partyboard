@@ -480,6 +480,12 @@ s16 Hu3DModelLink(s16 arg0) {
     var_r31->hsfLink = temp_r30->hsf;
     var_r31->hsf = HuMemDirectMallocNum(HEAP_DATA, sizeof(HSFDATA), var_r31->mallocNoLink);
     var_r31->mallocNoLink = (uintptr_t)var_r31->hsf;
+#ifdef TARGET_PC
+    /* N81: the block got the slot's old tag, the HSFDATA address of the slot's previous link (0 if none). If another
+     * live link's HSFDATA sits at that address now, that link's kill (HuMemDirectFreeNum) freed ours with its own.
+     * Tag it with its own address, as its objects are. */
+    HuMemMemoryNumSet(var_r31->hsf, var_r31->mallocNoLink);
+#endif
     *var_r31->hsf = *temp_r30->hsf;
     temp_r3_2 = Hu3DObjDuplicate(var_r31->hsf, var_r31->mallocNoLink);
     var_r31->hsf->root = (HSFOBJECT*)((uintptr_t)temp_r3_2 + ((uintptr_t)var_r31->hsf->root - (uintptr_t)var_r31->hsf->object));
@@ -674,7 +680,8 @@ void Hu3DModelKill(s16 arg0) {
 /* Netplay (N74): Hu3DModelLink tags a link's HSFDATA with the slot's mallocNoLink before it sets it, so with the
  * value an earlier link in that slot left there (0 in a slot never linked). A peer that played before a reload has
  * the old match's values and a fresh peer zeros, so the blocks' nums (the heap layout) differed for a whole minigame or
- * results. A match start forgets them for every free slot, as a fresh peer has them; returns how many it forgot. */
+ * results. A match start forgets them for every free slot, as a fresh peer has them; returns how many it forgot.
+ * Since N81 Hu3DModelLink retags the block with its own address, so the old value no longer reaches the heap. */
 s32 Hu3DModelNetplayReset(void) {
     HU3DMODEL *model;
     s32 reset = 0;

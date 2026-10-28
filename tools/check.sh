@@ -16,3 +16,5 @@ fi
 preset=linux-default-relwithdebinfo
 [ -f "build/$preset/build.ninja" ] || cmake --preset "$preset" >/dev/null
 out=$(cmake --build --preset "$preset" 2>&1) || { echo "$out" | grep -E -A5 "error|FAILED" | head -60; exit 1; }
+# N81 link tags (C against the built libdol.so; no game needed)
+[ ! -x tools/hsf_link_tag_test.sh ] || tools/hsf_link_tag_test.sh "$preset" >/dev/null
