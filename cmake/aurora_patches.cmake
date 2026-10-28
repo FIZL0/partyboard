@@ -18,6 +18,9 @@
 #   array<vec4u, 3> (a uniform array's stride must be a multiple of 16; same 48 bytes, every platform), and on
 #   Emscripten the vbuf/abuf helpers that take a ptr<storage> parameter (no unrestricted_pointer_parameters in
 #   naga) are specialized per buffer before the module is created.
+# - 0006-ostime-dst-offset (N94): OSGetTime's UTC offset is the local calendar fields read as UTC minus the real
+#   time (timegm by hand: Windows has none, chrono's sys_days everywhere). mktime(gmtime) read the UTC fields as
+#   standard time and was an hour short during daylight saving time.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)

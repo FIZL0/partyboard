@@ -1,0 +1,30 @@
+diff --git a/lib/dolphin/os/OSTime.cpp b/lib/dolphin/os/OSTime.cpp
+index 6207f80..c8a18ab 100644
+--- a/lib/dolphin/os/OSTime.cpp
++++ b/lib/dolphin/os/OSTime.cpp
+@@ -70,16 +70,20 @@ OSTime OSGetTime() {
+     // Apply local timezone offset
+     std::time_t wallClock = chrono::system_clock::to_time_t(currentTime);
+     std::tm localTm{};
+-    std::tm gmTm{};
+ #if defined(_WIN32)
+     localtime_s(&localTm, &wallClock);
+-    gmtime_s(&gmTm, &wallClock);
+ #else
+     localtime_r(&wallClock, &localTm);
+-    gmtime_r(&wallClock, &gmTm);
+ #endif
+-    // Compute UTC offset in seconds
+-    s64 utcOffsetSec = static_cast<s64>(mktime(&localTm)) - static_cast<s64>(mktime(&gmTm));
++    // UTC offset in seconds, DST included: the local calendar fields read as UTC (timegm, which Windows
++    // lacks) minus the real time. mktime(gmtime) took the UTC fields as standard time (tm_isdst=0) and
++    // came out an hour short during daylight saving time.
++    const auto localDays = chrono::sys_days{
++        chrono::year{localTm.tm_year + 1900} / chrono::month{static_cast<unsigned>(localTm.tm_mon + 1)} /
++        chrono::day{static_cast<unsigned>(localTm.tm_mday)}};
++    s64 localAsUtcSec = static_cast<s64>(localDays.time_since_epoch().count()) * 86400LL +
++                        localTm.tm_hour * 3600LL + localTm.tm_min * 60LL + localTm.tm_sec;
++    s64 utcOffsetSec = localAsUtcSec - static_cast<s64>(wallClock);
+ 
+     s64 secondsSinceGcnEpoch = (totalMicros / 1000000LL) - gcnEpochUnix + utcOffsetSec;
+     s64 remainderMicros = totalMicros % 1000000LL;
