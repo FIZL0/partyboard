@@ -27,9 +27,20 @@
 #include <port/byteswap.h>
 #endif
 
+#ifdef __EMSCRIPTEN__
+/* wasm traps on a call whose signature isn't the definition's: these take only the player (block.c, mushroom.c,
+ * boo_house.c) */
+s32 BoardBlockExec(s32 player);
+extern void BoardMushroomExec(s32 player);
+extern void BoardBooHouseExec(s32 player);
+#define BoardBlockExec(player, space) BoardBlockExec(player)
+#define BoardMushroomExec(player, space) BoardMushroomExec(player)
+#define BoardBooHouseExec(player, space) BoardBooHouseExec(player)
+#else
 s32 BoardBlockExec(s32 player, s32 space); // wrong
 extern void BoardMushroomExec(s32 player, s32 space); // wrong
 extern void BoardBooHouseExec(s32 player, s32 space); // wrong
+#endif
 extern void BoardBlockHouseExec(s32 player, s32 space); // wrong
 
 static BoardSpace spaceData[2][256];

@@ -499,6 +499,40 @@
         "x-windows-ci",
         "windows-arm64-msvc"
       ]
+    },
+    {
+      "name": "web",
+      "displayName": "Web (Emscripten, wasm32)",
+      "description": "N87: browser build, tools/web.sh. Needs EMSDK (emsdk_env.sh) and rustup's wasm32-unknown-emscripten.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/web-cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+        "BUILD_SHARED_LIBS": {
+          "type": "BOOL",
+          "value": false
+        },
+        "AURORA_DAWN_PROVIDER": "system",
+        "AURORA_SDL3_PROVIDER": "vendor",
+        "AURORA_NOD_PROVIDER": "vendor",
+        "AURORA_SDL3_LINKAGE": "static",
+        "AURORA_NOD_LINKAGE": "static",
+        "Rust_CARGO_TARGET": "wasm32-unknown-emscripten",
+        "PBNET_STUB": {
+          "type": "BOOL",
+          "value": true
+        },
+        "PB_NETPLAY_HOOK": "define",
+        "CMAKE_DISABLE_FIND_PACKAGE_PkgConfig": {
+          "type": "BOOL",
+          "value": true
+        },
+        "CMAKE_DISABLE_FIND_PACKAGE_zstd": {
+          "type": "BOOL",
+          "value": true
+        }
+      }
     }
   ],
   "buildPresets": [
@@ -686,6 +720,15 @@
       "displayName": "(Internal) Windows CI MSVC arm64",
       "targets": [
         "install"
+      ]
+    },
+    {
+      "name": "web",
+      "configurePreset": "web",
+      "description": "Web (Emscripten) build, see tools/web.sh",
+      "displayName": "Web (wasm32)",
+      "targets": [
+        "partyboard"
       ]
     }
   ]

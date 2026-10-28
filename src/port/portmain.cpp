@@ -524,7 +524,13 @@ extern "C" int port_main(int argc, char* argv[]) {
     }
 
     // Scripted debug runs (--script) need no clicks: skip the prelaunch UI when a DVD image is set.
-    if (!partyboard::getSettings().backend.skipPreLaunchUI && !(netplay_debug_scripted() && !forcePreLaunchUI)) {
+    bool skipPreLaunch = netplay_debug_scripted() && !forcePreLaunchUI;
+#ifdef __EMSCRIPTEN__
+    // N87: the browser build's page picks the disc (PB_DISC), and the prelaunch UI's picker and checks need a
+    // file dialog and threads it doesn't have.
+    skipPreLaunch = !forcePreLaunchUI;
+#endif
+    if (!partyboard::getSettings().backend.skipPreLaunchUI && !skipPreLaunch) {
         partyboard::ui::push_document(std::make_unique<partyboard::ui::Prelaunch>(), true);
 
         // pre game launch ui main loop

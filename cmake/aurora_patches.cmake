@@ -10,6 +10,10 @@
 #   with skip_validation that faulted the GPU (radv GPUVM fault, device lost).
 # - 0003-gfx-frame-capture (N60): aurora_capture_frame(path, delay_frames) saves the game frame (the EFB as
 #   presented, before RmlUi/ImGui) to a PNG via a GPU readback, so tests get screenshots of hidden windows.
+# - 0004-emscripten (N87): the browser build. Dawn is emdawnwebgpu (the browser's WebGPU), the surface SDL's
+#   canvas, no render/pipeline threads and no pipeline cache, aurora_update() yields to the browser once per frame
+#   (Asyncify), imgui's wgpu backend built in Dawn mode. Everything is under EMSCRIPTEN / __EMSCRIPTEN__ but two
+#   size_t casts wasm32 needs.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)

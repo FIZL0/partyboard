@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Party Board</title>
+<link rel="icon" href="icon.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #eee; font: 16px system-ui, sans-serif; }
+  #canvas { display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; outline: none; touch-action: none; }
+  body.playing #canvas { display: block; }
+  body.playing #menu { display: none; }
+  #menu { max-width: 34em; margin: 10vh auto; padding: 0 1em; text-align: center; }
+  #menu img { width: 12em; }
+  button, label.button { display: inline-block; margin: .4em; padding: .6em 1.2em; border: 0; border-radius: .4em;
+    background: #e33; color: #fff; font: inherit; cursor: pointer; }
+  button.secondary, label.secondary { background: #444; }
+  #status { min-height: 1.5em; margin: 1em 0; color: #aaa; }
+  #error { color: #f88; white-space: pre-wrap; }
+  small { color: #888; }
+</style>
+</head>
+<body>
+<div id="menu">
+  <img src="logo.png" alt="Party Board">
+  <p>Party Board needs your own disc image of the US game (GMPE01): .iso, .gcm, .rvz, .ciso, .wia or .gcz.
+    It stays in this browser (its private storage) and is never uploaded.</p>
+  <div id="actions">
+    <button id="play" hidden>Play</button>
+    <label class="button" id="pick-label">Choose disc image<input id="pick" type="file" hidden
+      accept=".iso,.gcm,.rvz,.ciso,.wia,.gcz,.nfs,.tgc"></label>
+    <button id="forget" class="secondary" hidden>Forget disc</button>
+  </div>
+  <div id="status"></div>
+  <div id="error"></div>
+  <p><small id="build"></small></p>
+</div>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<script src="pb.js"></script>
+</body>
+</html>

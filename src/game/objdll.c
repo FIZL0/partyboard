@@ -8,6 +8,8 @@
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
+#elif defined(__EMSCRIPTEN__)
+#include "port/web_rel.h"
 #endif
 
 typedef s32 (*DLLProlog)(void);
@@ -126,6 +128,11 @@ omDllData *omDLLLink(omDllData **dll_ptr, s16 overlay, s16 flag)
 			OSReport("objdll>++++++++++++++++ DLL Link Failed %s\n", dlerror());
 		}
 	}
+#elif defined(__EMSCRIPTEN__)
+	dll->handle = web_rel_link(dllFile->name);
+	if (dll->handle == NULL) {
+		OSReport("objdll>++++++++++++++++ DLL Link Failed %s\n", dllFile->name);
+	}
 #elif defined(__MWERKS__)
 	dll->module = HuDvdDataReadDirect(dllFile->name, HEAP_SYSTEM);
 	dll->bss = HuMemDirectMalloc(HEAP_SYSTEM, dll->module->bssSize);
@@ -148,6 +155,8 @@ omDllData *omDLLLink(omDllData **dll_ptr, s16 overlay, s16 flag)
 #elif defined(__linux__) || defined(__APPLE__)
 		DLLObjectSetup objectSetup = (DLLObjectSetup)dlsym(dll->handle, "ObjectSetup");
 		objectSetup();
+#elif defined(__EMSCRIPTEN__)
+		web_rel_object_setup(dll->handle);
 #else
 		dll->ret = ((DLLProlog)dll->module->prolog)();
 #endif
@@ -163,6 +172,8 @@ void omDLLUnlink(omDllData *dll_ptr, s16 flag)
     FreeLibrary(dll_ptr->hModule);
 #elif defined(__linux__) || defined(__APPLE__)
 	dlclose(dll_ptr->handle);
+#elif defined(__EMSCRIPTEN__)
+	web_rel_unlink(dll_ptr->handle);
 #else
 	if(flag == 1) {
 		OSReport("objdll>Unlink DLL epilog\n");

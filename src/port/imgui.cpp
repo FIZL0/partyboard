@@ -9,6 +9,9 @@
 #include <fmt/format.h>
 #include <imgui.h>
 #include <numeric>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include <thread>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_dialog.h>
@@ -243,6 +246,12 @@ class Limiter
         {
             QueryPerformanceCounter(&count);
         } while (count.QuadPart < end);
+    }
+#elif defined(__EMSCRIPTEN__)
+    // The browser's main thread can't block: give it the time instead (Asyncify).
+    void NanoSleep(const duration_t duration)
+    {
+        emscripten_sleep(static_cast<unsigned int>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()));
     }
 #else
     void NanoSleep(const duration_t duration)
