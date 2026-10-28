@@ -7,6 +7,7 @@
 #include "button_glyphs.hpp"
 #include "controller_config.hpp"
 #include "port/config.hpp"
+#include "port/log_file.hpp"
 #include "port/button_icons.h"
 #include "../imgui/ImGuiEngine.hpp"
 #include "../file_select.hpp"
@@ -820,6 +821,35 @@ SettingsWindow::SettingsWindow(bool prelaunch)
         //                     "recording footage.",
         //     });
     });
+
+    // N109
+    if (logfile::supported()) {
+        add_tab("Advanced", [this](Rml::Element *content) {
+            auto &leftPane = add_child<Pane>(content, Pane::Type::Controlled);
+            auto &rightPane = add_child<Pane>(content, Pane::Type::Uncontrolled);
+
+            leftPane.add_section("Logging");
+            const std::string logPath = logfile::log_path().string();
+            config_bool_select(leftPane, rightPane, getSettings().backend.writeLogFile,
+                {
+                    .key = "Write Log File",
+                    .helpText = "Write everything Party Board logs, and a report if it crashes, to:<br/><br/>" +
+                                escape(logPath) +
+                                "<br/><br/>The last 3 runs are kept as well (partyboard.1.log, ...). Changes take "
+                                "effect the next time Party Board starts.",
+                });
+            leftPane.add_text(logPath);
+            if (logfile::can_open_logs_dir()) {
+                leftPane.register_control(leftPane.add_button("Open Logs Folder").on_pressed([] {
+                    logfile::open_logs_dir();
+                }),
+                    rightPane, [](Pane &pane) {
+                        pane.clear();
+                        pane.add_text("Open the folder that holds Party Board's log files.");
+                    });
+            }
+        });
+    }
 }
 
 void SettingsWindow::update()

@@ -321,6 +321,11 @@ body.mirrored version-info {
     color: #A6A09B;
 }
 
+#crash-note {
+    max-width: 720dp;
+    word-break: break-word;
+}
+
 body.mirrored .update {
     justify-content: flex-start;
 }

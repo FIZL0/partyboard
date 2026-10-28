@@ -3,6 +3,7 @@
 #include "prelaunch.hpp"
 
 #include "port/config.hpp"
+#include "port/log_file.hpp"
 #include "../file_select.hpp"
 #include "../iso_validate.hpp"
 #include "port/main.h"
@@ -61,6 +62,7 @@ namespace {
         </disc-info>
         <version-info class="intro-item delay-6">
             <div class="version">Version <span id="version-text"></span></div>
+            <div id="crash-note" class="detail" />
         </version-info>
     </content>
 </body>
@@ -661,6 +663,15 @@ Prelaunch::Prelaunch()
     mDiscStatus = mDocument->GetElementById("disc-status");
     mDiscDetail = mDocument->GetElementById("disc-version");
     mVersion = mDocument->GetElementById("version-text");
+    // N109: one line when the last run ended in a crash, with its log.
+    if (auto *crashNote = mDocument->GetElementById("crash-note")) {
+        const auto &crashLog = logfile::last_crash_log();
+        if (crashLog.empty()) {
+            crashNote->SetProperty(Rml::PropertyId::Display, Rml::Style::Display::None);
+        } else {
+            crashNote->SetInnerRML(escape("The last run crashed. Log: " + crashLog.string()));
+        }
+    }
 
     listen(mDocument, Rml::EventId::Transitionend, [this](Rml::Event &event) {
         auto *target = event.GetTargetElement();

@@ -26,6 +26,7 @@
 #include <game/disp.h>
 #include <port/config.hpp>
 #include <port/dolassets.h>
+#include <port/log_file.hpp>
 #include <port/main.h>
 #include <port/settings.h>
 #include <port/port_version.h>
@@ -408,6 +409,7 @@ extern "C" int port_main(int argc, char* argv[]) {
     PartyBoard_ConfigPath = calculate_config_path();
 
     partyboard::config::LoadFromUserPreferences();
+    partyboard::logfile::start(PartyBoard_ConfigPath, partyboard::getSettings().backend.writeLogFile);
     EnsureInitialPipelineCache(PartyBoard_ConfigPath);
     // TODO: How to handle this?
     //PADSetDefaultMapping(&defaultPadMapping, PAD_TYPE_STANDARD);
@@ -442,7 +444,9 @@ extern "C" int port_main(int argc, char* argv[]) {
     partyboard::discord::initialize();
 #endif
 
+    partyboard::logfile::log_boot_info(PartyBoard_ConfigPath);
     PartyBoardMainLog.info("pbnet {}", pbnet_version());
+    partyboard::logfile::maybe_test_crash("boot");
 #ifdef __ANDROID__
     {
         void* activity = SDL_GetAndroidActivity();
@@ -601,6 +605,7 @@ extern "C" int port_main(int argc, char* argv[]) {
     if (!aurora_dvd_open(dvd_path.c_str())) {
         PartyBoardMainLog.error("Failed to open DVD image: {}", dvd_path);
     }
+    partyboard::logfile::log_disc_id();
 
     PartyBoard_IsGameLaunched = true;
 
