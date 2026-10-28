@@ -1,4 +1,5 @@
-# Unattended runs: `tmux new -s pb agent-runner run 3`, see https://github.com/FIZL0/agent-runner
+# Unattended runs: `systemd-run --user --scope --slice=runner.slice tmux -L pb new -s pb agent-runner run 3` (runner.slice:
+# CPUWeight=1 IOWeight=1 in ~/.config/systemd/user, so slots yield to the desktop), see https://github.com/FIZL0/agent-runner
 [plan]
 dir = "plan"
 journal = "research/journal"

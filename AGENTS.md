@@ -12,6 +12,9 @@ We are adding online play. Design and hook points: `plan/NET.md`. Netcode refere
   the worktree) so config.json and saves don't collide.
 - Game windows: slots set `SDL_APP_ID=partyboard-test`, and the desktop opens that class floating at 1280x960 on a
   hidden workspace, so run the game directly (no gamescope/Xwayland tricks, never on the user's screen).
+- At most 2 game instances per slot at a time (desktop games and browser tabs together; a two-peer pair is the
+  most a test needs). Repeat runs go one after another, never fanned out: 11 parallel games froze the user's PC.
+  A 3-4 peer run is the only exception, and nothing else of the slot runs beside it.
 - Targets: Linux, Windows, Android, iOS, browser. macOS and tvOS are not targets: don't build, test or fix
   for them (leave upstream's files for them alone).
 - Never commit disc files, extracted assets or anything under `orig/*/`.
