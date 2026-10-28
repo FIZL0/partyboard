@@ -12,6 +12,16 @@ typedef s32 (*M418DllRetFunc)(void);
 typedef void (*M418DllInFunc)(s32);
 typedef s32 (*M418DllInRetFunc)(s32);
 
+#ifdef TARGET_PC
+// N91: M418DllUnkStruct7's unk10/unk14 hold the sequence tables' M418DllInFunc/M418DllInRetFunc (they take an s32,
+// unused) cast to no-argument types; wasm traps on a call through another function type, so call them as what they are
+#define M418_SEQ_CALL(func) ((M418DllInFunc)(func))(0)
+#define M418_SEQ_CALL_RET(func) ((M418DllInRetFunc)(func))(0)
+#else
+#define M418_SEQ_CALL(func) (func)()
+#define M418_SEQ_CALL_RET(func) (func)()
+#endif
+
 typedef struct M418DllUnkStruct {
     M418DllFunc unk0;
     Vec center;

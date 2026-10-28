@@ -61,6 +61,18 @@ standard. So:
   (no -march) and wasm32 have no FMA to fuse with, so they already agreed.
 - libdol exports `pb_sin` ... (the RELs and the statically linked mtx call them there); the internals are hidden.
 
+## Also fixed: m418 traps in the browser
+
+With m415 fixed, the browser party ran equal to the desktop up to m418 (turn 8, frame 82786), where the page died:
+`RuntimeError: function signature mismatch` in `fn_1_9BA4` (`omMain` -> the object). Found from the console's wasm
+stack (`wasm-opt -O2 -g --print-function-map` on the same input for the names; the `call_indirect` at the trap's
+offset takes no argument). m418's sequence tables (`M418DllUnkStruct8`) hold `void (*)(s32)` / `s32 (*)(s32)`
+functions, `fn_1_AE8C` casts them to `void (*)(void)` / `s32 (*)(void)` and `fn_1_5D58`/`fn_1_84B0`/`fn_1_9364`
+call them with no argument. Native code passes whatever is in the register (none of the table functions reads
+its `arg0`, so the desktop was deterministic); wasm checks the type on every indirect call and traps. Under
+`TARGET_PC` the calls now go through `M418_SEQ_CALL`/`M418_SEQ_CALL_RET` (include/REL/m418Dll.h), which cast back to
+the real type and pass 0; the GC build keeps the decomp's calls.
+
 ## Also fixed: the web build's CMake hooks
 
 The N86 merge (a86810a5) dropped N87's lines from CMakeLists.txt: `PB_DOL_LIBRARY_TYPE`/`PB_REL_LIBRARY_TYPE` and the
