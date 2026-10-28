@@ -35,7 +35,7 @@
           <string>AppIcon60x60</string>
         </array>
         <key>CFBundleIconName</key>
-        <string>AppIcon</string>
+        <string>PartyBoard</string>
       </dict>
     </dict>
     <key>CFBundleIcons~ipad</key>
@@ -48,7 +48,7 @@
           <string>AppIcon76x76</string>
         </array>
         <key>CFBundleIconName</key>
-        <string>AppIcon</string>
+        <string>PartyBoard</string>
       </dict>
     </dict>
     <key>MinimumOSVersion</key>
@@ -79,5 +79,12 @@
     <true/>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
+    <!-- N86: the app's Documents (config, saves, the disc image) show in the Files app, "On My iPhone > PartyBoard" -->
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Finds and joins online matches on your local network.</string>
 </dict>
 </plist>
