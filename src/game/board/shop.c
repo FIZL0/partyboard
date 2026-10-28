@@ -387,7 +387,12 @@ static void DestroyShop(void)
     s32 i;
 
     for (i = 0; i < 2; i++) {
+#ifdef TARGET_PC
+        // shopMdlIdx[0][1] is shopMdlIdx[1][0]; out of bounds of [2][1].
+        BoardModelHookReset(shopMdlIdx[i][0]);
+#else
         BoardModelHookReset(shopMdlIdx[0][i]);
+#endif
     }
     temp_r30 = BoardShopHostGet();
     for (i = 0; i < 3; i++) {
@@ -1196,7 +1201,12 @@ void BoardShopTutorialExec(s32 arg0)
     HuPrcSleep(30);
     CloseShop();
     for (i = 0; i < 2; i++) {
+#ifdef TARGET_PC
+        // shopMdlIdx[0][1] is shopMdlIdx[1][0]; out of bounds of [2][1].
+        BoardModelHookReset(shopMdlIdx[i][0]);
+#else
         BoardModelHookReset(shopMdlIdx[0][i]);
+#endif
     }
     sp8 = BoardShopHostGet();
     for (i = 0; i < 3; i++) {

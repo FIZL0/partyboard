@@ -153,8 +153,14 @@ typedef struct M427DllMapSubstruct3 {
     M427DllMapUNKB8 unkB8[2][2];
     s16 unk178[3];
     M427DllMapUNK17E unk17E[2][2];
+#ifdef TARGET_PC
+    // fn_1_7C34 and fn_1_7E60 index unk18E by the 5 unk3A0 slots; 2..4 are unk194 and padding on the GC.
+    s16 unk18E[5];
+    char unk198[2];
+#else
     s16 unk18E[2];
     char unk194[4];
+#endif
 } M427DllMapSubstruct3; // sizeof 0x198
 
 typedef struct M427DllMapStruct3Sub {

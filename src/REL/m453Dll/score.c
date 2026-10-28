@@ -15,9 +15,21 @@ typedef struct M453ScoreUnkStruct {
     s32 unk_04;
     s16 unk_08;
     s16 unk_0A;
+#ifdef TARGET_PC
+    // The 6-sprite loops use unk_0C[0..5]; 4 and 5 are unk_14/unk_16 on the GC.
+    union {
+        s16 unk_0C[6];
+        struct {
+            s16 unk_0C_pad[4];
+            s16 unk_14;
+            s16 unk_16;
+        };
+    };
+#else
     s16 unk_0C[4];
     s16 unk_14;
     s16 unk_16;
+#endif
     s32 unk_18;
     float unk_1C;
 } M453ScoreUnkStruct; /* size = 0x20 */
@@ -74,9 +86,18 @@ void fn_1_91D8(void)
     s32 var_r31;
     M453ScoreUnkStruct *var_r30 = lbl_1_bss_C0->data;
 
+#ifdef TARGET_PC
+    // The GC loop runs to 7: its last espKill reads the big-endian high half of unk_18 (0 or 1), so it
+    // kills esp 0.
+    for (var_r31 = 0; var_r31 < 6; var_r31++) {
+        espKill(var_r30->unk_0C[var_r31]);
+    }
+    espKill(var_r30->unk_18 >> 16);
+#else
     for (var_r31 = 0; var_r31 < 7; var_r31++) {
         espKill(var_r30->unk_0C[var_r31]);
     }
+#endif
     HuMemDirectFree(lbl_1_bss_C0->data);
 }
 

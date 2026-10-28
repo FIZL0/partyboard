@@ -1303,7 +1303,14 @@ static void InitLotteryTicket(void)
 		HuSprScaleSet(work->group, 4, 1.3f, 1.3f);
 		ticket_player = GWPlayer[i].ticket_player;
 		j=3;
+#ifdef TARGET_PC
+		// The GC loop runs once more with j = -1: it writes character[-1] (unk02, unused), creates a sprite
+		// that member 0 already holds (never drawn) and moves member 0 to playerOfsTbl[-1], the zeros at the
+		// end of messBaseTbl, where it already is.
+		while(j>0) {
+#else
 		while(j>=0) {
+#endif
 			s32 player_spr;
 			
 			j--;

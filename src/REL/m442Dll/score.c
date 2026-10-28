@@ -21,9 +21,21 @@ typedef struct M442ScoreWork {
     /* 0x04 */ s32 unk_04;
     /* 0x08 */ s16 unk_08;
     /* 0x0A */ s16 unk_0A;
+#ifdef TARGET_PC
+    // The 8-sprite loops use unk_0C[0..7]; 6 and 7 are unk_18/unk_1A on the GC.
+    union {
+        /* 0x0C */ s16 unk_0C[8];
+        struct {
+            s16 unk_0C_pad[6];
+            /* 0x18 */ s16 unk_18;
+            /* 0x1A */ s16 unk_1A;
+        };
+    };
+#else
     /* 0x0C */ s16 unk_0C[6];
     /* 0x18 */ s16 unk_18;
     /* 0x1A */ s16 unk_1A;
+#endif
     /* 0x0E */ s32 unk_1C;
     /* 0x20 */ float unk_20;
 } M442ScoreWork; /* size = 0x24 */

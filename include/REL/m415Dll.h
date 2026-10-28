@@ -141,10 +141,16 @@ typedef struct _unkSubStruct {
     char unk59[0x3];
     Vec unk5C;
     Vec unk68;
+#ifdef TARGET_PC
+    // fn_1_A2D0 (map.c) clears unk74[0..15], the 0x20 bytes up to the end on the GC. Nothing reads
+    // unk78/unk7C/unk80.
+    s16 unk74[16];
+#else
     s16 unk74[2];
     s16 *unk78;
     s16 *unk7C;
     char unk80[0x14];
+#endif
 } unkSubStruct; /* size = 0x94 */
 
 typedef void (*unkSubStruct2Func)(struct _unkSubStruct2 *);

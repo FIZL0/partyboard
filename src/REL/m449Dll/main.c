@@ -88,8 +88,13 @@ typedef struct M449DllWork {
     float unk_194[4];
     float unk_1A4[4];
     s32 unk_1B4[4];
+#ifdef TARGET_PC
+    // fn_1_758 counts up unk_1C4[0..15], the GC's unk_1C4 and unk1D4.
+    s32 unk_1C4[16];
+#else
     s32 unk_1C4[4];
     char unk1D4[0x30];
+#endif
     s32 unk_204;
     s32 unk_208;
     s32 unk_20C;
