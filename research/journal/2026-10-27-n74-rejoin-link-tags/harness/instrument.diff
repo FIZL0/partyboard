@@ -1,0 +1,142 @@
+diff --git i/src/game/memory.c w/src/game/memory.c
+index be3eab2d..70d897bf 100644
+--- i/src/game/memory.c
++++ w/src/game/memory.c
+@@ -28,6 +28,7 @@ struct  memory_block {
+ };
+ 
+ static void *HuMemMemoryAlloc2(void *heap_ptr, size_t size, uintptr_t num, uintptr_t retaddr);
++extern void n74_mem(int kind, void *data, s32 size, uintptr_t num); /* N74 TEMP */
+ 
+ void *HuMemHeapInit(void *ptr, size_t size)
+ {
+@@ -81,6 +82,7 @@ static void *HuMemMemoryAlloc2(void *heap_ptr, size_t size, uintptr_t num, uintp
+             block->magic = 165;
+             block->num = num;
+             block->retaddr = retaddr;
++            n74_mem(1, BLOCK_GET_DATA(block), block->size, num);
+             return BLOCK_GET_DATA(block);
+         }
+         block = block->next;
+@@ -120,8 +122,10 @@ void HuMemMemoryFree(void *ptr, uintptr_t retaddr)
+     block = DATA_GET_BLOCK(ptr);
+     if (block->magic != 165) {
+         OSReport("HuMem>memory free error. %08x( call %08x)\n", ptr, retaddr);
++        n74_mem(3, ptr, 0, 0);
+         return;
+     }
++    n74_mem(2, ptr, block->size, block->num);
+     if (block->prev < block && !block->prev->flag) {
+         block->flag = 0;
+         block->magic = 205;
+diff --git i/src/port/netplay.c w/src/port/netplay.c
+index 8cd7412f..7f264ad6 100644
+--- i/src/port/netplay.c
++++ w/src/port/netplay.c
+@@ -719,6 +719,24 @@ BOOL netplay_lockstep(void)
+     return pbnet_lockstep_active() != 0;
+ }
+ 
++/* N38 scratch: this machine's seat mashes A (START in instDll and the party results). */
++static void n38_pads(PADStatus *local, u32 at)
++{
++    static int last_ovl = -1;
++    static u32 since;
++    if (getenv("PB_N38") == NULL) {
++        return;
++    }
++    if ((int)omcurovl != last_ovl) {
++        last_ovl = (int)omcurovl;
++        since = at;
++    }
++    memset(local, 0, 4 * sizeof(*local));
++    if (at % 24 < 4 && !(omcurovl == 3 && at - since < 120)) {
++        local[0].button = (omcurovl == 3 || omcurovl == 78) ? PAD_BUTTON_START : PAD_BUTTON_A;
++    }
++}
++
+ BOOL netplay_tick_begin(void)
+ {
+     PADStatus local[4];
+@@ -772,6 +790,7 @@ BOOL netplay_tick_begin(void)
+             local[i].err = PAD_ERR_NONE;
+         }
+     }
++    n38_pads(local, next);
+     /* pbnet takes the local pads at the first call for a frame only. */
+     if (!step_taken_set || step_taken_frame != next) {
+         for (i = 0; i < 4; i++) {
+diff --git i/src/port/netplay_match.c w/src/port/netplay_match.c
+index 4c4a06d1..5e3de756 100644
+--- i/src/port/netplay_match.c
++++ w/src/port/netplay_match.c
+@@ -961,3 +961,43 @@ BOOL netplay_match_parse_debug(const char *spec, NetplayMatch *m, u32 *at_frame)
+     *at_frame = (u32)at;
+     return TRUE;
+ }
++
++/* N74 TEMP: every heap alloc/free while a match runs, with the caller chain */
++#include <dlfcn.h>
++#include <execinfo.h>
++#include <stdlib.h>
++void n74_mem(int kind, void *data, s32 size, uintptr_t num)
++{
++    static FILE *f;
++    static int on = -1;
++    static int busy;
++    void *bt[12];
++    int n, k, heap;
++    uintptr_t off = (uintptr_t)-1;
++    if (on < 0) {
++        const char *e = getenv("N74_LOG");
++        on = e != NULL;
++        if (on) f = fopen(e, "w");
++    }
++    if (!on || f == NULL || busy || !netplay_match_running()) return;
++    busy = 1;
++    for (heap = 0; heap < HEAP_MAX; heap++) {
++        uintptr_t base = (uintptr_t)HuMemHeapPtrGet((HeapID)heap);
++        if (base != 0 && (uintptr_t)data >= base && (uintptr_t)data - base < HuMemHeapSizeGet((HeapID)heap)) {
++            off = (uintptr_t)data - base;
++            break;
++        }
++    }
++    fprintf(f, "f%u ovl%d %c h%d off %lx size %x num %llx:", netplay_frame(), (int)omcurovl, "?AFE"[kind], heap,
++        (unsigned long)off, (unsigned)size, (unsigned long long)heap_num(num));
++    n = backtrace(bt, 12);
++    for (k = 2; k < n; k++) {
++        Dl_info di;
++        if (dladdr(bt[k], &di) && di.dli_fname) {
++            const char *b = strrchr(di.dli_fname, '/');
++            fprintf(f, " %s+%lx", b ? b + 1 : di.dli_fname, (unsigned long)((uintptr_t)bt[k] - (uintptr_t)di.dli_fbase));
++        }
++    }
++    fputc('\n', f);
++    busy = 0;
++}
+diff --git i/src/port/ui/online.cpp w/src/port/ui/online.cpp
+index 2023fae1..6290c118 100644
+--- i/src/port/ui/online.cpp
++++ w/src/port/ui/online.cpp
+@@ -13,6 +13,10 @@
+ #include "ui.hpp"
+ 
+ #include <SDL3/SDL_clipboard.h>
++#include <RmlUi/Core.h>
++#include <cstdio>
++#include <fstream>
++#include <sys/time.h>
+ #include <fmt/chrono.h>
+ #include <fmt/format.h>
+ #include <nlohmann/json.hpp>
+@@ -752,8 +756,10 @@ std::string OnlineWindow::lan_status() const
+     return "Press a game to join it.";
+ }
+ 
++#include "../../../research/journal/2026-10-27-n57-reload-leftovers/harness/n57_harness.inc"
+ void update_online_match()
+ {
++    n38_harness();
+     static std::shared_ptr<bool> alive = std::make_shared<bool>(false);
+     static HoldModal *shown = nullptr;
+     static std::string shownKey;

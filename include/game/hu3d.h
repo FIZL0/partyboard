@@ -508,6 +508,7 @@ void Hu3DModelKill(s16);
 void Hu3DModelAllKill(void);
 #ifdef TARGET_PC
 BOOL Hu3DParticleAnimUseCheck(ANIMDATA *anim);
+s32 Hu3DModelNetplayReset(void);
 #endif
 void Hu3DModelPosSet(s16, float, float, float);
 void Hu3DModelPosSetV(s16, HuVecF *);

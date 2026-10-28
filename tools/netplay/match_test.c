@@ -186,8 +186,9 @@ BOARD_RESET(25, BoardWinNetplayReset)
 static OMOVL item_kill_before = -2;
 s32 BoardItemNetplayKill(void) { item_kill_before = called; return 0; }
 /* N57: the leftovers of an old board (particle work, directory reads) go at the same start. */
-static s32 effect_resets, dir_close_alls;
+static s32 effect_resets, dir_close_alls, link_resets;
 void CharEffectNetplayReset(void) { effect_resets++; }
+s32 Hu3DModelNetplayReset(void) { link_resets++; return 0; } /* N74 */
 s32 HuDataNetplayCloseAll(void) { dir_close_alls++; return 0; }
 #define SAVE_PLAYER(i) &saveBuf.buf[(i) * sizeof(PlayerState) + offsetof(SaveBufData, player)]
 void SLSaveBoard(void)
@@ -401,13 +402,13 @@ int main(void)
     netplay_ovl_start(DLL_w01dll + 3);
     assert(freed[50] == 0xBB);
     assert(GWPlayer[1].coins == 99 && reseeded == 0);
-    assert(effect_resets == 0 && dir_close_alls == 0 && ar_frees == 0);
+    assert(effect_resets == 0 && dir_close_alls == 0 && ar_frees == 0 && link_resets == 0);
     netplay_ovl_start(DLL_w01dll + 2);
     /* ... and the board's start sets the match state and seeds again, as a peer that came from a menu has them. */
     assert(party_calls == 2 && reseeded == 1);
     assert(!netplay_ovl_hold()); /* N67: started: nothing held */
     /* N57: and drops what the old board left, as a peer that came from a menu has none of it. */
-    assert(effect_resets == 1 && dir_close_alls == 1 && ar_frees == 1);
+    assert(effect_resets == 1 && dir_close_alls == 1 && ar_frees == 1 && link_resets == 1);
     ar_board = 0;
     ar_frees = 0;
     assert(netplay_heap_hash() != h1); /* the block of loaded code stays, the other went */
