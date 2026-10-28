@@ -111,7 +111,7 @@ static void SetBallView(s32 arg0);
 static void SetBallActive(s32 arg0);
 static s32 CheckBallKill(void);
 static void BallMain(omObjData *arg0);
-static void BallRenderHook(void);
+static void BallRenderHook(HU3DMODEL *model, Mtx matrix);
 static void ExecBoo(omObjData *arg0);
 static void UpdateBallCamera(omObjData *arg0);
 static void CreateBallPlayer(void);
@@ -667,7 +667,8 @@ static void BallMain(omObjData *arg0) {
     Hu3DProjectionTPLvlSet(temp_r30->unk06, var_f29);
 }
 
-static void BallRenderHook(void) {
+// N91: a model hook, called with (model, matrix): wasm traps on a call through another function type
+static void BallRenderHook(HU3DMODEL *model, Mtx matrix) {
     BallWork *temp_r31;
     GXColor sp10;
     Vec sp2C;

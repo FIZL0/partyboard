@@ -38,7 +38,7 @@ void fn_1_26E0(s32 arg0);
 void fn_1_2AC0(void);
 void fn_1_2818(void);
 void fn_1_2A40(void);
-void fn_1_2B44(void);
+void fn_1_2B44(HU3DMODEL *model, Mtx matrix);
 
 // data
 s16 lbl_1_data_280 = -1;
@@ -636,7 +636,8 @@ void fn_1_2AC0(void)
     }
 }
 
-void fn_1_2B44(void)
+// N91: a model hook, called with (model, matrix): wasm traps on a call through another function type
+void fn_1_2B44(HU3DMODEL *model, Mtx matrix)
 {
     Mtx44 sp50;
     Mtx sp20;

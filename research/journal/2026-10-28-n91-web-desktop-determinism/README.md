@@ -73,6 +73,14 @@ its `arg0`, so the desktop was deterministic); wasm checks the type on every ind
 `TARGET_PC` the calls now go through `M418_SEQ_CALL`/`M418_SEQ_CALL_RET` (include/REL/m418Dll.h), which cast back to
 the real type and pass 0; the GC build keeps the decomp's calls.
 
+## Also fixed: two model hooks declared `(void)`
+
+The next browser run (m418 fixed) was equal to the desktop for 88995 frames, through m418, and trapped the same way on
+the board in turn 9 (player 1), in `Hu3DDrawPost`: a model hook (`HU3DMODELHOOK`, `(HU3DMODEL *, Mtx)`) that is a
+`void (void)` function registered with a `(void *)` cast. A script over all 108 `Hu3DHookFuncCreate` calls (argument
+-> its definition's parameter count) found two: the board Boo house's `BallRenderHook` (src/game/board/boo.c) and
+w03's statue `fn_1_2B44`. Both now take `(HU3DMODEL *model, Mtx matrix)`, unused (the same code, the GC included).
+
 ## Also fixed: the web build's CMake hooks
 
 The N86 merge (a86810a5) dropped N87's lines from CMakeLists.txt: `PB_DOL_LIBRARY_TYPE`/`PB_REL_LIBRARY_TYPE` and the
@@ -82,7 +90,30 @@ them).
 
 ## Checks
 
-(filled in below as the runs finish)
+All with `tools/netplay/party.script --match 0@1500 --turbo --hash-log`, fresh user dirs, GMPE01 Rev 1, compared with
+`tools/netplay/hashdiff.py`. Desktop = `build/linux-default-relwithdebinfo` (GCC 16, glibc), web = `build/web-cmake`
++ `wasm-opt -O2` as `tools/web.sh` does, in `tools/web_check.mjs` (headless Chromium 154 on the GPU, `DUMP_FILES`;
+a copy of the script next to a `build/web` symlink to serve another build while one ran).
+
+| run | what | result |
+| --- | --- | --- |
+| base | desktop before N91 | 135000 frames, match over at 110988 |
+| pbm | desktop, bundled musl math only | = base, all 135000 frames (heap= too) |
+| fix | desktop, + m415/OSFastCast casts | = base, 135000 frames |
+| fix2 | desktop, + hsfdraw cast, m418 calls | = base, 135000 frames |
+| web1 | web, bundled math, no cast fix (stopped at 1500 s) | splits from desktop at 10869, plr3, in m415: as N87 |
+| web2 | web, + m415/OSFastCast casts | = desktop for all 82785 frames it ran (turns 1-8, 11 minigames), then m418's trap |
+| web3 | web, + m418 calls | WEB3 |
+| fco | desktop with float-cast-overflow, before | 4 sites (above) |
+| fco3 | the same after the fixes (`tools/netplay/float_cast_check.sh`) | none, 135000 frames, match over at 110988, = fix |
+
+- **Android arm64** (`cmake --preset android-arm64`, NDK 28 clang, dol + m415Dll + w01Dll built): no `fmadd`/`fmsub`/
+  `fmla` in any game object, the math copy, m415Dll.so or w01Dll.so, and none of them imports `sin`/`cosf`/... (they
+  import `pb_*`). aurora's mtx has three `fmsub`s, all from the explicit `fmaf()` in `ppc_rsqrte` (ppc_math.h):
+  `fmaf` is correctly rounded by the standard, the same bits as x86's and wasm's software `fmaf`.
+- Desktop: `nm -D libdol.so` exports the 17 `pb_*`; no game object or REL imports the system's sin/cos/...; libdol's
+  remaining glibc `sin`/`cos` imports come from the C++ (aurora, imgui, RmlUi), not game state.
+- `tools/check.sh` passes.
 
 ## Tried and dropped
 
@@ -94,6 +125,25 @@ them).
   (`__HI(x)` = `*(int*)&x`), no float functions; musl is the same fdlibm lineage, portable, and is already what the web
   build runs.
 
+- A clang desktop build with `-fsanitize=function` (UBSan's "call through a pointer of another function type", the
+  check wasm does) to list every such call in one party instead of one browser run per trap: clang 23's x86_64 build
+  spun in `HuPrcCall` (process.c:382) at boot, before the first frame, also a problem of its own (the game is only
+  built with GCC on Linux; the web's clang build doesn't spin). Not chased; the two hook mismatches were found by
+  the script above instead.
+
 ## Not verified
 
-(filled in below)
+- **Android vs desktop hash logs**: no run on a device or emulator. The only emulator here is x86_64 (AVD hst34),
+  which would not show arm64's FMA or `fcvtzu` behaviour anyway, and the app takes no `--script`. Checked statically
+  instead (above): no contracted FMA, game math through `pb_*`. A float -> u32 of a negative value would still
+  differ on arm64 (saturates to 0, x86 wraps); none was hit in this party (UBSan reports every such conversion, not
+  only u8), others may exist in boards/minigames this party doesn't reach: follow-up **N101**.
+- **iOS, macOS, Windows (MSVC, MinGW)**: not built (no SDKs/toolchains here). iOS/macOS use clang and the same
+  `#include_next` wrapper as Android; MSVC takes the `/FI` path in `cmake/pbmath.cmake` and the new `pb_*` lines in
+  `dol.def` (the RELs import from dol through it), never compiled.
+- **Other boards and minigames**: only w01 and this party's 13 minigames ran (desktop and web). N101 runs
+  `float_cast_check.sh` through the rest.
+- **A real two-peer browser + desktop match**: not run (the desktop and the browser lobby use different transports,
+  iroh vs WebRTC: N96). This task shows the two builds compute the same frames from the same pads.
+- **Which `GWPlayer[3]` field moved first at 10869**: not traced field by field (the hash log has per-player
+  hashes only); the cause was found from the conversion instead and checked by the fixed run.
