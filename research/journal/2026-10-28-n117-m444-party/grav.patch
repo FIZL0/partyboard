@@ -1,0 +1,13 @@
+Scratch only (N117, build/n117-grav, configured like float_cast_check.sh's build): PB_N117_GRAV=1 brings back the
+second `arg1->y += 0.3` that pre-N114 x86-64 builds got when ASLR made VECMag((Vec *)&arg1) small. Not committed.
+--- a/src/REL/m444dll/pinball.c
++++ b/src/REL/m444dll/pinball.c
+@@ -1,4 +1,5 @@
+ #include "game/hsfex.h"
++#include <stdlib.h>
+ #include "game/hu3d.h"
+@@ fn_1_B1E8
+     if (temp_r30 == lbl_1_data_3A4[arg2]) {
+         arg1->y += 0.3;
++        if (getenv("PB_N117_GRAV")) { arg1->y += 0.3; }
+ #if VERSION_REV2 && !defined(TARGET_PC)
