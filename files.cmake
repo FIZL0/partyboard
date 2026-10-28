@@ -31,6 +31,7 @@ set(GAME_FILES
         src/game/board/window.c
 
         src/game/armem.c
+        src/game/audio.c
         src/game/card.c
         src/game/chrman.c
         src/game/ClusterExec.c
@@ -73,13 +74,20 @@ set(GAME_FILES
         src/game/window.c
         src/game/wipe.c
 
+        src/msm/msmfio.c
+        src/msm/msmmem.c
+        src/msm/msmmus.c
+        src/msm/msmse.c
+        src/msm/msmstream.c
+        src/msm/msmsys.c
+
         src/libhu/setvf.c
         src/libhu/subvf.c
 )
 
 set(PORT_FILES
         src/port/achievements.cpp
-        src/port/audio.c
+        src/port/audio.cpp
         src/port/button_icons.cpp
         src/port/byteswap.cpp
         src/port/config.cpp
@@ -91,6 +99,7 @@ set(PORT_FILES
         src/port/io.cpp
         src/port/iso_validate.cpp
         src/port/log_file.cpp
+        src/port/msm.c
         src/port/netplay.c
         src/port/netplay_autosave.c
         src/port/netplay_match.c

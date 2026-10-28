@@ -358,7 +358,7 @@ s32 HuAudSStreamStatGet(s32 seNo) {
     return msmStreamGetStatus(seNo);
 }
 
-SNDGRPTBL sndGrpTable[] = {
+SHARED_SYM SNDGRPTBL sndGrpTable[] = {
     { DLL_bootdll, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
     { DLL_instdll, MSM_GRPSET_NONE, MSM_AUXA_DEFAULT, MSM_AUXB_DEFAULT, -1, -1 },
     { DLL_m401dll, MSM_GRPSET_MG401, MSM_AUXA_DEFAULT, 2, 64, 64 },
@@ -483,6 +483,14 @@ void HuAudDllSndGrpSet(u16 ovl) {
     }
 }
 
+#ifdef TARGET_PC
+/* Netplay match start: the next HuAudDllSndGrpSet changes the AUX (and sleeps its frame) on every peer, whatever
+ * overlay each came from. */
+void HuAudNetplayAuxReset(void) {
+    auxANoBak = auxBNoBak = -1;
+}
+
+#endif
 #define SNDGRP_TIMEOUT 500
 
 #define SNDGRP_WAIT(tickStart) \
