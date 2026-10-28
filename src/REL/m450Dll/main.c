@@ -4018,7 +4018,9 @@ void fn_1_12688(omObjData *object)
     }
     if (object->work[0] != 0) {
         if (lbl_1_bss_1A4->work[0] <= 0x3EB) {
-            object->work[0] = object->work[0] - (3.0f - (lbl_1_bss_128 / 120.0f));
+            // N106: through s32 into the u32 the GC has: goes below 0 at the end of the countdown and wraps (GC, x86), so
+            // the test below sets 1; arm64's float -> unsigned would saturate it to 0
+            object->work[0] = (u32)(s32)(object->work[0] - (3.0f - (lbl_1_bss_128 / 120.0f)));
             if (object->work[0] > 10 * REFRESH_RATE) {
                 object->work[0] = 1;
             }

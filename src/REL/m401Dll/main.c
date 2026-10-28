@@ -2291,6 +2291,9 @@ void fn_2_8B58(omObjData *object)
 }
 
 s32 lbl_2_data_424[] = { 50, 95 };
+#ifdef TARGET_PC
+extern s32 lbl_2_data_42C[];
+#endif
 
 void fn_2_8C58(omObjData *object)
 {
@@ -2298,7 +2301,16 @@ void fn_2_8C58(omObjData *object)
     temp_r29 = object->data;
     temp_r29->unk30 += 25.875;
     if (fn_2_873C(object)) {
+#ifdef TARGET_PC
+        /* N106: the third call (unk20 starts at 3) reads past lbl_2_data_424, on the GC into lbl_2_data_42C, and the
+         * product (~911817) is out of s16's range: read what the GC reads, wrap through s32 like fctiwz + sth. The
+         * value is a countdown nothing reads once unk20 is 0. */
+        temp_r29->unk1E = (s16)(s32)(((frand() % 15)
+            + (lbl_2_bss_14 < 2 ? lbl_2_data_424[lbl_2_bss_14] : lbl_2_data_42C[(lbl_2_bss_14 - 2) & 1])) * 0.43478262f);
+        lbl_2_bss_14++;
+#else
         temp_r29->unk1E = ((frand() % 15) + lbl_2_data_424[lbl_2_bss_14++]) * 0.43478262f;
+#endif
     }
     if (fn_2_8450(object)) {
         Hu3DModelAttrSet(object->model[0], HU3D_ATTR_DISPOFF);

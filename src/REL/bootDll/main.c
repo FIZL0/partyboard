@@ -30,6 +30,60 @@
 #include "port/settings.h"
 #endif
 
+#if defined(TARGET_PC) && defined(PB_FCO_BOOT)
+#include "game/board/main.h"
+#include "game/flag.h"
+#include "game/objsub.h"
+#include <stdlib.h>
+
+/* N106: only in tools/netplay/float_cast_check.sh's build (-DPB_FCO_BOOT): with backend.skipBootSequence,
+ * PB_FCO_OVL=<overlay index> goes straight into that minigame or board instead of the mode select (N73's boot hook).
+ * Characters 0-3, COM unless the seat's bit is in PB_FCO_HUMAN (pad i). Minigames get mgInfoTbl's groups (1v3:
+ * player 0 alone, 2v2: i/2); boards a 10-turn party as mentDll sets it up (w10: the tutorial, as mentDll's). */
+static BOOL BootFcoJump(void)
+{
+    const char *env = getenv("PB_FCO_OVL");
+    const char *human = getenv("PB_FCO_HUMAN");
+    s32 ovl, mask, mg, type, i;
+
+    if (env == NULL) {
+        return FALSE;
+    }
+    ovl = atoi(env);
+    mask = human != NULL ? atoi(human) : 0;
+    mg = omMgIndexGet(ovl);
+    type = mg >= 0 ? mgInfoTbl[mg].type : 0;
+    if (ovl >= DLL_w01dll && ovl <= DLL_w21dll) {
+        if (ovl == DLL_w10dll) {
+            _SetFlag(0x1000B);
+        }
+        else {
+            _ClearFlag(0x1000B);
+            BoardPartyConfigSet(0, 1, 0, 10, 0, 0, 0, 0);
+        }
+        GWMGExplainSet(0);
+        GWSaveModeSet(1);
+    }
+    for (i = 0; i < 4; i++) {
+        GWPlayerCfg[i].character = i;
+        GWPlayerCfg[i].pad_idx = i;
+        GWPlayerCfg[i].iscom = (mask & (1 << i)) ? 0 : 1;
+        GWPlayerCfg[i].diff = i;
+        GWPlayerCfg[i].group = mg < 0 ? 0 : type == 1 ? (i != 0) : type == 2 ? i / 2 : i;
+    }
+    if (ovl >= DLL_w01dll && ovl <= DLL_w21dll) {
+        BoardSaveInit(ovl - DLL_w01dll);
+        if (ovl == DLL_w10dll) {
+            GWSystem.max_turn = 20;
+        }
+    }
+    GWSystem.mg_next = mg;
+    OSReport("fco: overlay %d (minigame %d type %d), human mask %d\n", ovl, mg, type, mask);
+    omOvlCallEx(ovl, 1, 0, 0);
+    return TRUE;
+}
+#endif
+
 #define HU_PAD_BTN_ALL (HuPadBtn[0] | HuPadBtn[1] | HuPadBtn[2] | HuPadBtn[3])
 #define HU_PAD_BTNDOWN_ALL (HuPadBtnDown[0] | HuPadBtnDown[1] | HuPadBtnDown[2] | HuPadBtnDown[3])
 #define HU_PAD_DSTK_ALL (HuPadDStkRep[0] | HuPadDStkRep[1] | HuPadDStkRep[2] | HuPadDStkRep[3])
@@ -160,6 +214,14 @@ void ObjectSetup(void)
              GWPlayerCfg[i].pad_idx = i;
          }
          BootInitForSkippedSequence();
+#ifdef PB_FCO_BOOT
+         if (BootFcoJump()) {
+             HuPrcEnd();
+             do {
+                 HuPrcVSleep();
+             } while (1);
+         }
+#endif
          omOvlCallEx(DLL_modeseldll, 1, MODESEL_EVENT_SKIP_BOOT, 0);
          for (i = 0; i < 4; i++) {
              GWPlayerCfg[i].character = -1;

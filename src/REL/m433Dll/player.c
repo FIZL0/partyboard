@@ -2673,7 +2673,8 @@ void fn_1_DE28(HU3DMODEL *var_r27, HU3DPARTICLE *var_r31, Mtx matrix)
             var_r30->scale = 0.0f;
         }
     }
-    var_r28 = (1.0f/REFRESH_RATE) * (var_r31->emitCnt * 0xFF);
+    // N106: through s32: 255 at the start, out of an s8's range (-> -1, alpha 255 below)
+    var_r28 = (s32)((1.0f/REFRESH_RATE) * (var_r31->emitCnt * 0xFF));
     for (var_r30 = var_r31->data, var_r29 = 0; var_r29 < var_r31->maxCnt; var_r29++, var_r30++) {
         var_r30->color.a = var_r28;
     }
