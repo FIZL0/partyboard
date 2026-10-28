@@ -2098,8 +2098,12 @@ mod tests {
             assert_eq!(runs[0][d + 1], [pad(0, d as u32 + 1), pad(1, d as u32 + 1), IDLE, IDLE]);
 
             // the computer stands in for the guest, which is still there: it gets the seat back at once
-            assert!(host.stand_in(1));
-            assert_eq!(host.epoch(), 2);
+            // under one lock: the guest's Rejoin (epoch 3) may come back before a second lock (N80)
+            {
+                let mut s = lock(&host.shared);
+                assert!(s.stand_in(1));
+                assert_eq!(s.book.epoch, 2);
+            }
             until(&host, "seat back", |s| host.epoch() == 3 && s.room.as_ref().unwrap().seats[1].as_ref().unwrap().peer == g.me).await;
             let s = host.snapshot().room.unwrap();
             assert!(!s.seats[1].as_ref().unwrap().cpu && s.seats[1].as_ref().unwrap().name == "a");
