@@ -26,7 +26,11 @@ protected:
     bool handle_nav_command(Rml::Event &event, NavCommand cmd) override;
 
 private:
+    void launch_game();
+    void launch_online();
+
     bool mEntranceAnimationStarted = false;
+    bool mOnlineAfterDisc = false;
     bool mRestartSuppressed = false;
     std::vector<std::unique_ptr<Button>> mMenuButtons;
     Rml::Element *mRoot = nullptr;

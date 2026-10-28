@@ -1,0 +1,7 @@
+130 key 81
+140 key 40
+400 shot $R/online.png
+420 dump
+430 key 41
+480 dump
+490 quit

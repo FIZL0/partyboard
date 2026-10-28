@@ -8,6 +8,7 @@
 #include "port/main.h"
 #include "port/settings.h"
 #include "modal.hpp"
+#include "online.hpp"
 #include "settings.hpp"
 #include "partyboard_version.h"
 
@@ -51,14 +52,14 @@ namespace {
             </hero>
             <div id="menu-list" />
         </menu>
-        <disc-info class="intro-item delay-4">
+        <disc-info class="intro-item delay-5">
             <div id="disc-status">
                 <icon />
                 <span id="disc-status-label" />
             </div>
             <span id="disc-version" class="detail" />
         </disc-info>
-        <version-info class="intro-item delay-5">
+        <version-info class="intro-item delay-6">
             <div class="version">Version <span id="version-text"></span></div>
         </version-info>
     </content>
@@ -627,35 +628,34 @@ Prelaunch::Prelaunch()
                 return;
             }
 
-            // mDoAud_seStartMenu(kSoundPlay); // TODO PC
-            show_menu_notification();
-
-            // TODO PC
-            // if (getSettings().audio.menuSounds) {
-            //     JAISoundHandle *handle = g_mEnvSeMgr.field_0x144.getHandle();
-            //     if (*handle) {
-            //         (*handle)->stop(60);
-            //         (*handle)->releaseHandle();
-            //     }
-            // }
-
-            HuCardInit();
-
-            PartyBoard_IsGameLaunched = true;
-            hide(true);
+            mOnlineAfterDisc = false;
+            launch_game();
         });
         apply_intro_animation(mMenuButtons.back()->root(), "delay-1");
+
+        // N88: Online launches the game as Play does, then opens the Online window (Menu bar > Online's) on top.
+        mMenuButtons.push_back(std::make_unique<Button>(menuList, "Online"));
+        mMenuButtons.back()->on_pressed([this] {
+            if (prelaunch_state().activeDiscPath.empty()) {
+                // update() carries on once a disc is loaded.
+                mOnlineAfterDisc = true;
+                open_iso_picker();
+                return;
+            }
+            launch_online();
+        });
+        apply_intro_animation(mMenuButtons.back()->root(), "delay-2");
 
         mMenuButtons.push_back(std::make_unique<Button>(menuList, "Settings"));
         mMenuButtons.back()->on_pressed([this] {
             mRestartSuppressed = false;
             push(std::make_unique<SettingsWindow>(true));
         });
-        apply_intro_animation(mMenuButtons.back()->root(), "delay-2");
+        apply_intro_animation(mMenuButtons.back()->root(), "delay-3");
 
         mMenuButtons.push_back(std::make_unique<Button>(menuList, "Quit"));
         mMenuButtons.back()->on_pressed([] { PartyBoard_IsRunning = false; });
-        apply_intro_animation(mMenuButtons.back()->root(), "delay-3");
+        apply_intro_animation(mMenuButtons.back()->root(), "delay-4");
     }
 
     mDiscStatus = mDocument->GetElementById("disc-status");
@@ -674,6 +674,33 @@ Prelaunch::Prelaunch()
             target->SetClass("anim-done", true);
         }
     });
+}
+
+void Prelaunch::launch_game()
+{
+    // mDoAud_seStartMenu(kSoundPlay); // TODO PC
+    show_menu_notification();
+
+    // TODO PC
+    // if (getSettings().audio.menuSounds) {
+    //     JAISoundHandle *handle = g_mEnvSeMgr.field_0x144.getHandle();
+    //     if (*handle) {
+    //         (*handle)->stop(60);
+    //         (*handle)->releaseHandle();
+    //     }
+    // }
+
+    HuCardInit();
+
+    PartyBoard_IsGameLaunched = true;
+    hide(true);
+}
+
+void Prelaunch::launch_online()
+{
+    mOnlineAfterDisc = false;
+    launch_game();
+    push_document(std::make_unique<OnlineWindow>());
 }
 
 void Prelaunch::show()
@@ -746,9 +773,15 @@ void Prelaunch::update()
     const bool canLaunchConfiguredDisc = state.configuredDiscCanLaunch;
     const bool activeDiscLoaded = !state.activeDiscPath.empty();
     const bool discRestartPending = activeDiscLoaded && state.configuredDiscPath != state.activeDiscPath;
+    // Launched before this update: launchUILoop has ended and this update runs from the game's loop (heaps set up).
+    const bool gameRunning = PartyBoard_IsGameLaunched;
     mDocument->SetClass("disc-ready", PartyBoard_IsGameLaunched);
     if (canLaunchConfiguredDisc) {
         PartyBoard_IsGameLaunched = true;
+    }
+
+    if (mOnlineAfterDisc && activeDiscLoaded && gameRunning && top_document() == this) {
+        launch_online();
     }
 
     if (!mEntranceAnimationStarted && mDocument != nullptr) {
