@@ -262,4 +262,32 @@ public class PartyBoardActivity extends SDLActivity {
             Log.w(TAG, "touchHaptic failed", e);
         }
     }
+
+    /**
+     * N130: the window's safe-area insets {left, top, right, bottom} in physical px: the visible system bars and the
+     * display cutout (zeros where the window doesn't reach under them; the bars are hidden, so mostly the cutout). Not
+     * SDL's insets, which take in the system gesture zones too. Called from native code (ui.cpp read_device_safe).
+     */
+    public static int[] safeInsets() {
+        try {
+            if (mSingleton == null) {
+                return null;
+            }
+            WindowInsets insets = mSingleton.getWindow().getDecorView().getRootWindowInsets();
+            if (insets == null) {
+                return new int[4];
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.graphics.Insets i =
+                    insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                return new int[] {i.left, i.top, i.right, i.bottom};
+            }
+            // before 30: the system windows' insets, which take in the cutout once the window lays out into it
+            return new int[] {insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
+                insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()};
+        } catch (Exception e) {
+            Log.w(TAG, "safeInsets failed", e);
+            return null;
+        }
+    }
 }

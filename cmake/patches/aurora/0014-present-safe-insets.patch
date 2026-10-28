@@ -1,0 +1,133 @@
+diff --git a/lib/webgpu/gpu.cpp b/lib/webgpu/gpu.cpp
+--- a/lib/webgpu/gpu.cpp
++++ b/lib/webgpu/gpu.cpp
+@@ -311,6 +311,13 @@
+     return {};
+   }
+ 
++  // N130: fitted inside the window's safe area
++  const auto safe = window::present_rect(surface_width, surface_height);
++  const uint32_t surface_left = safe.x;
++  const uint32_t surface_top = safe.y;
++  surface_width = safe.width;
++  surface_height = safe.height;
++
+   uint32_t viewport_width = surface_width;
+   uint32_t viewport_height = std::min<uint32_t>(
+       surface_height, std::max<uint32_t>(1u, static_cast<uint32_t>(std::lround(static_cast<double>(viewport_width) *
+@@ -324,8 +331,8 @@
+   }
+ 
+   return {
+-      .left = static_cast<float>((surface_width - viewport_width) / 2),
+-      .top = static_cast<float>((surface_height - viewport_height) / 2),
++      .left = static_cast<float>(surface_left + (surface_width - viewport_width) / 2),
++      .top = static_cast<float>(surface_top + (surface_height - viewport_height) / 2),
+       .width = static_cast<float>(viewport_width),
+       .height = static_cast<float>(viewport_height),
+       .znear = 0.f,
+@@ -1074,7 +1081,8 @@
+ }
+ 
+ void resize_swapchain(uint32_t width, uint32_t height, uint32_t native_width, uint32_t native_height, bool force) {
+-  gfx::gpu_synchronize();
++  // N130: the caller (window::resize_swapchain) holds the SurfaceLock: a plain wait deadlocks with the render thread
++  synchronize_surface_unlocked();
+   if (!g_surface || !g_device || width == 0 || height == 0 || native_height == 0 || native_width == 0) {
+     return;
+   }
+diff --git a/lib/window.cpp b/lib/window.cpp
+--- a/lib/window.cpp
++++ b/lib/window.cpp
+@@ -27,7 +27,9 @@
+ #endif
+ 
+ #include <algorithm>
++#include <array>
+ #include <atomic>
++#include <cmath>
+ #include <vector>
+ 
+ #include "rmlui.hpp"
+@@ -41,6 +43,8 @@
+ SDL_Renderer* g_renderer;
+ float g_frameBufferScale = 0.f;
+ bool g_frameBufferAspectFit = false;
++// The window's safe area (N130): insets of the presented picture, as shares of the window (left, top, right, bottom)
++std::array<float, 4> g_presentInsets{};
+ AuroraWindowSize g_windowSize;
+ std::vector<AuroraEvent> g_events;
+ std::atomic_bool g_backgrounded = false;
+@@ -411,8 +415,10 @@
+   ASSERT(SDL_GetWindowSizeInPixels(g_window, &native_fb_w, &native_fb_h), "Failed to get window size in pixels: {}",
+          SDL_GetError());
+ 
+-  int fb_w = native_fb_w;
+-  int fb_h = native_fb_h;
++  // The picture is fitted inside the safe area (N130), so its frame buffer takes that rect's shape
++  const auto safe = present_rect(static_cast<uint32_t>(native_fb_w), static_cast<uint32_t>(native_fb_h));
++  int fb_w = static_cast<int>(safe.width);
++  int fb_h = static_cast<int>(safe.height);
+   if (g_frameBufferScale > 0.f) {
+     const auto [baseW, baseH] = vi::configured_fb_size();
+     const auto [scaledW, scaledH] =
+@@ -566,6 +572,31 @@
+   request_frame_buffer_resize();
+ }
+ 
++void set_present_insets(float left, float top, float right, float bottom) {
++  const auto clampShare = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.f, 0.45f) : 0.f; };
++  const std::array<float, 4> insets{clampShare(left), clampShare(top), clampShare(right), clampShare(bottom)};
++  if (insets == g_presentInsets) {
++    return;
++  }
++  g_presentInsets = insets;
++  Log.info("Present insets {} {} {} {}", insets[0], insets[1], insets[2], insets[3]);
++  request_frame_buffer_resize();
++}
++
++std::array<float, 4> present_insets() noexcept { return g_presentInsets; }
++
++PresentRect present_rect(uint32_t width, uint32_t height) noexcept {
++  const auto [l, t, r, b] = g_presentInsets;
++  const auto x0 = static_cast<uint32_t>(std::lround(static_cast<float>(width) * l));
++  const auto y0 = static_cast<uint32_t>(std::lround(static_cast<float>(height) * t));
++  const auto x1 = static_cast<uint32_t>(std::lround(static_cast<float>(width) * (1.f - r)));
++  const auto y1 = static_cast<uint32_t>(std::lround(static_cast<float>(height) * (1.f - b)));
++  if (x1 <= x0 || y1 <= y0) {
++    return {0, 0, std::max(width, 1u), std::max(height, 1u)};
++  }
++  return {x0, y0, x1 - x0, y1 - y0};
++}
++
+ void set_background_input(bool value) { SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, value ? "1" : "0"); }
+ 
+ } // namespace aurora::window
+diff --git a/lib/window.hpp b/lib/window.hpp
+--- a/lib/window.hpp
++++ b/lib/window.hpp
+@@ -3,6 +3,9 @@
+ #include <aurora/aurora.h>
+ #include <aurora/event.h>
+ 
++#include <array>
++#include <cstdint>
++
+ struct SDL_Window;
+ struct SDL_Renderer;
+ 
+@@ -66,4 +69,14 @@
+ void set_frame_buffer_scale(float scale);
+ void set_frame_buffer_aspect_fit(bool fit);
+ void set_background_input(bool value);
++// N130: the window's safe area, as insets of the presented picture (shares of the window's width and height: left,
++// top, right, bottom, each clamped to 0..0.45). The game picture (and the RmlUi layer drawn with it) is fitted inside
++// what is left; the rest of the window is black. Zero (the default) is the whole window.
++void set_present_insets(float left, float top, float right, float bottom);
++std::array<float, 4> present_insets() noexcept;
++struct PresentRect {
++  uint32_t x, y, width, height;
++};
++// The rect of a width x height surface inside the present insets (the whole surface if they leave nothing)
++PresentRect present_rect(uint32_t width, uint32_t height) noexcept;
+ }; // namespace aurora::window

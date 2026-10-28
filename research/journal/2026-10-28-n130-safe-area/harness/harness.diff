@@ -1,0 +1,145 @@
+--- a/extern/aurora/lib/aurora.cpp
++++ b/extern/aurora/lib/aurora.cpp
+@@ -19,6 +19,7 @@
+ 
+ #include <SDL3/SDL_filesystem.h>
+ #include <SDL3/SDL_timer.h>
++#include <cstdlib> // N130 HARNESS
+ #include <magic_enum.hpp>
+ 
+ #include "system_info.hpp"
+@@ -409,6 +410,30 @@
+         pass.Draw(3);
+         pass.End();
+       }
++      // N130 HARNESS: PB_WINDOW_SHOT: the frame as presented (picture, RmlUi, bars) at the surface's size
++      if (!captures.empty() && std::getenv("PB_WINDOW_SHOT") != nullptr) {
++        const auto& sc = webgpu::g_graphicsConfig.surfaceConfiguration;
++        const wgpu::TextureDescriptor td{
++            .label = "N130 window shot",
++            .usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc,
++            .size = {.width = sc.width, .height = sc.height, .depthOrArrayLayers = 1},
++            .format = sc.format,
++        };
++        auto tex = webgpu::g_device.CreateTexture(&td);
++        auto view = tex.CreateView();
++        const std::array att{wgpu::RenderPassColorAttachment{
++            .view = view, .loadOp = wgpu::LoadOp::Clear, .storeOp = wgpu::StoreOp::Store}};
++        const wgpu::RenderPassDescriptor rpd{.colorAttachmentCount = att.size(), .colorAttachments = att.data()};
++        const auto pass = encoder.BeginRenderPass(&rpd);
++        pass.SetPipeline(webgpu::g_CopyPipeline);
++        pass.SetBindGroup(0, presentBindGroup, 0, nullptr);
++        pass.SetViewport(viewport.left, viewport.top, viewport.width, viewport.height, viewport.znear, viewport.zfar);
++        pass.Draw(3);
++        pass.End();
++        std::vector<std::string> wpaths;
++        for (const auto& p : captures) wpaths.push_back(p + ".window.png");
++        gfx::frame_capture::encode_texture(encoder, tex, sc.width, sc.height, sc.format, wpaths);
++      }
+       {
+         const std::array attachments{
+             wgpu::RenderPassColorAttachment{
+--- a/extern/aurora/lib/gfx/frame_capture.cpp
++++ b/extern/aurora/lib/gfx/frame_capture.cpp
+@@ -81,12 +81,17 @@
+ }
+ 
+ void encode(const wgpu::CommandEncoder& encoder, std::vector<std::string> paths) noexcept {
++  const auto& source = webgpu::present_source();
++  encode_texture(encoder, source.texture, source.size.width, source.size.height, source.format, std::move(paths));
++}
++
++void encode_texture(const wgpu::CommandEncoder& encoder, const wgpu::Texture& texture, uint32_t width, uint32_t height,
++                    wgpu::TextureFormat format, std::vector<std::string> paths) noexcept {
+   if (paths.empty()) {
+     return;
+   }
+-  const auto& source = webgpu::present_source();
+   bool bgra;
+-  switch (source.format) {
++  switch (format) {
+   case wgpu::TextureFormat::BGRA8Unorm:
+   case wgpu::TextureFormat::BGRA8UnormSrgb:
+     bgra = true;
+@@ -96,11 +101,9 @@
+     bgra = false;
+     break;
+   default:
+-    Log.error("Frame capture: unsupported framebuffer format {}", static_cast<uint32_t>(source.format));
++    Log.error("Frame capture: unsupported framebuffer format {}", static_cast<uint32_t>(format));
+     return;
+   }
+-  const uint32_t width = source.size.width;
+-  const uint32_t height = source.size.height;
+   const uint32_t bytesPerRow = AURORA_ALIGN(width * 4, 256);
+   for (auto& path : paths) {
+     const wgpu::BufferDescriptor descriptor{
+@@ -116,7 +119,7 @@
+         .bytesPerRow = bytesPerRow,
+         .bgra = bgra,
+     });
+-    const wgpu::TexelCopyTextureInfo src{.texture = source.texture};
++    const wgpu::TexelCopyTextureInfo src{.texture = texture};
+     const wgpu::TexelCopyBufferInfo dst{
+         .layout = {.bytesPerRow = bytesPerRow, .rowsPerImage = height},
+         .buffer = pending->buffer,
+--- a/extern/aurora/lib/gfx/frame_capture.hpp
++++ b/extern/aurora/lib/gfx/frame_capture.hpp
+@@ -11,6 +11,8 @@
+ std::vector<std::string> take_due() noexcept;
+ // Render worker: copies the present source (the game's image, before RmlUi/ImGui) to a readback buffer.
+ void encode(const wgpu::CommandEncoder& encoder, std::vector<std::string> paths) noexcept;
++void encode_texture(const wgpu::CommandEncoder& encoder, const wgpu::Texture& texture, uint32_t width, uint32_t height,
++                    wgpu::TextureFormat format, std::vector<std::string> paths) noexcept;
+ // Render worker, after the frame's submit: maps the buffers; each writes its PNG when the map completes.
+ void after_submit() noexcept;
+ 
+--- a/src/port/ui/ui.cpp
++++ b/src/port/ui/ui.cpp
+@@ -6,6 +6,7 @@
+ #include <SDL3/SDL_filesystem.h>
+ #include <absl/container/flat_hash_set.h>
+ #include <aurora/rmlui.hpp>
++#include <aurora/gfx.h> // N130 HARNESS
+ #include <fmt/format.h>
+ 
+ #include <algorithm>
+@@ -26,6 +27,7 @@
+ #include "aurora/lib/window.hpp"
+ #include "input.hpp"
+ #include "prelaunch.hpp"
++#include "settings.hpp" // N130 HARNESS
+ #include "touch_pad.hpp"
+ #include "window.hpp"
+ 
+@@ -346,6 +348,30 @@
+ void update() noexcept
+ {
+     update_safe_area();
++    // N130 HARNESS: PB_SETTINGS_TAB=<i> opens Settings at that tab on frame 300
++    {
++        static unsigned sframe = 0;
++        if (++sframe == 300 && std::getenv("PB_SETTINGS_TAB") != nullptr) {
++            auto &doc = push_document(std::make_unique<SettingsWindow>(true));
++            static_cast<SettingsWindow &>(doc).set_active_tab(std::atoi(std::getenv("PB_SETTINGS_TAB")));
++        }
++    }
++    // N130 HARNESS: PB_SHOT_AT=f1,f2,... shoots frames (ui::update calls) to $PB_SHOT_DIR/f<frame>.png (+ .window.png)
++    {
++        static unsigned frame = 0;
++        ++frame;
++        static const std::string at = std::getenv("PB_SHOT_AT") ? std::getenv("PB_SHOT_AT") : "";
++        const std::string key = "," + std::to_string(frame) + ",";
++        if (!at.empty() && ("," + at + ",").find(key) != std::string::npos) {
++            const std::string path = std::string(std::getenv("PB_SHOT_DIR")) + "/f" + std::to_string(frame) + ".png";
++            aurora_capture_frame(path.c_str(), 0);
++            const auto in = safe_area_insets(aurora::rmlui::get_context());
++            const auto ws = aurora::window::get_window_size();
++            Log.info("N130 shot {}: window {}x{} native {}x{} fb {}x{} rml insets l{} t{} r{} b{}", frame, ws.width,
++                ws.height, ws.native_fb_width, ws.native_fb_height, ws.fb_width, ws.fb_height, in.left, in.top,
++                in.right, in.bottom);
++        }
++    }
+     if (!aurora::rmlui::is_initialized()) {
+         return;
+     }

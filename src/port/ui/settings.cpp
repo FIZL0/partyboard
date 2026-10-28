@@ -52,6 +52,18 @@ namespace {
         "GameCube",
     };
 
+    // N130: the Safe Area setting's value as shown (0 Auto, 1..10 a margin in %, -1 Off)
+    Rml::String safe_area_name(int value)
+    {
+        if (value < 0) {
+            return "Off";
+        }
+        if (value == 0) {
+            return "Auto";
+        }
+        return fmt::format("{} %", value);
+    }
+
     constexpr std::array kFpsOverlayCornerNames = {
         "Top Left",
         "Top Right",
@@ -441,6 +453,33 @@ SettingsWindow::SettingsWindow(bool prelaunch)
                 .key = "Lock 4:3 Aspect Ratio",
                 .helpText = "Lock the game's aspect ratio to the original.",
                 .onChange = [](bool value) { AuroraSetViewportPolicy(value ? AURORA_VIEWPORT_FIT : AURORA_VIEWPORT_STRETCH); },
+            });
+        // N130: Safe Area: Auto, a margin of 1-10 %, Off
+        leftPane.register_control(leftPane.add_select_button({
+                                      .key = "Safe Area",
+                                      .getValue = [] { return safe_area_name(getSettings().video.safeArea.getValue()); },
+                                      .isModified =
+                                          [] {
+                                              const auto &safe = getSettings().video.safeArea;
+                                              return safe.getValue() != safe.getDefaultValue();
+                                          },
+                                  }),
+            rightPane, [](Pane &pane) {
+                for (int i = 0; i <= 11; ++i) {
+                    const int value = i <= 10 ? i : -1;
+                    pane.add_button({
+                                        .text = safe_area_name(value),
+                                        .isSelected = [value] { return getSettings().video.safeArea.getValue() == value; },
+                                    })
+                        .on_pressed([value] {
+                            getSettings().video.safeArea.setValue(value);
+                            config::Save();
+                        });
+                }
+                pane.add_rml("<br/>Keeps the picture, its HUD and the menus inside the screen's safe area. Auto keeps "
+                             "clear of a phone's notch, camera cutout and home bar; a margin keeps that much of the "
+                             "screen clear on every side as well (for a TV that crops its edges). Off uses the whole "
+                             "screen.");
             });
         config_bool_select(leftPane, rightPane, getSettings().game.pauseOnFocusLost,
             {

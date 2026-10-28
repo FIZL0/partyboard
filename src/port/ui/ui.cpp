@@ -9,10 +9,24 @@
 #include <fmt/format.h>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdlib>
+#include <cstdio>
 #include <filesystem>
+#include <optional>
 #include <ranges>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+#ifdef __ANDROID__
+#include <SDL3/SDL_system.h>
+#include <jni.h>
+#endif
+
 #include "RmlUi/Debugger/Debugger.h"
+#include "aurora/lib/logging.hpp"
 #include "aurora/lib/window.hpp"
 #include "input.hpp"
 #include "prelaunch.hpp"
@@ -42,7 +56,171 @@ namespace {
     // notifications for gamepads that we sent a connected notification for.
     absl::flat_hash_set<SDL_JoystickID> sConnectedGamepads;
 
+    aurora::Module Log { "partyboard::ui" };
+
+    // N130: the device's safe-area insets (left, top, right, bottom) as shares of the window, read every 30 frames
+    std::array<float, 4> sDeviceSafe {};
+    // The insets in force: the device's under the Safe Area setting (what the game picture is fitted inside)
+    std::array<float, 4> sSafe {};
+    unsigned sSafeFrame = 0;
+
+#ifdef __EMSCRIPTEN__
+    // The page's env(safe-area-inset-*) (left, top, right, bottom, CSS px) through a hidden probe element; the canvas
+    // covers the whole page (viewport-fit=cover)
+    EM_JS(void, pb_web_safe_area, (float *out), {
+        let probe = document.getElementById('pb-safe-probe');
+        if (!probe) {
+            probe = document.createElement('div');
+            probe.id = 'pb-safe-probe';
+            probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;'
+                + 'padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) '
+                + 'env(safe-area-inset-left,0px)';
+            document.body.appendChild(probe);
+        }
+        const cs = getComputedStyle(probe);
+        const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+        HEAPF32[(out >> 2) + 0] = (parseFloat(cs.paddingLeft) || 0) / w;
+        HEAPF32[(out >> 2) + 1] = (parseFloat(cs.paddingTop) || 0) / h;
+        HEAPF32[(out >> 2) + 2] = (parseFloat(cs.paddingRight) || 0) / w;
+        HEAPF32[(out >> 2) + 3] = (parseFloat(cs.paddingBottom) || 0) / h;
+    });
+#endif
+
+#ifdef __ANDROID__
+    // PartyBoardActivity.safeInsets(): the visible system bars and the cutout in physical px (SDL's own insets take in
+    // the system gesture zones, which aren't a display safe area); false when it can't be called
+    bool android_safe_px(std::array<float, 4> &out) noexcept
+    {
+        static jclass sClass = nullptr;
+        static jmethodID sMethod = nullptr;
+        static bool sFailed = false;
+        auto *env = static_cast<JNIEnv *>(SDL_GetAndroidJNIEnv());
+        if (sFailed || env == nullptr) {
+            return false;
+        }
+        if (sMethod == nullptr) {
+            auto activity = static_cast<jobject>(SDL_GetAndroidActivity());
+            if (activity == nullptr) {
+                env->ExceptionClear();
+                return false;
+            }
+            jclass local = env->GetObjectClass(activity);
+            env->DeleteLocalRef(activity);
+            jmethodID method = local != nullptr ? env->GetStaticMethodID(local, "safeInsets", "()[I") : nullptr;
+            if (method == nullptr || env->ExceptionCheck()) {
+                env->ExceptionClear();
+                if (local != nullptr) {
+                    env->DeleteLocalRef(local);
+                }
+                sFailed = true;
+                return false;
+            }
+            sClass = static_cast<jclass>(env->NewGlobalRef(local));
+            env->DeleteLocalRef(local);
+            sMethod = method;
+        }
+        auto array = static_cast<jintArray>(env->CallStaticObjectMethod(sClass, sMethod));
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+            return false;
+        }
+        if (array == nullptr) {
+            return false;
+        }
+        jint px[4] {};
+        if (env->GetArrayLength(array) == 4) {
+            env->GetIntArrayRegion(array, 0, 4, px);
+        }
+        env->DeleteLocalRef(array);
+        out = { static_cast<float>(px[0]), static_cast<float>(px[1]), static_cast<float>(px[2]), static_cast<float>(px[3]) };
+        return true;
+    }
+#endif
+
+    // PB_SAFE=l,t,r,b: fixed insets in window (logical) px instead of the device's, for shots on desktop
+    const std::optional<std::array<float, 4>> &fake_safe() noexcept
+    {
+        static const std::optional<std::array<float, 4>> fake = [] () -> std::optional<std::array<float, 4>> {
+            const char *env = std::getenv("PB_SAFE");
+            std::array<float, 4> v {};
+            if (env == nullptr || std::sscanf(env, "%f,%f,%f,%f", &v[0], &v[1], &v[2], &v[3]) != 4) {
+                return std::nullopt;
+            }
+            return v;
+        }();
+        return fake;
+    }
+
+    std::array<float, 4> read_device_safe(SDL_Window *window) noexcept
+    {
+        int w = 0;
+        int h = 0;
+        if (window == nullptr || !SDL_GetWindowSize(window, &w, &h) || w <= 0 || h <= 0) {
+            return {};
+        }
+        if (const auto &fake = fake_safe()) {
+            const auto &px = *fake;
+            return { px[0] / w, px[1] / h, px[2] / w, px[3] / h };
+        }
+#ifdef __ANDROID__
+        int pw = 0;
+        int ph = 0;
+        std::array<float, 4> px {};
+        if (android_safe_px(px) && SDL_GetWindowSizeInPixels(window, &pw, &ph) && pw > 0 && ph > 0) {
+            return { px[0] / pw, px[1] / ph, px[2] / pw, px[3] / ph };
+        }
+#endif
+#ifdef __EMSCRIPTEN__
+        std::array<float, 4> web {};
+        pb_web_safe_area(web.data());
+        return web;
+#else
+        SDL_Rect r {};
+        if (!SDL_GetWindowSafeArea(window, &r)) {
+            return {};
+        }
+        return {
+            std::max(0, r.x) / static_cast<float>(w),
+            std::max(0, r.y) / static_cast<float>(h),
+            std::max(0, w - (r.x + r.w)) / static_cast<float>(w),
+            std::max(0, h - (r.y + r.h)) / static_cast<float>(h),
+        };
+#endif
+    }
+
 } // namespace
+
+std::array<float, 4> safe_area_shares(std::array<float, 4> device, int setting) noexcept
+{
+    if (setting < 0) {
+        return {};
+    }
+    const float margin = static_cast<float>(std::min(setting, 10)) * 0.01f;
+    for (float &v : device) {
+        v = std::clamp(std::max(v, margin), 0.0f, 0.45f);
+    }
+    return device;
+}
+
+void update_safe_area() noexcept
+{
+    auto *window = aurora::window::get_sdl_window();
+    if (window == nullptr) {
+        return;
+    }
+    if (sSafeFrame++ % 30 == 0) {
+        const auto device = read_device_safe(window);
+        if (device != sDeviceSafe) {
+            sDeviceSafe = device;
+            Log.info("safe area {} {} {} {} (window shares)", device[0], device[1], device[2], device[3]);
+        }
+    }
+    const auto safe = safe_area_shares(sDeviceSafe, getSettings().video.safeArea.getValue());
+    if (safe != sSafe) {
+        sSafe = safe;
+        aurora::window::set_present_insets(safe[0], safe[1], safe[2], safe[3]);
+    }
+}
 
 bool initialize() noexcept
 {
@@ -230,6 +408,7 @@ Document *top_document() noexcept
 
 void update() noexcept
 {
+    update_safe_area();
     if (!aurora::rmlui::is_initialized()) {
         return;
     }
@@ -346,32 +525,30 @@ Insets safe_area_insets(Rml::Context *context) noexcept
         return {};
     }
 
-    auto *window = aurora::window::get_sdl_window();
-    if (window == nullptr) {
-        return {};
-    }
-
     const AuroraWindowSize windowSize = aurora::window::get_window_size();
-    if (windowSize.width == 0 || windowSize.height == 0) {
-        return {};
-    }
-
-    SDL_Rect safeRect {};
-    if (!SDL_GetWindowSafeArea(window, &safeRect)) {
-        return {};
-    }
-
     const Rml::Vector2i contextSize = context->GetDimensions();
-    const float scaleX = static_cast<float>(contextSize.x) / static_cast<float>(windowSize.width);
-    const float scaleY = static_cast<float>(contextSize.y) / static_cast<float>(windowSize.height);
+    if (windowSize.native_fb_width == 0 || windowSize.native_fb_height == 0 || contextSize.x <= 0 || contextSize.y <= 0) {
+        return {};
+    }
 
-    const float safeRight = static_cast<float>(safeRect.x + safeRect.w);
-    const float safeBottom = static_cast<float>(safeRect.y + safeRect.h);
+    // N130: the context covers the game picture, which aurora fits (centred) inside the present insets' rect; the
+    // insets here are what of the safe area (sSafe) still lies inside the picture, in context px
+    const float nativeW = static_cast<float>(windowSize.native_fb_width);
+    const float nativeH = static_cast<float>(windowSize.native_fb_height);
+    const auto rect = aurora::window::present_rect(windowSize.native_fb_width, windowSize.native_fb_height);
+    const float fit = std::min(static_cast<float>(rect.width) / static_cast<float>(contextSize.x),
+        static_cast<float>(rect.height) / static_cast<float>(contextSize.y));
+    const float viewW = static_cast<float>(contextSize.x) * fit;
+    const float viewH = static_cast<float>(contextSize.y) * fit;
+    const float viewL = static_cast<float>(rect.x) + (static_cast<float>(rect.width) - viewW) / 2.0f;
+    const float viewT = static_cast<float>(rect.y) + (static_cast<float>(rect.height) - viewH) / 2.0f;
+    // Under a context px is rounding (the picture's size is whole px)
+    const auto px = [fit](float native) { return native / fit >= 1.0f ? native / fit : 0.0f; };
     return {
-        .top = std::max(0.0f, static_cast<float>(safeRect.y)) * scaleY,
-        .right = std::max(0.0f, static_cast<float>(windowSize.width) - safeRight) * scaleX,
-        .bottom = std::max(0.0f, static_cast<float>(windowSize.height) - safeBottom) * scaleY,
-        .left = std::max(0.0f, static_cast<float>(safeRect.x)) * scaleX,
+        .top = px(sSafe[1] * nativeH - viewT),
+        .right = px((viewL + viewW) - (1.0f - sSafe[2]) * nativeW),
+        .bottom = px((viewT + viewH) - (1.0f - sSafe[3]) * nativeH),
+        .left = px(sSafe[0] * nativeW - viewL),
     };
 }
 
