@@ -495,6 +495,13 @@ void fn_1_C944(omObjData *arg0, unkObjStruct *arg1)
         HuPadStkY[arg1->unk6] = 0;
         HuPadTrigR[arg1->unk6] = 0x96;
         HuPadBtn[arg1->unk6] = 0x20;
+#ifdef TARGET_PC
+        /* N83: var_r29/sp8 were never set here once the timer ran out. On the GC var_r29 is r29, which still holds
+           fn_1_B3A4's loop index (0..3), so ABS(var_r29) < 7 always held; on PC it was stack garbage that could turn
+           the player. 0 is the stick just written. */
+        var_r29 = 0;
+        sp8 = 0;
+#endif
     }
     else {
         var_r29 = HuPadStkX[arg1->unk6];

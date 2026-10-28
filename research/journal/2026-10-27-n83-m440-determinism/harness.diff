@@ -1,0 +1,113 @@
+diff --git i/src/REL/bootDll/main.c w/src/REL/bootDll/main.c
+index ef53e659..99be90c5 100644
+--- i/src/REL/bootDll/main.c
++++ w/src/REL/bootDll/main.c
+@@ -16,6 +16,8 @@
+ #include "game/window.h"
+ #include "game/wipe.h"
+ #include "math.h"
++#include <stdlib.h> /* N73_TMP */
++#include "game/objsub.h" /* N73_TMP */
+ 
+ #include "data_num/title.h"
+ 
+@@ -160,6 +162,22 @@ void ObjectSetup(void)
+              GWPlayerCfg[i].pad_idx = i;
+          }
+          BootInitForSkippedSequence();
++         if (getenv("PB_N73_OVL")) { /* N73_TMP */
++             s16 ovl = atoi(getenv("PB_N73_OVL"));
++             s32 type = mgInfoTbl[omMgIndexGet(ovl)].type;
++             for (i = 0; i < 4; i++) {
++                 GWPlayerCfg[i].character = i;
++                 GWPlayerCfg[i].iscom = getenv("PB_N83_HUMAN") ? i != 0 : 1;
++                 GWPlayerCfg[i].diff = getenv("PB_N83_HUMAN") ? 1 : 0;
++                 GWPlayerCfg[i].group = type == 1 ? (i != 0) : type == 2 ? i / 2 : i;
++             }
++             GWSystem.mg_next = omMgIndexGet(ovl);
++             omOvlCallEx(ovl, 1, 0, 0);
++             HuPrcEnd();
++             do {
++                 HuPrcVSleep();
++             } while (1);
++         }
+          omOvlCallEx(DLL_modeseldll, 1, MODESEL_EVENT_SKIP_BOOT, 0);
+          for (i = 0; i < 4; i++) {
+              GWPlayerCfg[i].character = -1;
+diff --git i/src/game/frand.c w/src/game/frand.c
+index d5e65147..418b6bed 100644
+--- i/src/game/frand.c
++++ w/src/game/frand.c
+@@ -1,3 +1,4 @@
++#define _GNU_SOURCE /* N83_TMP */
+ #include "dolphin.h"
+ #ifdef TARGET_PC
+ #include "port/netplay.h"
+@@ -29,7 +30,24 @@ static inline u32 frandom(u32 param)
+     return param;
+ }
+ 
++#ifdef TARGET_PC
++#include <dlfcn.h> /* N83_TMP */
++#include <stdio.h>
++#include <stdlib.h>
++static void n83_log(void *ra)
++{
++    static int on = -1;
++    Dl_info di;
++    if (on < 0) on = getenv("PB_N83_FR") != NULL;
++    if (!on) return;
++    if (dladdr(ra, &di) && di.dli_sname) fprintf(stderr, "N83 frand %u %s+%lx\n", netplay_frame(), di.dli_sname, (unsigned long)((char *)ra - (char *)di.dli_saddr));
++    else if (dladdr(ra, &di)) fprintf(stderr, "N83 frand %u %s:%lx\n", netplay_frame(), di.dli_fname, (unsigned long)((char *)ra - (char *)di.dli_fbase)); else fprintf(stderr, "N83 frand %u %p\n", netplay_frame(), ra);
++}
++#endif
+ u32 frand(void) {
++#ifdef TARGET_PC
++    n83_log(__builtin_return_address(0));
++#endif
+     return frand_seed = frandom(frand_seed);
+ }
+ 
+@@ -43,6 +61,9 @@ f32 frandf(void) {
+ 
+ u32 frandmod(u32 arg0) {
+     u32 ret;
++#ifdef TARGET_PC
++    n83_log(__builtin_return_address(0));
++#endif
+     frand_seed = frandom(frand_seed);
+ #ifdef TARGET_PC
+     if (arg0 == 0) {
+diff --git i/src/game/memory.c w/src/game/memory.c
+index 7d839cad..aa4c3b90 100644
+--- i/src/game/memory.c
++++ w/src/game/memory.c
+@@ -1,3 +1,4 @@
++#include <stdlib.h> /* N83_TMP */
+ #include "game/memory.h"
+ #include "dolphin/os.h"
+ 
+@@ -81,6 +82,23 @@ static void *HuMemMemoryAlloc2(void *heap_ptr, size_t size, uintptr_t num, uintp
+             block->magic = 165;
+             block->num = num;
+             block->retaddr = retaddr;
++            { /* N83_TMP: fill new blocks with per-run garbage */
++                static int fill = -1;
++                static u32 st;
++                if (fill < 0) {
++                    const char *e = getenv("PB_N83_FILL");
++                    fill = e != NULL;
++                    st = e ? (u32)strtoul(e, NULL, 0) : 0;
++                }
++                if (fill) {
++                    u8 *d = (u8 *)BLOCK_GET_DATA(block);
++                    size_t n = (size_t)alloc_size - ((u8 *)d - (u8 *)block);
++                    for (size_t k = 0; k < n; k++) {
++                        st = st * 1103515245u + 12345u;
++                        d[k] = (u8)(st >> 24);
++                    }
++                }
++            }
+             return BLOCK_GET_DATA(block);
+         }
+         block = block->next;
