@@ -21,6 +21,7 @@
 #include "game/disp.h"
 #include "port/settings.h"
 #include "port/imgui.h"
+#include "port/lifecycle.h"
 #include "port/main.h"
 #include "port/netplay.h"
 #include "port/dolassets.h"
@@ -155,6 +156,12 @@ void main(void)
         if (exiting) {
             break;
         }
+        if (port_lifecycle_hold()) {
+            /* N110: in the background, minimised or hidden: no tick and no GPU work until it is back (an online match
+             * holds as in a lockstep WAIT, the peers told why). */
+            frame_limiter();
+            continue;
+        }
         if (netplay_active() && !netplay_tick_begin()) {
             /* Lockstep WAIT: no game tick, but events, UI and the 60 Hz pace go on. The frame shows the
              * last tick's image (aurora clears the EFB every frame) with RmlUi redrawn on top. */
@@ -177,7 +184,12 @@ void main(void)
 
         HuPerfBegin(2);
 #ifdef TARGET_PC
-        framed = aurora_begin_frame();
+        /* N110: a frame that can't be shown (backgrounded since the hold check) is recorded and dropped */
+        if (!aurora_begin_frame_always(&framed)) {
+            /* no frame at all (the GPU device is lost): no tick */
+            frame_limiter();
+            continue;
+        }
 #endif
         HuSysBeforeRender();
         GXSetGPMetric(GX_PERF0_CLIP_VTX, GX_PERF1_VERTICES);

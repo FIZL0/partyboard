@@ -36,8 +36,33 @@ fn live() -> std::sync::MutexGuard<'static, Option<Live>> {
 /// Starts the lockstep session on `wire` (replacing one that runs).
 pub fn start(cfg: Config, wire: Box<dyn Transport + Send>) {
     EPOCH.fetch_add(1, Ordering::SeqCst);
-    *live() = Some(Live { session: Session::new(cfg, wire), start: Instant::now(), logged: false });
+    let mut session = Session::new(cfg, wire);
+    session.set_hidden(crate::keeper::hidden());
+    *live() = Some(Live { session, start: Instant::now(), logged: false });
     HELD.store(false, Ordering::SeqCst);
+}
+
+/// N110: this machine's player switched away (or is back): the running session's datagrams say so.
+pub fn set_hidden(hidden: bool) {
+    if let Some(l) = live().as_mut() {
+        l.session.set_hidden(hidden);
+    }
+}
+
+/// N110: one keep-alive of the running session (no frame runs): false with no session.
+pub fn keep_alive() -> bool {
+    let mut g = live();
+    let Some(l) = g.as_mut() else { return false };
+    l.session.keep_alive(l.start.elapsed().as_millis() as u64);
+    // N92: the browser's connections send what was queued now
+    drop(g);
+    crate::lobby_c::pump();
+    true
+}
+
+/// N110: peer `p` of the running session said its player switched away.
+pub fn peer_hidden(p: u8) -> bool {
+    live().as_ref().is_some_and(|l| l.session.hidden(p))
 }
 
 /// N10: holds the game (every `pbnet_step` waits, `pbnet_lockstep_active` stays 1) until the next [`start`]: a

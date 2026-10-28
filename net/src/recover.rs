@@ -306,6 +306,9 @@ pub struct Waiting {
     pub name: String,
     pub seats: Vec<usize>,
     pub quiet_ms: u64,
+    /// N110: its player switched away (its game is in the background: `keeper.rs`), so it is waited for while it
+    /// still speaks.
+    pub hidden: bool,
 }
 
 /// The recovery as the match's UI sees it (`pbnet_recover_json`).
@@ -336,15 +339,27 @@ pub struct Status {
 
 /// The peers of a running match's `lineup` silent for [`SILENCE_MS`]: `quiet` gives a line-up index's silence (ms).
 pub fn waiting(room: &Room, lineup: &[String], me: &str, quiet: impl Fn(u8) -> Option<u64>) -> Vec<Waiting> {
+    waiting_or_hidden(room, lineup, me, quiet, |_| false)
+}
+
+/// N110: [`waiting`], and the peers whose player switched away (`hidden` of a line-up index) however lately heard.
+pub fn waiting_or_hidden(
+    room: &Room,
+    lineup: &[String],
+    me: &str,
+    quiet: impl Fn(u8) -> Option<u64>,
+    hidden: impl Fn(u8) -> bool,
+) -> Vec<Waiting> {
     let mut out = vec![];
     for (i, p) in lineup.iter().enumerate() {
         if p == me {
             continue;
         }
-        let Some(q) = quiet(i as u8).filter(|&q| q >= SILENCE_MS) else { continue };
+        let away = hidden(i as u8);
+        let Some(q) = quiet(i as u8).filter(|&q| q >= SILENCE_MS || away) else { continue };
         let seats = room.seats_of(p);
         let name = seats.iter().filter_map(|&s| room.seats[s].as_ref()).map(|s| s.name.as_str()).collect::<Vec<_>>().join(", ");
-        out.push(Waiting { index: i as u8, name: if name.is_empty() { p.clone() } else { name }, seats, quiet_ms: q });
+        out.push(Waiting { index: i as u8, name: if name.is_empty() { p.clone() } else { name }, seats, quiet_ms: q, hidden: away });
     }
     out
 }
@@ -747,8 +762,17 @@ mod tests {
         let (h, _, _) = started();
         let lineup = h.room().peers();
         let w = waiting(h.room(), &lineup, HOST, |p| Some([0, 100, 4000][p as usize]));
-        assert_eq!(w, vec![Waiting { index: 2, name: "g2".into(), seats: vec![2], quiet_ms: 4000 }]);
+        assert_eq!(w, vec![Waiting { index: 2, name: "g2".into(), seats: vec![2], quiet_ms: 4000, hidden: false }]);
         assert!(waiting(h.room(), &lineup, "g1", |_| None).is_empty());
+    }
+
+    /// N110: a peer whose player switched away is waited for though it was heard just now.
+    #[test]
+    fn waiting_names_the_peers_switched_away() {
+        let (h, _, _) = started();
+        let lineup = h.room().peers();
+        let w = waiting_or_hidden(h.room(), &lineup, HOST, |p| Some([0, 100, 20][p as usize]), |p| p == 1);
+        assert_eq!(w, vec![Waiting { index: 1, name: "g1".into(), seats: vec![1], quiet_ms: 100, hidden: true }]);
     }
 
     #[test]

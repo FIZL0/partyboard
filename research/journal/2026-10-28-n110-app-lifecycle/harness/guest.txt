@@ -1,0 +1,12 @@
+100 prepjoin @D@/code @U@/online-2.json
+130 tap Online
+200 jointab
+230 tap Join Game
+600 ready
+1300 recover
+1600 recover
+2400 recover
+2700 recover
+3000 recover
+3300 recover
+3310 quit

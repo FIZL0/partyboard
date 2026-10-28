@@ -12,6 +12,7 @@
 #include "ui/preset.hpp"
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_timer.h>
 #ifdef __ANDROID__
 #include <SDL3/SDL_system.h>
 #include <android/log.h>
@@ -26,6 +27,7 @@
 #include <game/disp.h>
 #include <port/config.hpp>
 #include <port/dolassets.h>
+#include <port/lifecycle.h>
 #include <port/main.h>
 #include <port/settings.h>
 #include <port/port_version.h>
@@ -91,6 +93,12 @@ bool launchUILoop() {
             }
 
             event++;
+        }
+
+        if (port_lifecycle_hold()) {
+            // N110: in the background, minimised or hidden: no GPU work until it is back
+            SDL_Delay(16);
+            continue;
         }
 
         if (!aurora_begin_frame()) {
@@ -437,6 +445,7 @@ extern "C" int port_main(int argc, char* argv[]) {
         config.allowTextureDumps = false;
         auroraInfo = aurora_initialize(argc, argv, &config);
     }
+    port_lifecycle_init();
 
 #ifdef PARTY_BOARD_DISCORD
     partyboard::discord::initialize();

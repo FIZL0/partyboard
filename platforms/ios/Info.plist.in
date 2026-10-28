@@ -86,5 +86,10 @@
     <true/>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Finds and joins online matches on your local network.</string>
+    <!-- N110: the mDNS service pbnet's LAN lobbies use (net/src/transport.rs MDNS: <id>._pbn._udp.local) -->
+    <key>NSBonjourServices</key>
+    <array>
+      <string>_pbn._udp</string>
+    </array>
 </dict>
 </plist>

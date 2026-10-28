@@ -1,0 +1,176 @@
+--- a/include/aurora/aurora.h
++++ b/include/aurora/aurora.h
+@@ -131,6 +131,13 @@
+ const AuroraEvent* aurora_update();
+ bool aurora_begin_frame();
+ void aurora_end_frame();
++// The window can show frames now: not backgrounded (mobile), hidden, minimized or paused (pauseOnFocusLost). When it
++// is not presentable (backgrounded) the surface is released, as aurora_begin_frame does, and made again once it is.
++bool aurora_can_present();
++// Like aurora_begin_frame, but a frame is begun whenever one can be recorded at all: when it can't be shown
++// (backgrounded, paused, no surface) *presented is false and aurora_end_frame drops it without any GPU work.
++// False only when no frame could be begun (the device is lost: aurora_end_frame must not be called).
++bool aurora_begin_frame_always(bool* presented);
+ 
+ void aurora_set_log_level(AuroraLogLevel level);
+ void aurora_set_pause_on_focus_lost(bool value);
+--- a/lib/aurora.cpp
++++ b/lib/aurora.cpp
+@@ -207,39 +207,100 @@
+   return window::poll_events();
+ }
+ 
+-bool begin_frame() noexcept {
++// A frame begun that can't be shown: end_frame drops it without GPU work.
++bool g_dropFrame = false;
++// imgui::new_frame ran and freeze didn't yet.
++bool g_imguiFrame = false;
++
++// always: begin the frame even when it can't be shown (g_dropFrame).
++bool begin_frame(bool always, bool* presented) noexcept {
+   ZoneScoped;
++  if (presented != nullptr) {
++    *presented = false;
++  }
+ #ifdef AURORA_ENABLE_GX
++  bool drop = false;
+   {
+     window::SurfaceLock surfaceLock;
+     if (!window::is_presentable()) {
+       webgpu::release_surface();
+-      return false;
+-    }
+-    if (window::is_paused()) {
+-      return false;
+-    }
+-    if (!g_surface) {
++      if (!always) {
++        return false;
++      }
++      drop = true;
++    } else if (window::is_paused()) {
++      if (!always) {
++        return false;
++      }
++      drop = true;
++    } else if (!g_surface) {
+       webgpu::refresh_surface(true);
+       if (!g_surface) {
+-        return false;
++        if (!always) {
++          return false;
++        }
++        drop = true;
+       }
+     }
+   }
+ 
+   imgui::new_frame(window::get_window_size());
++  g_imguiFrame = true;
+   if (!gfx::begin_frame()) {
+     return false;
+   }
++  g_dropFrame = drop;
++  if (presented != nullptr) {
++    *presented = !drop;
++  }
++#else
++  if (presented != nullptr) {
++    *presented = true;
++  }
+ #endif
+   return true;
+ }
+ 
++bool begin_frame() noexcept { return begin_frame(false, nullptr); }
++
++bool can_present() noexcept {
++#ifdef AURORA_ENABLE_GX
++  window::SurfaceLock surfaceLock;
++  if (!window::is_presentable()) {
++    // as begin_frame: the render thread's work is done and the surface goes (made again when presentable)
++    webgpu::release_surface();
++    return false;
++  }
++  return !window::is_paused();
++#else
++  return true;
++#endif
++}
++
+ void end_frame() noexcept {
+   ZoneScoped;
+ #ifdef AURORA_ENABLE_GX
++  if (!gfx::frame_open()) {
++    // No frame was begun (begin_frame failed): drop what the game recorded instead of aborting.
++    gx::fifo::clear_buffer();
++    if (g_imguiFrame) {
++      g_imguiFrame = false;
++      imgui::freeze();
++    }
++    return;
++  }
+   gx::fifo::drain();
++  if (g_dropFrame) {
++    // Backgrounded or paused: no submit, no present (the encoder is dropped unfinished).
++    g_dropFrame = false;
++    gfx::finish();
++    g_imguiFrame = false;
++    imgui::freeze();
++    gfx::end_frame([](wgpu::CommandEncoder&) {});
++    return;
++  }
+   gfx::finish();
++  g_imguiFrame = false;
+   auto imguiDrawData = imgui::freeze();
+ 
+   const auto& presentSource = webgpu::present_source();
+@@ -402,6 +463,8 @@
+ void aurora_shutdown() { aurora::shutdown(); }
+ const AuroraEvent* aurora_update() { return aurora::update(); }
+ bool aurora_begin_frame() { return aurora::begin_frame(); }
++bool aurora_can_present() { return aurora::can_present(); }
++bool aurora_begin_frame_always(bool* presented) { return aurora::begin_frame(true, presented); }
+ void aurora_end_frame() { aurora::end_frame(); }
+ AuroraBackend aurora_get_backend() { return aurora::g_config.desiredBackend; }
+ const AuroraBackend* aurora_get_available_backends(size_t* count) {
+--- a/lib/gfx/common.cpp
++++ b/lib/gfx/common.cpp
+@@ -1130,6 +1130,8 @@
+   return true;
+ }
+ 
++bool frame_open() noexcept { return g_recordingFrame != nullptr; }
++
+ void finish() {
+   ZoneScoped;
+   if (g_recordingFrame == nullptr) {
+--- a/lib/gfx/common.hpp
++++ b/lib/gfx/common.hpp
+@@ -228,6 +228,8 @@
+ void shutdown();
+ 
+ bool begin_frame();
++// A frame is being recorded (begin_frame succeeded and end_frame hasn't run yet).
++bool frame_open() noexcept;
+ void finish();
+ void end_frame(EndFrameCallback callback);
+ uint32_t current_frame() noexcept;
+--- a/lib/window.cpp
++++ b/lib/window.cpp
+@@ -126,6 +126,15 @@
+   case SDL_EVENT_WINDOW_RESTORED:
+     g_backgrounded.store(false, std::memory_order_relaxed);
+     break;
++  // The app's own lifecycle (iOS: resigning active for Control Center or a permission prompt, going to the background;
++  // Android: onPause): no GPU work until it is in front again (iOS kills an app whose GPU work runs in the background).
++  case SDL_EVENT_WILL_ENTER_BACKGROUND:
++  case SDL_EVENT_DID_ENTER_BACKGROUND:
++    g_backgrounded.store(true, std::memory_order_relaxed);
++    break;
++  case SDL_EVENT_DID_ENTER_FOREGROUND:
++    g_backgrounded.store(false, std::memory_order_relaxed);
++    break;
+ #endif
+   default:
+     break;

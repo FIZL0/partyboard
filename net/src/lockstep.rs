@@ -12,6 +12,9 @@
 //! comes first; a mismatch is queued for [`Session::desync`]. Every session keeps the pads of the frames it ran (the
 //! last [`LOG_KEPT`]) and its hashes: the input log a desync writes out ([`Session::input_log`], N11).
 //!
+//! A datagram ends with a flags byte (N110: [`FLAG_HIDDEN`], this machine's player switched away and its frames are
+//! held, `keeper.rs`); a datagram without it (an older build) reads as no flags.
+//!
 //! The transport is the [`Transport`] trait (peers by line-up index); tests use an in-memory wire with fake
 //! lag and loss.
 
@@ -35,6 +38,8 @@ const THEIRS_KEPT: usize = 16;
 pub const LOG_KEPT: usize = 5 * 60 * 60;
 /// Datagram tag of a frame packet.
 const TAG_FRAMES: u8 = 0x50;
+/// Flags byte: the sender's frames are held because its player switched away (N110).
+pub const FLAG_HIDDEN: u8 = 1;
 
 /// One pad, laid out as aurora's `PADStatus` on PC (`TARGET_PC` adds `extButton`, 16 bytes). Only the first
 /// 11 fields go on the wire; `ext_button` is not used by the game and arrives as 0.
@@ -184,6 +189,8 @@ struct Remote {
     compared: VecDeque<u32>,
     /// Our clock when its last datagram came (N10: silence).
     heard: Option<u64>,
+    /// N110: its last datagram said its player switched away.
+    hidden: bool,
 }
 
 /// One machine's lockstep.
@@ -205,6 +212,8 @@ pub struct Session<T: Transport> {
     began: Option<u64>,
     /// N11: the pads of the frames run, the last [`LOG_KEPT`]; the first is frame `tick - ran.len()`.
     ran: VecDeque<[Pad; 4]>,
+    /// N110: this machine's player switched away (sent as [`FLAG_HIDDEN`]).
+    hidden: bool,
 }
 
 /// A session's input log (N11): who plays where, the pads of the frames it ran and its own hashes. Two peers'
@@ -243,6 +252,7 @@ impl<T: Transport> Session<T> {
                     theirs: BTreeMap::new(),
                     compared: VecDeque::new(),
                     heard: None,
+                    hidden: false,
                 })
             })
             .collect();
@@ -258,6 +268,7 @@ impl<T: Transport> Session<T> {
             desyncs: VecDeque::new(),
             began: None,
             ran: VecDeque::new(),
+            hidden: false,
         }
     }
 
@@ -278,6 +289,24 @@ impl<T: Transport> Session<T> {
     /// The peers silent for `after_ms` or more (bit per line-up index).
     pub fn silent(&self, now_ms: u64, after_ms: u64) -> u8 {
         (0..self.remotes.len() as u8).filter(|&p| self.quiet_ms(p, now_ms).is_some_and(|q| q >= after_ms)).fold(0, |m, p| m | 1 << p)
+    }
+
+    /// N110: this machine's player switched away (true) or is back: every datagram says so from now on.
+    pub fn set_hidden(&mut self, hidden: bool) {
+        self.hidden = hidden;
+    }
+
+    /// N110: peer `p`'s last datagram said its player switched away.
+    pub fn hidden(&self, p: u8) -> bool {
+        self.remotes.get(p as usize).and_then(|r| r.as_ref()).is_some_and(|r| r.hidden)
+    }
+
+    /// N110: a held real frame (the player switched away, no frame runs): takes in what came and sends each peer the
+    /// keep-alive (what [`Session::step`] sends while it waits), without taking pads.
+    pub fn keep_alive(&mut self, now_ms: u64) {
+        self.began.get_or_insert(now_ms);
+        self.pump(now_ms);
+        self.send(now_ms);
     }
 
     /// The next frame to run.
@@ -475,6 +504,7 @@ impl<T: Transport> Session<T> {
             };
             d.extend_from_slice(&echo.to_le_bytes());
             d.extend_from_slice(&held.to_le_bytes());
+            d.push(if self.hidden { FLAG_HIDDEN } else { 0 });
             self.wire.send(p as u8, &d);
         }
     }
@@ -513,6 +543,8 @@ impl<T: Transport> Session<T> {
             hashes.push((c.u32()?, c.u64()?));
         }
         let (stamp, echo, held) = (c.u32()?, c.u32()?, c.u32()?);
+        // N110: an older build sends no flags byte
+        let flags = c.u8().unwrap_or(0);
 
         // the whole datagram parsed: take it in
         r.acked = r.acked.max(ack).min(own_next);
@@ -537,6 +569,7 @@ impl<T: Transport> Session<T> {
             }
         }
         r.heard = Some(now_ms);
+        r.hidden = flags & FLAG_HIDDEN != 0;
         if r.stamp.is_none_or(|(s, _)| stamp.wrapping_sub(s) < u32::MAX / 2) {
             r.stamp = Some((stamp, now_ms));
         }
@@ -851,6 +884,64 @@ mod tests {
         assert_eq!(a.step(33, &[IDLE]), Step::Wait);
         assert_eq!(a.waiting_on(), 0b10);
         assert_eq!(a.frame(), 2);
+    }
+
+    /// N110: a peer whose player switched away runs no frame but keeps sending: the other holds, hears it (not
+    /// silent) and knows it is hidden; once back it runs again and the flag goes.
+    #[test]
+    fn a_hidden_peer_holds_everyone_and_says_why() {
+        let net = Net::new(0, 0.0, 3);
+        let cfg = |me| Config { me, peers: 2, seats: TWO, delay: 2 };
+        let mut a = Session::new(cfg(0), net.end(0));
+        let mut b = Session::new(cfg(1), net.end(1));
+        for f in 0..30u64 {
+            net.set_now(f * 16);
+            assert!(matches!(a.step(f * 16, &[IDLE]), Step::Ready(_)));
+            assert!(matches!(b.step(f * 16, &[IDLE]), Step::Ready(_)));
+        }
+        b.set_hidden(true);
+        let mut held = 0;
+        for f in 30..300u64 {
+            net.set_now(f * 16);
+            if a.step(f * 16, &[IDLE]) == Step::Wait {
+                held += 1;
+            }
+            b.keep_alive(f * 16);
+        }
+        assert!(held > 250, "held {held}");
+        assert!(a.hidden(1) && !b.hidden(0));
+        assert!(a.quiet_ms(1, 300 * 16).unwrap() < 100, "a keep-alive is heard");
+        assert_eq!(a.frame(), b.frame() + 2, "a ran the frames it had b's pads for");
+        b.set_hidden(false);
+        let at = a.frame();
+        for f in 300..330u64 {
+            net.set_now(f * 16);
+            let _ = a.step(f * 16, &[IDLE]);
+            let _ = b.step(f * 16, &[IDLE]);
+        }
+        assert!(!a.hidden(1));
+        assert!(a.frame() >= at + 20, "{} after {at}", a.frame());
+    }
+
+    /// N110: a datagram of a build without the flags byte still parses (no flags).
+    #[test]
+    fn a_datagram_without_flags_parses() {
+        let net = Net::new(0, 0.0, 3);
+        let cfg = |me| Config { me, peers: 2, seats: TWO, delay: 2 };
+        let mut a = Session::new(cfg(0), net.end(0));
+        let mut d = vec![TAG_FRAMES, 1];
+        d.extend_from_slice(&2u32.to_le_bytes());
+        d.extend_from_slice(&2u32.to_le_bytes());
+        d.extend_from_slice(&[1, 1]);
+        d.extend_from_slice(&Pad { button: 0x100, ..IDLE }.wire());
+        d.push(0);
+        d.extend_from_slice(&[0; 12]);
+        assert!(a.heard(5, 1, &d).is_some());
+        assert!(!a.hidden(1));
+        assert_eq!(a.quiet_ms(1, 5), Some(0));
+        d.push(FLAG_HIDDEN);
+        assert!(a.heard(6, 1, &d).is_some());
+        assert!(a.hidden(1));
     }
 
     /// Runs two peers `frames` frames on the same wire, hashing a shared fake state; `forge` makes peer 1's

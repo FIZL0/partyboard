@@ -28,6 +28,11 @@
 #   bytes it used go to the staging buffer (queue.WriteBuffer), instead of mapping the whole ~61 MB staging buffer,
 #   which emdawnwebgpu copies through the heap at every map and unmap (28 of 38 ms a frame in Chromium). Only under
 #   __EMSCRIPTEN__.
+# - 0010-app-lifecycle (N110): iOS/Android app events (WILL/DID_ENTER_BACKGROUND, DID_ENTER_FOREGROUND) mark the
+#   window backgrounded as WINDOW_MINIMIZED/RESTORED did; aurora_can_present() (releases the surface when backgrounded)
+#   for the game's hold; aurora_begin_frame_always() begins a frame that can't be shown and aurora_end_frame drops it
+#   without a submit; aurora_end_frame with no frame begun drops the recorded GX instead of aborting ("No active frame
+#   packet": the iOS crash on Control Center and the Local Network prompt).
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
