@@ -47,6 +47,10 @@ void SLCommonSet(void);
 void SLSaveBoard(void);
 void SLSaveBoardStory(void);
 s32 SLSave(void);
+#ifdef TARGET_PC
+/* N129: SLSave without its "Slot A: Saving!" window, the port's saving icon shown instead (card error windows stay). */
+s32 SLSaveQuiet(void);
+#endif
 s32 SLLoad(void);
 void SLLoadGameStat(void);
 void SLLoadBoard(void);

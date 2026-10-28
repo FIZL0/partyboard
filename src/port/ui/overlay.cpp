@@ -2,6 +2,7 @@
 
 #include "overlay.hpp"
 #include "button_glyphs.hpp"
+#include "save_icon.hpp"
 
 #include "aurora/lib/logging.hpp"
 #include "port/achievements.h"
@@ -13,6 +14,7 @@
 #include <SDL3/SDL_gamepad.h>
 #include <SDL3/SDL_timer.h>
 #include <algorithm>
+#include <cmath>
 #include <dolphin/pad.h>
 #include <port/settings.h>
 
@@ -31,6 +33,7 @@ namespace {
 </head>
 <body>
     <fps id="fps" />
+    <saving id="saving" />
 </body>
 </rml>
 )RML";
@@ -215,6 +218,7 @@ Overlay::Overlay()
     : Document(kDocumentSource)
 {
     mFpsCounter = mDocument->GetElementById("fps");
+    mSaveIcon = mDocument->GetElementById("saving");
 
     listen(mDocument, Rml::EventId::Focus, [](Rml::Event &) { Log.warn("Overlay received focus"); });
     listen(mDocument, Rml::EventId::Transitionend, [this](Rml::Event &event) {
@@ -273,6 +277,8 @@ void Overlay::update()
             mFpsLastUpdate = 0;
         }
     }
+
+    update_save_icon();
 
     u32 buttonCount;
     // N70: the on-screen touch pad plays port 1 too.
@@ -353,6 +359,32 @@ void Overlay::update()
             mCurrentToast->SetPseudoClass("opened", true);
         }
     }
+}
+
+// N129: the saving icon, top right inside the safe area (top left while the FPS counter is in the top right).
+void Overlay::update_save_icon()
+{
+    if (mSaveIcon == nullptr) {
+        return;
+    }
+    if (!save_icon_wanted()) {
+        mSaveIcon->RemoveAttribute("open");
+        return;
+    }
+    const bool fpsTopRight = getSettings().video.enableFpsOverlay.getValue() && getSettings().video.fpsOverlayCorner.getValue() == 1;
+    Rml::Context *context = mDocument->GetContext();
+    const Insets insets = safe_area_insets(context);
+    const float margin = 16.0f * context->GetDensityIndependentPixelRatio();
+    mSaveIcon->SetProperty(Rml::PropertyId::Top, Rml::Property(std::round(insets.top + margin), Rml::Unit::PX));
+    if (fpsTopRight) {
+        mSaveIcon->RemoveProperty(Rml::PropertyId::Right);
+        mSaveIcon->SetProperty(Rml::PropertyId::Left, Rml::Property(std::round(insets.left + margin), Rml::Unit::PX));
+    }
+    else {
+        mSaveIcon->RemoveProperty(Rml::PropertyId::Left);
+        mSaveIcon->SetProperty(Rml::PropertyId::Right, Rml::Property(std::round(insets.right + margin), Rml::Unit::PX));
+    }
+    mSaveIcon->SetAttribute("open", "");
 }
 
 bool Overlay::handle_nav_command(Rml::Event &event, NavCommand cmd)

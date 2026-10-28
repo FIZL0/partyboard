@@ -157,6 +157,8 @@ set(PORT_FILES
         src/port/ui/prelaunch.hpp
         src/port/ui/preset.cpp
         src/port/ui/preset.hpp
+        src/port/ui/save_icon.cpp
+        src/port/ui/save_icon.hpp
         src/port/ui/select_button.cpp
         src/port/ui/select_button.hpp
         src/port/ui/settings.cpp

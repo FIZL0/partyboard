@@ -296,3 +296,34 @@ img.glyph {
     height: 1.5em;
     vertical-align: middle;
 }
+
+/* N129: the saving icon (port_save_icon_begin/end); top/left/right come from Overlay::update_save_icon (safe area). */
+saving {
+    position: absolute;
+    top: 16dp;
+    right: 16dp;
+    z-index: 99;
+    width: 44dp;
+    height: 44dp;
+    border-radius: 10dp;
+    border: 1dp #009dda;
+    background-color: rgba(37, 59, 156, 85%);
+    font-family: "Material Symbols Rounded";
+    font-weight: normal;
+    font-size: 28dp;
+    color: #E0DBC8;
+    decorator: text("&#xe161;" center center);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s linear-in-out;
+}
+
+saving[open] {
+    opacity: 1;
+    animation: 0.8s cubic-in-out infinite alternate saving-pulse;
+}
+
+@keyframes saving-pulse {
+    from { color: #E0DBC8; }
+    to { color: #009dda; }
+}
