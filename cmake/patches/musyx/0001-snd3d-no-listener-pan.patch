@@ -1,0 +1,15 @@
+diff --git a/src/musyx/runtime/snd3d.c b/src/musyx/runtime/snd3d.c
+index 880819f..50c5288 100644
+--- a/src/musyx/runtime/snd3d.c
++++ b/src/musyx/runtime/snd3d.c
+@@ -560,6 +560,10 @@ static void CalcEmitter(SND_EMITTER *em, f32 *vol, f32 *doppler, f32 *xPan, f32
+     *xPan = pan.x / n;
+     *yPan = pan.y / n;
+     *zPan = pan.z / n;
++  } else {
++    /* PC: no listener (msm removes it between overlays) leaves vol at 0 and the pans unwritten: the callers'
++       uninitialized locals reached SetFXParameters' float -> u8 conversions (undefined). Center them. */
++    *xPan = *yPan = *zPan = 0.f;
+   }
+ #if MUSY_VERSION >= MUSY_VERSION_CHECK(2, 0, 1) //
+   if ((em->flags & 0x80) != 0) {
