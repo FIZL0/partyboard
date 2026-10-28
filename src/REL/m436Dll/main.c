@@ -1566,13 +1566,25 @@ s32 fn_1_62C4(omObjData *arg0)
     // TODO PC
 }
 
+#ifdef TARGET_PC
+/* N103: an object's func is void(omObjData *); s32 fn_1_62C4 through it trapped in wasm (call_indirect checks the type) */
+static void fn_1_62C4_obj(omObjData *arg0)
+{
+    fn_1_62C4(arg0);
+}
+#endif
+
 void fn_1_68E8(omObjData *arg0)
 {
     StructBss1A8 *var_r30;
 
     var_r30 = &lbl_1_bss_1A8;
     fn_1_11818(var_r30->unk00, 0, 8, 5, 0);
+#ifdef TARGET_PC
+    arg0->func = fn_1_62C4_obj;
+#else
     arg0->func = (void *)fn_1_62C4; // fn_1_62C4 must return s32 to match
+#endif
 }
 
 void fn_1_6944(omObjData *arg0)
@@ -1602,7 +1614,11 @@ void fn_1_6944(omObjData *arg0)
         var_r29->unk88[i] = 0.0f;
     }
     var_r29->unk04 = 1;
+#ifdef TARGET_PC
+    arg0->func = fn_1_62C4_obj;
+#else
     arg0->func = (void *)fn_1_62C4; // fn_1_62C4 must return s32 to match
+#endif
 }
 
 void fn_1_6BDC(void)

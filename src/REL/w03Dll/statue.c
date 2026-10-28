@@ -38,7 +38,7 @@ void fn_1_26E0(s32 arg0);
 void fn_1_2AC0(void);
 void fn_1_2818(void);
 void fn_1_2A40(void);
-void fn_1_2B44(void);
+void fn_1_2B44(HU3DMODEL *arg0, Mtx arg1);
 
 // data
 s16 lbl_1_data_280 = -1;
@@ -591,7 +591,7 @@ void fn_1_2818(void)
     HuPrcSleep(0x3C);
 }
 
-s32 fn_1_2930(s32 arg0)
+s32 fn_1_2930(void)
 {
     lbl_1_bss_0->unk0--;
 
@@ -619,7 +619,7 @@ void fn_1_2A40(void)
 {
     lbl_1_bss_30 = 0.0f;
     lbl_1_bss_34 = HuMemDirectMallocNum(HEAP_SYSTEM, 0x96000, MEMORY_DEFAULT_NUM);
-    lbl_1_data_286 = Hu3DHookFuncCreate((void *)&fn_1_2B44);
+    lbl_1_data_286 = Hu3DHookFuncCreate(&fn_1_2B44);
     Hu3DModelLayerSet(lbl_1_data_286, 3);
 }
 
@@ -636,7 +636,8 @@ void fn_1_2AC0(void)
     }
 }
 
-void fn_1_2B44(void)
+// PB: called as an HU3DMODELHOOK (model, matrix), unused; void(void) trapped in wasm
+void fn_1_2B44(HU3DMODEL *arg0, Mtx arg1)
 {
     Mtx44 sp50;
     Mtx sp20;

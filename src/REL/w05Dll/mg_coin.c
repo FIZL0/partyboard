@@ -84,7 +84,7 @@ void fn_1_97AC(void)
         lbl_1_bss_D6[var_r31] = BoardModelCreate(DATA_MAKE_NUM(DATADIR_BOARD, 0x0A), NULL, 1);
         BoardModelVisibilitySet(lbl_1_bss_D6[var_r31], 0);
     }
-    BoardPlayerPostTurnHookSet(lbl_1_bss_C0, (s32(*)())fn_1_9B74);
+    BoardPlayerPostTurnHookSet(lbl_1_bss_C0, fn_1_9B74);
     lbl_1_bss_CC = omAddObjEx(boardObjMan, 0x101, 0U, 0U, -1, fn_1_9A68);
     lbl_1_bss_D0 = omAddObjEx(boardObjMan, 0x101, 0U, 0U, -1, fn_1_9C24);
     lbl_1_bss_C6 = 0;
@@ -118,14 +118,16 @@ void fn_1_9AF0(void)
     BoardMGDoneFlagSet(0);
 }
 
-void fn_1_9B74(void)
+// PB: a post-turn hook returns whether it is done; void(void) trapped in wasm (call_indirect checks the type). GC and
+// x86 returned BoardModelAttrReset's value from r3/eax (a tail call on x86), so it returns that
+s32 fn_1_9B74(void)
 {
     HSFOBJECT *var_r31;
     omDelObjEx(boardObjMan, lbl_1_bss_C8);
     BoardModelKill(lbl_1_bss_FE);
     var_r31 = Hu3DModelObjPtrGet(BoardModelIDGet(lbl_1_bss_14[1]), lbl_1_data_464[lbl_1_bss_B8]);
     var_r31->type = lbl_1_bss_BC;
-    BoardModelAttrReset(lbl_1_bss_14[1], 0x40000004);
+    return BoardModelAttrReset(lbl_1_bss_14[1], 0x40000004);
 }
 
 void fn_1_9C24(omObjData *arg0)

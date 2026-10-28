@@ -75,7 +75,7 @@ s32 fn_1_9250(void)
 	return 1;
 }
 
-s32 fn_1_94AC(void);
+void fn_1_94AC(void);
 void fn_1_94C0(void);
 
 void fn_1_93C8(u32 arg0)
@@ -89,14 +89,15 @@ void fn_1_93C8(u32 arg0)
 	lbl_1_bss_36E = GWSystem.player_curr;
 	BoardPlayerPostTurnHookSet(lbl_1_bss_36E, fn_1_9250);
 	lbl_1_bss_378 = HuPrcCreate(fn_1_94C0, 8196, 8192, 0);
-	HuPrcDestructorSet2(lbl_1_bss_378, (void *)fn_1_94AC);
+	HuPrcDestructorSet2(lbl_1_bss_378, fn_1_94AC);
 	while(lbl_1_bss_378) {
 		HuPrcVSleep();
 	}
 	BoardEventFlagReset();
 }
 
-s32 fn_1_94AC(void)
+// PB: a destructor is void(void); as s32 (with no return) it trapped in wasm (call_indirect checks the type)
+void fn_1_94AC(void)
 {
     lbl_1_bss_378 = NULL;
     // TODO PC

@@ -94,7 +94,8 @@ void fn_1_BCFC(void)
     }
 }
 
-s32 fn_1_BE74(void)
+// PB: as w02 shuffleboard.c fn_1_94AC: a destructor is void(void)
+void fn_1_BE74(void)
 {
     lbl_1_bss_38C = 0;
     // TODO PC
@@ -824,7 +825,7 @@ void fn_1_E41C(void)
     lbl_1_bss_388 = GWSystem.player_curr;
     OSReport("Roulette Player %d\n", lbl_1_bss_388);
     lbl_1_bss_38C = HuPrcChildCreate(fn_1_BCFC, 8195, 8192, 0, boardMainProc);
-    HuPrcDestructorSet2(lbl_1_bss_38C, (void *)fn_1_BE74); // fn_1_BE74 requires implicit return
+    HuPrcDestructorSet2(lbl_1_bss_38C, fn_1_BE74);
     while (lbl_1_bss_38C) {
         HuPrcVSleep();
     }

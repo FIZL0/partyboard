@@ -111,7 +111,7 @@ static void SetBallView(s32 arg0);
 static void SetBallActive(s32 arg0);
 static s32 CheckBallKill(void);
 static void BallMain(omObjData *arg0);
-static void BallRenderHook(void);
+static void BallRenderHook(HU3DMODEL *model, Mtx mtx);
 static void ExecBoo(omObjData *arg0);
 static void UpdateBallCamera(omObjData *arg0);
 static void CreateBallPlayer(void);
@@ -566,7 +566,7 @@ static void CreateBallView(void) {
     temp_r29 = temp_r31->unk08->bmp;
     temp_r29->data = HuMemDirectMallocNum(HEAP_SYSTEM, 0x3200, MEMORY_DEFAULT_NUM);
     memset(temp_r29->data, 0, 0x3200);
-    temp_r31->unk04 = Hu3DHookFuncCreate((void*) BallRenderHook);
+    temp_r31->unk04 = Hu3DHookFuncCreate(BallRenderHook);
     Hu3DModelLayerSet(temp_r31->unk04, 3);
     Hu3DModelCameraSet(temp_r31->unk04, 1);
     temp_r31->unk06 = Hu3DProjectionCreate(temp_r31->unk08, 25.0f, 100.0f, 13000.0f);
@@ -667,7 +667,8 @@ static void BallMain(omObjData *arg0) {
     Hu3DProjectionTPLvlSet(temp_r30->unk06, var_f29);
 }
 
-static void BallRenderHook(void) {
+// PB: called as an HU3DMODELHOOK (model, matrix), unused; void(void) trapped in wasm (call_indirect checks the type)
+static void BallRenderHook(HU3DMODEL *model, Mtx mtx) {
     BallWork *temp_r31;
     GXColor sp10;
     Vec sp2C;

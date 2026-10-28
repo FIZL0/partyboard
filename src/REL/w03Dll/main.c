@@ -28,12 +28,12 @@ void fn_1_740(void);
 void fn_1_8F0(void);
 s32 fn_1_910(void);
 s32 fn_1_A74(void);
-void fn_1_AF8(void);
+s32 fn_1_AF8(void);
 void fn_1_DEC(void);
 void fn_1_10B0(void);
 void fn_1_10E4(omObjData* arg0);
 s32 fn_1_12C8(void);
-s32 fn_1_2930(s32 arg0);
+s32 fn_1_2930(void);
 
 #ifndef __MWERKS__
 void fn_1_3058(void);
@@ -195,7 +195,7 @@ void BoardCreate(void) {
     BoardLightHookSet(&fn_1_884, &fn_1_8F0);
     BoardSpaceWalkEventFuncSet(&fn_1_910);
     BoardSpaceWalkMiniEventFuncSet((void*)&fn_1_A74);
-    BoardSpaceLandEventFuncSet((void*)&fn_1_AF8);
+    BoardSpaceLandEventFuncSet(&fn_1_AF8);
     BoardStarHostSet(lbl_1_data_1E4);
     BoardBooHouseHostSet(lbl_1_data_1E6);
     BoardLotteryHostSet(lbl_1_data_1E6);
@@ -327,10 +327,12 @@ s32 fn_1_A74(void) {
     }
 }
 
-void fn_1_AF8(void) {
+// PB: a BoardSpaceEventFunc returns s32; void trapped in wasm (call_indirect checks the type). The land event's result is unused
+s32 fn_1_AF8(void) {
     if ((BoardPlayerSizeGet(GWSystem.player_curr) == 0) && (fn_1_12C8() != 0) && (lbl_1_bss_0->unk2 != 0)) {
         BoardJunctionMaskSet(0xC00);
     }
+    return 0;
 }
 void fn_1_B5C(s32 arg0) {
     f32 var_f31;

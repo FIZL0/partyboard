@@ -10,6 +10,7 @@ typedef struct {
     /* 0x00 */ omObjData *unk00;
 #ifdef TARGET_PC
     // arm64 passes variadic arguments on the stack but the handlers read them from registers
+    // N103: every handler takes both (an unused void * where it had none): wasm checks the type of an indirect call
     /* 0x04 */ void (*unk04)(omObjData *, void *);
 #else
     /* 0x04 */ void (*unk04)(omObjData *, ...);
@@ -52,7 +53,7 @@ void fn_1_19A30(StructBss8 *arg0);
 void fn_1_19B8C(void);
 void fn_1_19D00(void);
 void fn_1_19E94(void);
-void fn_1_19F5C(omObjData *arg0);
+void fn_1_19F5C(omObjData *arg0, void *arg1);
 void fn_1_1A564(void);
 void fn_1_1A6A0(void);
 void fn_1_1A8E8(void);
@@ -73,7 +74,7 @@ void fn_1_1EB20(StructBss8_24 *arg0);
 void fn_1_1EBE8(void);
 void fn_1_1ED20(void);
 void fn_1_1EE58(s32 arg0, UnkFunc1EE58Struct *arg1);
-void fn_1_1F32C(omObjData *arg0);
+void fn_1_1F32C(omObjData *arg0, void *arg1);
 void fn_1_1FABC(void);
 void fn_1_1FC44(s32 arg0);
 void fn_1_20728(void);
@@ -443,7 +444,7 @@ s32 lbl_1_data_448[][4] = { { 262, 262, 262, 262 }, { 314, 307, 373, 373 }, { 36
 
 s32 lbl_1_data_488 = -1;
 
-void fn_1_19F5C(omObjData *arg0)
+void fn_1_19F5C(omObjData *arg0, void *arg1)
 {
     float var_f30;
     float var_f31;
@@ -1405,7 +1406,7 @@ void fn_1_1EE58(s32 arg0, UnkFunc1EE58Struct *arg1)
     lbl_1_bss_2050.unk1C[3] = 0;
 }
 
-void fn_1_1F32C(omObjData *arg0)
+void fn_1_1F32C(omObjData *arg0, void *arg1)
 {
     float var_f31;
     float var_f30;
@@ -1646,7 +1647,7 @@ s32 fn_1_20970(void)
     HuSprPosSet(temp_r28, 8, lbl_1_data_32C[0][0] - 50, lbl_1_data_32C[0][1]);
     HuSprAttrReset(temp_r28, 9, HUSPR_ATTR_DISPOFF);
     HuSprPosSet(temp_r28, 9, lbl_1_data_32C[3][0] + 50, lbl_1_data_32C[0][1]);
-    lbl_1_bss_2050.unk04 = (void *)fn_1_19F5C;
+    lbl_1_bss_2050.unk04 = fn_1_19F5C;
     var_r24 = 99;
     var_r23 = 0;
     while (TRUE) {
@@ -2043,7 +2044,7 @@ s32 fn_1_2228C(s32 arg0)
     fn_1_243B0();
     fn_1_25CA8(MAKE_MESSID(26, 33));
     fn_1_1FC44(0);
-    lbl_1_bss_2050.unk04 = (void *)fn_1_1F32C;
+    lbl_1_bss_2050.unk04 = fn_1_1F32C;
     var_r26 = 99;
     while (TRUE) {
         fn_1_243B0();

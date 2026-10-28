@@ -85,24 +85,24 @@ void fn_1_7E88(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4);
 void fn_1_82E0(void);
 s32 fn_1_B670(void);
 void fn_1_D48C(void);
-void fn_1_D718(omObjData* arg0);
-void fn_1_D7D8(omObjData* arg0);
+void fn_1_D718(omObjData* arg0, void* arg1);
+void fn_1_D7D8(omObjData* arg0, void* arg1);
 void fn_1_FE80(void);
 void fn_1_FF7C(s32 arg0);
-void fn_1_1036C(omObjData* arg0);
-void fn_1_10D74(omObjData* arg0);
-void fn_1_11794(omObjData* arg0);
-void fn_1_11834(omObjData* arg0);
-void fn_1_123D8(omObjData* arg0);
-void fn_1_1241C(omObjData* arg0);
-void fn_1_12420(omObjData* arg0);
+void fn_1_1036C(omObjData* arg0, void* arg1);
+void fn_1_10D74(omObjData* arg0, void* arg1);
+void fn_1_11794(omObjData* arg0, void* arg1);
+void fn_1_11834(omObjData* arg0, void* arg1);
+void fn_1_123D8(omObjData* arg0, void* arg1);
+void fn_1_1241C(omObjData* arg0, void* arg1);
+void fn_1_12420(omObjData* arg0, void* arg1);
 void fn_1_12A98(s32 arg0);
 void fn_1_12C08(s32 arg0);
 void fn_1_12DAC(void);
 void fn_1_13908(void);
 void fn_1_130A8(void);
 void fn_1_1317C(void);
-void fn_1_13A38(omObjData* arg0);
+void fn_1_13A38(omObjData* arg0, void* arg1);
 void fn_1_13A3C(s32 arg0, s32 arg1, s32 arg2, s32 arg3);
 void fn_1_13C78(s32 arg0, s32 arg1, s32 arg2);
 void fn_1_13D38(s32 arg0, s32 arg1, s32 arg2);
@@ -238,11 +238,11 @@ void fn_1_7004(s32 arg0, s32 arg1, s32 arg2) {
 
     temp_r27 = lbl_1_bss_1580.unk20;
     var_r26 = arg0;
-    lbl_1_bss_1530.unk04 = (void*) fn_1_D718;
+    lbl_1_bss_1530.unk04 = fn_1_D718;
     for (var_r30 = 0; var_r30 < 4; var_r30++) {
-        lbl_1_bss_1490[var_r30].unk04 = (void*) fn_1_1241C;
+        lbl_1_bss_1490[var_r30].unk04 = fn_1_1241C;
     }
-    lbl_1_bss_1468.unk04 = (void*) fn_1_13A38;
+    lbl_1_bss_1468.unk04 = fn_1_13A38;
     if (arg2 != 0) {
         for (var_r31 = 0; var_r31 < 4; var_r31++) {
             sp1C[var_r31] = lbl_1_bss_1490[var_r31].unk00->work[0];
@@ -630,7 +630,7 @@ void fn_1_9220(void) {
     fn_1_2280(lbl_1_bss_1530.unk00, 2, 2, 0);
 }
 
-void fn_1_93D0(omObjData* arg0) {
+void fn_1_93D0(omObjData* arg0, void* arg1) {
     StructBss1530* temp_r31;
 
     temp_r31 = arg0->data;
@@ -644,12 +644,12 @@ void fn_1_93D0(omObjData* arg0) {
 void fn_1_9488(void) {
     s32 var_r31;
 
-    lbl_1_bss_1530.unk04 = (void*) fn_1_93D0;
+    lbl_1_bss_1530.unk04 = fn_1_93D0;
     do {
         fn_1_938();
     } while (lbl_1_bss_1580.unk18 != 99);
     for (var_r31 = 0; var_r31 < 4; var_r31++) {
-        lbl_1_bss_1490[var_r31].unk04 = (void*) fn_1_1036C;
+        lbl_1_bss_1490[var_r31].unk04 = fn_1_1036C;
         lbl_1_bss_1490[var_r31].unk18 = lbl_1_bss_1490[var_r31].unk1C = 0;
     }
     fn_1_12A98(0);
@@ -686,7 +686,7 @@ void fn_1_9488(void) {
     } while (var_r31 < 4);
 }
 
-void fn_1_96B0(omObjData* arg0) {
+void fn_1_96B0(omObjData* arg0, void* arg1) {
     StructBss1530* temp_r31;
 
     temp_r31 = arg0->data;
@@ -700,12 +700,12 @@ void fn_1_96B0(omObjData* arg0) {
 void fn_1_9768(void) {
     s32 var_r31;
 
-    lbl_1_bss_1530.unk04 = (void*) fn_1_96B0;
+    lbl_1_bss_1530.unk04 = fn_1_96B0;
     do {
         fn_1_938();
     } while (lbl_1_bss_1580.unk18 != 99);
     for (var_r31 = 0; var_r31 < 4; var_r31++) {
-        lbl_1_bss_1490[var_r31].unk04 = (void*) fn_1_10D74;
+        lbl_1_bss_1490[var_r31].unk04 = fn_1_10D74;
         lbl_1_bss_1490[var_r31].unk18 = lbl_1_bss_1490[var_r31].unk1C = 0;
     }
     fn_1_12A98(1);
@@ -742,7 +742,7 @@ void fn_1_9768(void) {
     } while (var_r31 < 4);
 }
 
-void fn_1_9990(omObjData* arg0) {
+void fn_1_9990(omObjData* arg0, void* arg1) {
     StructBss1530* temp_r31;
 
     temp_r31 = arg0->data;
@@ -752,7 +752,7 @@ void fn_1_9990(omObjData* arg0) {
     temp_r31->unk04 = 0;
 }
 
-void fn_1_9A08(omObjData* arg0) {
+void fn_1_9A08(omObjData* arg0, void* arg1) {
     StructBss1530* temp_r31;
 
     temp_r31 = arg0->data;
@@ -809,19 +809,19 @@ void fn_1_9A64(s32 arg0) {
         for (var_r31 = 0; var_r31 < 4; var_r31++) {
             for (var_r30 = 0; var_r30 < 4; var_r30++) {
                 if (var_r31 == lbl_1_bss_1448[var_r30]) {
-                    lbl_1_bss_1490[var_r31].unk04 = (void*) fn_1_11834;
+                    lbl_1_bss_1490[var_r31].unk04 = fn_1_11834;
                     lbl_1_bss_1490[var_r31].unk18 = 0;
                     break;
                 }
             }
             if (var_r30 == 4) {
-                lbl_1_bss_1490[var_r31].unk04 = (void*) fn_1_11794;
+                lbl_1_bss_1490[var_r31].unk04 = fn_1_11794;
                 lbl_1_bss_1490[var_r31].unk18 = 0;
             }
         }
     } else {
         for (var_r31 = 0; var_r31 < 4; var_r31++) {
-            lbl_1_bss_1490[var_r31].unk04 = (void*) fn_1_11794;
+            lbl_1_bss_1490[var_r31].unk04 = fn_1_11794;
             lbl_1_bss_1490[var_r31].unk18 = 0;
         }
     }
@@ -838,27 +838,27 @@ void fn_1_9A64(s32 arg0) {
         case 1:
             fn_1_13D38(lbl_1_bss_1580.unk10, lbl_1_bss_1448[0], 0);
             lbl_1_bss_1420 = 12;
-            lbl_1_bss_1530.unk04 = (void*) fn_1_9990;
-            lbl_1_bss_1468.unk04 = (void*) fn_1_9A08;
+            lbl_1_bss_1530.unk04 = fn_1_9990;
+            lbl_1_bss_1468.unk04 = fn_1_9A08;
             break;
         case 2:
             fn_1_13D38(lbl_1_bss_1580.unk10, lbl_1_bss_1448[0], 0);
             fn_1_13D38(lbl_1_bss_1580.unk10, lbl_1_bss_1448[1], 1);
             lbl_1_bss_1420 = 13;
-            lbl_1_bss_1530.unk04 = (void*) fn_1_9990;
-            lbl_1_bss_1468.unk04 = (void*) fn_1_9A08;
+            lbl_1_bss_1530.unk04 = fn_1_9990;
+            lbl_1_bss_1468.unk04 = fn_1_9A08;
             break;
         case 3:
             fn_1_13D38(lbl_1_bss_1580.unk10, lbl_1_bss_1448[0], 0);
             fn_1_13D38(lbl_1_bss_1580.unk10, lbl_1_bss_1448[1], 1);
             fn_1_13D38(lbl_1_bss_1580.unk10, lbl_1_bss_1448[2], 2);
             lbl_1_bss_1420 = 14;
-            lbl_1_bss_1530.unk04 = (void*) fn_1_9990;
-            lbl_1_bss_1468.unk04 = (void*) fn_1_9A08;
+            lbl_1_bss_1530.unk04 = fn_1_9990;
+            lbl_1_bss_1468.unk04 = fn_1_9A08;
             break;
         case 4:
             HuAudFXFadeOut(lbl_1_bss_68[0], 500);
-            lbl_1_bss_1468.unk04 = (void*) fn_1_9A08;
+            lbl_1_bss_1468.unk04 = fn_1_9A08;
             if (lbl_1_bss_1580.unkC4[lbl_1_bss_1448[0]].unk00.unk2C == 0 && arg0 == 2) {
                 fn_1_13C78(lbl_1_bss_1580.unk10, 26, 3);
             } else {
@@ -916,7 +916,7 @@ s32 fn_1_A314(void) {
     }
     lbl_1_bss_68[0] = HuAudFXPlay(0x9E);
     lbl_1_bss_B0 = 1.0f;
-    lbl_1_bss_1530.unk04 = (void*) fn_1_D7D8;
+    lbl_1_bss_1530.unk04 = fn_1_D7D8;
     fn_1_7004(0x40, 30, 0);
     fn_1_8C18();
     lbl_1_bss_AC = 125.0f;
@@ -958,7 +958,7 @@ void fn_1_A4F0(void) {
         lbl_1_bss_1438[var_r31] = lbl_1_bss_1428[var_r31] = -1;
     }
     for (var_r31 = 0; var_r31 < lbl_1_bss_1458[0]; var_r31++) {
-        lbl_1_bss_1490[lbl_1_bss_1448[var_r31]].unk04 = (void*) fn_1_123D8;
+        lbl_1_bss_1490[lbl_1_bss_1448[var_r31]].unk04 = fn_1_123D8;
         lbl_1_bss_1490[lbl_1_bss_1448[var_r31]].unk18 = 0;
     }
     do {
@@ -1009,7 +1009,7 @@ void fn_1_ABAC(void) {
     s32 var_r31;
 
     for (var_r31 = 0; var_r31 < 4; var_r31++) {
-        lbl_1_bss_1490[var_r31].unk04 = (void*) fn_1_12420;
+        lbl_1_bss_1490[var_r31].unk04 = fn_1_12420;
     }
     do {
         fn_1_938();
@@ -1136,7 +1136,7 @@ void fn_1_B788(void) {
     lbl_1_bss_1448[0] = 0;
     lbl_1_bss_1448[1] = 2;
     for (var_r31 = 0; var_r31 < lbl_1_bss_1458[0]; var_r31++) {
-        lbl_1_bss_1490[lbl_1_bss_1448[var_r31]].unk04 = (void*) fn_1_123D8;
+        lbl_1_bss_1490[lbl_1_bss_1448[var_r31]].unk04 = fn_1_123D8;
         lbl_1_bss_1490[lbl_1_bss_1448[var_r31]].unk18 = 0;
     }
     do {
@@ -1199,7 +1199,7 @@ void fn_1_B788(void) {
     fn_1_8C18();
 }
 
-void fn_1_BE5C(void) {
+void fn_1_BE5C(omObjData* arg0, void* arg1) {
     float var_f31;
 
     var_f31 = fn_1_878(0.0f, 0.1f, lbl_1_bss_B8, 180.0f);
@@ -1210,7 +1210,7 @@ void fn_1_BE5C(void) {
     }
 }
 
-void fn_1_BF60(void) {
+void fn_1_BF60(omObjData* arg0, void* arg1) {
     float temp_f1;
 
     temp_f1 = fn_1_878(1.0f, 1.1f, lbl_1_bss_B8, 60.0f);
@@ -1274,7 +1274,7 @@ void fn_1_C060(float arg8) {
         Hu3DModelPosSet(lbl_1_bss_1530.unk00->model[20], var_f31, var_f30, 460.0f);
         Hu3DModelRotSet(lbl_1_bss_1530.unk00->model[20], 0.0f, temp_f29, 0.0f);
     }
-    lbl_1_bss_1530.unk04 = (void*) fn_1_BE5C;
+    lbl_1_bss_1530.unk04 = fn_1_BE5C;
     fn_1_958(30);
     fn_1_1E28(lbl_1_bss_1530.unk00, 20, 20, 0, 0);
     fn_1_958(30);
@@ -1324,7 +1324,7 @@ void fn_1_C060(float arg8) {
         Hu3DModelTPLvlSet(lbl_1_bss_1530.unk00->model[22], var_f28);
     }
     lbl_1_bss_B8 = 0;
-    lbl_1_bss_1530.unk04 = (void*) fn_1_BF60;
+    lbl_1_bss_1530.unk04 = fn_1_BF60;
     fn_1_958(30);
     Hu3DParManKill(lbl_1_data_364);
     lbl_1_data_364 = -1;
@@ -1372,7 +1372,7 @@ void fn_1_C060(float arg8) {
     HuAudFXPlay(0x1C);
 }
 
-void fn_1_CE6C(omObjData* arg0) {
+void fn_1_CE6C(omObjData* arg0, void* arg1) {
     StructBss1530* sp8 = arg0->data;
     s32 var_r31;
 
@@ -1412,7 +1412,7 @@ void fn_1_D48C(void) {
 
     temp_r3 = omAddObjEx(lbl_1_bss_A8, 0x100, 16, 16, -1, NULL);
     lbl_1_bss_1558.unk00 = temp_r3;
-    lbl_1_bss_1558.unk04 = (void*) fn_1_CE6C;
+    lbl_1_bss_1558.unk04 = fn_1_CE6C;
     lbl_1_bss_1558.unk00->data = &lbl_1_bss_1558;
     while (TRUE) {
         fn_1_938();
@@ -1462,7 +1462,7 @@ void fn_1_D538(omObjData* arg0) {
     temp_r31->unk04 = 0;
 }
 
-void fn_1_D718(omObjData* arg0) {
+void fn_1_D718(omObjData* arg0, void* arg1) {
     float temp_f31;
 
     temp_f31 = lbl_1_bss_1580.unk20 / 255.0f;
@@ -1473,7 +1473,7 @@ void fn_1_D718(omObjData* arg0) {
 
 float lbl_1_data_36C[] = { 0.0f, 120.0f, 240.0f };
 
-void fn_1_D7D8(omObjData* arg0) {
+void fn_1_D7D8(omObjData* arg0, void* arg1) {
     s32 var_r30;
 
     if (lbl_1_bss_B0 == 1.0f) {
@@ -1780,7 +1780,7 @@ void fn_1_FE80(void) {
             lbl_1_bss_1530.unk04(temp_r31);
 #endif
         }
-        fn_1_D7D8(temp_r31);
+        fn_1_D7D8(temp_r31, NULL);
     }
 }
 
@@ -1842,7 +1842,7 @@ void fn_1_FF7C(s32 arg0) {
     }
 }
 
-void fn_1_1036C(omObjData* arg0) {
+void fn_1_1036C(omObjData* arg0, void* arg1) {
     float var_f29;
     float var_f30;
     float temp_f31;
@@ -1951,7 +1951,7 @@ void fn_1_1036C(omObjData* arg0) {
     temp_r30->unk04 = 0;
 }
 
-void fn_1_10D74(omObjData* arg0) {
+void fn_1_10D74(omObjData* arg0, void* arg1) {
     float var_f29;
     float var_f30;
     float temp_f31;
@@ -2061,7 +2061,7 @@ void fn_1_10D74(omObjData* arg0) {
     temp_r30->unk04 = 0;
 }
 
-void fn_1_11794(omObjData* arg0) {
+void fn_1_11794(omObjData* arg0, void* arg1) {
     StructBss1530* temp_r30;
 
     temp_r30 = arg0->data;
@@ -2078,7 +2078,7 @@ void fn_1_11794(omObjData* arg0) {
     temp_r30->unk04 = 0;
 }
 
-void fn_1_11834(omObjData* arg0) {
+void fn_1_11834(omObjData* arg0, void* arg1) {
     float var_f31;
     float var_f30;
     float temp_f26;
@@ -2177,7 +2177,7 @@ void fn_1_11834(omObjData* arg0) {
     temp_r31->unk04 = 0;
 }
 
-void fn_1_123D8(omObjData* arg0) {
+void fn_1_123D8(omObjData* arg0, void* arg1) {
     StructBss1530* temp_r31;
 
     temp_r31 = arg0->data;
@@ -2185,10 +2185,10 @@ void fn_1_123D8(omObjData* arg0) {
     temp_r31->unk04 = 0;
 }
 
-void fn_1_1241C(omObjData* arg0) {
+void fn_1_1241C(omObjData* arg0, void* arg1) {
 }
 
-void fn_1_12420(omObjData* arg0) {
+void fn_1_12420(omObjData* arg0, void* arg1) {
     float sp8[] = { 0.0f, -30.0f, -60.0f, -90.0f };
     float temp_f31;
     StructBss1530* temp_r31;
@@ -2491,7 +2491,7 @@ void fn_1_13908(void) {
     }
 }
 
-void fn_1_13A38(omObjData* arg0) {
+void fn_1_13A38(omObjData* arg0, void* arg1) {
 }
 
 s32 lbl_1_data_504[][27] = {
