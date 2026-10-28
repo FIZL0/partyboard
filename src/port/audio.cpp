@@ -265,9 +265,9 @@ void partyboard_audio_pre_init(void) {
     sndPCSetSynchronization(partyboard_audio_lock, partyboard_audio_unlock);
 
 #if defined(__APPLE__)
-    // N112: iOS (SDL's default is Playback, which ignores the silent switch): the silent switch mutes the game, as games
-    // do, and the game's music replaces other apps' audio rather than mixing with it (iOS's own default for apps).
-    SDL_SetHint(SDL_HINT_AUDIO_CATEGORY, "AVAudioSessionCategorySoloAmbient");
+    // iOS: Playback, so the silent switch does not mute the game (user's call, after N112's SoloAmbient did), and the
+    // hint drops SDL's default MixWithOthers so the game's music replaces other apps' audio.
+    SDL_SetHint(SDL_HINT_AUDIO_CATEGORY, "AVAudioSessionCategoryPlayback");
 #endif
 
     SND_PC_CONFIG obtained{};
