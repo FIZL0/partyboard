@@ -1,0 +1,49 @@
+diff --git i/src/REL/m427Dll/player.c w/src/REL/m427Dll/player.c
+index 1a3ff280..34725ae6 100644
+--- i/src/REL/m427Dll/player.c
++++ w/src/REL/m427Dll/player.c
+@@ -1264,6 +1264,7 @@ void fn_1_11ED8(omObjData *object)
+             fn_1_12518(object);
+         }
+     }
++    if (var_r31->unk_18 != 0) { var_r31->unk_40 = var_r31->unk_44 = 0; } /* N126 test only: idle CPU rowers */
+     var_r31->unk_38 = var_r31->unk_3C = 0;
+     if (var_r31->unk_30 != 0) {
+         var_r31->unk_38 = 1;
+diff --git i/src/game/board/mg_setup.c w/src/game/board/mg_setup.c
+index 5bc6e73e..39640992 100644
+--- i/src/game/board/mg_setup.c
++++ w/src/game/board/mg_setup.c
+@@ -90,6 +90,9 @@ static s32 luckyMessTbl[9] = {
+ 
+ // sbss
+ static u8 mgType;
++#ifndef N126_MG_DEFAULT
++#define N126_MG_DEFAULT 26
++#endif
+ static s32 luckyF;
+ static f32 hilitePos;
+ static s16 mgNext;
+@@ -728,6 +731,7 @@ static void CenterStatus(bitcopy* arg0, omObjData* arg1) {
+     } else {
+         mgType = GetMGType();
+     }
++    { /* N126 test only */ extern int n126_mg(void); if (n126_mg() >= 0) { mgType = 2; GWPlayer[0].color = GWPlayer[2].color = 2; GWPlayer[1].color = GWPlayer[3].color = 1; } }
+     if (mgType == 0) {
+         arg0->field01_bit0 = 4;
+     } else {
+@@ -1157,6 +1161,7 @@ static void UpdateMGList(bitcopy* arg0, omObjData* arg1) {
+             hiliteShowF = 1;
+             hiliteBlinkLen = 5;
+             mgNext = activeMG[cursorPos].unk_02;
++            { extern int n126_mg(void); if (n126_mg() >= 0) { OSReport("n126: minigame %d forced to %d\n", mgNext, n126_mg()); mgNext = n126_mg(); } }
+             HuWinMesSet(activeMG[cursorPos].unk_00, activeMG[cursorPos].unk_04);
+             return;
+         case 4:
+@@ -1354,3 +1359,6 @@ void BoardMGSetupNetplayReset(void)
+     mgSetupProc = NULL;
+ }
+ #endif
++
++#include <stdlib.h>
++int n126_mg(void) { const char *e = getenv("PB_N126_MG"); return e ? atoi(e) : N126_MG_DEFAULT; }
