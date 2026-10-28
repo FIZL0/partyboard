@@ -9,6 +9,6 @@ slots = 3
 rules = "AGENTS.md"
 notes = ".runner"
 links = ["orig"]
-slot_env = ["AGENT_SLOT={n}", "SDL_APP_ID=partyboard-test", "PB_DISC=/home/ryha/repos/partyboard/orig/GMPE01_01/GMPE01_01.ciso"]
+slot_env = ["AGENT_SLOT={n}", "CMAKE_BUILD_PARALLEL_LEVEL=6", "CARGO_BUILD_JOBS=6", "SDL_APP_ID=partyboard-test", "PB_DISC=/home/ryha/repos/partyboard/orig/GMPE01_01/GMPE01_01.ciso"]
 joinable = ["plan/*.md", "research/journal/*"]
 untested = ["*.md", "research/*"]
