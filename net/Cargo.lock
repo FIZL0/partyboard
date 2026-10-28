@@ -2664,6 +2664,7 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 name = "pbnet"
 version = "0.1.0"
 dependencies = [
+ "data-encoding",
  "iroh",
  "iroh-mainline-address-lookup",
  "iroh-mdns-address-lookup",
@@ -2679,6 +2680,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "socket2",
  "str0m",
  "tokio",
  "webpki-roots",

@@ -15,7 +15,11 @@ crate-type = ["staticlib", "rlib"]
 # on a current-thread runtime the game pumps.
 default = ["iroh"]
 iroh = ["dep:iroh", "dep:iroh-tickets", "dep:iroh-mainline-address-lookup", "dep:iroh-mdns-address-lookup",
-        "dep:n0-mainline", "dep:n0-future", "dep:reqwest", "dep:rustls", "tokio/rt-multi-thread", "dep:str0m", "dep:netdev"]
+        "dep:n0-mainline", "dep:n0-future", "dep:reqwest", "dep:rustls", "tokio/rt-multi-thread", "dep:str0m", "dep:netdev",
+        "dep:data-encoding", "dep:socket2", "tokio/net"]
+# N119: iOS's LAN backend (`bonjour.rs`, dns_sd) on another OS, against Avahi's libdns_sd: tests standing in for an
+# iPhone (`cargo test --features bonjour -- --ignored bonjour`). iOS builds it without the feature.
+bonjour = ["iroh", "dep:libc"]
 
 [dependencies]
 # Transport (`transport.rs`, `codes.rs`), as opentennis's `hst-base/src/net.rs`: iroh QUIC with tickets for codes,
@@ -36,6 +40,11 @@ rustls = { version = "0.23", default-features = false, features = ["ring"], opti
 # candidates.
 str0m = { version = "0.24", default-features = false, features = ["rust-crypto"], optional = true }
 netdev = { version = "0.46", optional = true }
+# N119: LAN DNS-SD (`lan.rs`, `dnssd.rs`): iroh's mDNS instance labels, and the multicast socket's options. The
+# versions iroh already builds.
+data-encoding = { version = "2", optional = true }
+socket2 = { version = "0.6", optional = true }
+libc = { version = "0.2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
