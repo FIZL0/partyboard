@@ -18,6 +18,12 @@
  * player or voice. Each number maps to msm's real handle, so stops, fades and parameter changes still reach the
  * sound that is playing. Songs keep their channel (msmMusPlay returns the channel it played on, a value of the
  * call, not of time).
+ *
+ * N122: during netplay MusyX runs on a clock of game frames instead (src/port/audio.cpp: 10 cycles of 5 ms every 3
+ * frames, on the game thread, PCM queued to the device), so msm's real statuses are the same on every peer: board
+ * music pauses for events (status 3), w04's coin event follows its song's MIDI controller, jingle waits wait. The
+ * handle counter stays (a handle number is not a value of msm's history before the match); a status read maps it to
+ * msm's handle. Debug: PB_AUDIO_NET_STUBS=1 gives netplay N112's answers again (0 and 12, on the same clock).
  */
 #define NET_SE_HANDLES 256
 #define NET_STREAM_HANDLES 64
@@ -28,21 +34,42 @@ typedef struct {
     s32 real;
 } NetHandle;
 
-/* Debug: PB_AUDIO_REAL_STATUS=1 gives a --script run msm's real answers, to play offline's path from a script. */
-static BOOL NetAnswers(void)
+static BOOL EnvSet(const char *name)
 {
-    static int real = -1;
-
-    if (!netplay_active()) {
-        return FALSE;
-    }
-    if (real < 0) {
-        const char *env = getenv("PB_AUDIO_REAL_STATUS");
-        real = env != NULL && env[0] == '1';
-    }
-    return !real;
+    const char *env = getenv(name);
+    return env != NULL && env[0] == '1';
 }
 
+/* Debug: PB_AUDIO_REAL_STATUS=1 gives a --script run msm's real answers on the device's clock, to play offline's path
+ * from a script. */
+s32 partyboard_audio_net_mode(void)
+{
+    static s32 mode = -1;
+
+    if (!netplay_active()) {
+        return PB_AUDIO_NET_OFF;
+    }
+    if (mode < 0) {
+        mode = EnvSet("PB_AUDIO_REAL_STATUS") ? PB_AUDIO_NET_OFF
+            : EnvSet("PB_AUDIO_NET_STUBS")    ? PB_AUDIO_NET_STUBS
+                                              : PB_AUDIO_NET_LOCKED;
+    }
+    return mode;
+}
+
+/* N112's stub answers (PB_AUDIO_NET_STUBS). */
+static BOOL NetAnswers(void)
+{
+    return partyboard_audio_net_mode() == PB_AUDIO_NET_STUBS;
+}
+
+/* Handles from the counter: every netplay mode but PB_AUDIO_REAL_STATUS. */
+static BOOL NetHandles(void)
+{
+    return partyboard_audio_net_mode() != PB_AUDIO_NET_OFF;
+}
+
+static s32 netNumPlayPolls;
 static NetHandle netSe[NET_SE_HANDLES];
 static NetHandle netStream[NET_STREAM_HANDLES];
 static s32 netSeNext;
@@ -50,10 +77,22 @@ static s32 netStreamNext;
 
 void partyboard_audio_net_reset(void)
 {
+    /* N122: every peer starts the match's clock from the same state: nothing playing, MusyX's random numbers from 1.
+     * Outside msm's lock: clock_begin waits for the stream read under way, which takes it. */
+    BOOL locked = partyboard_audio_net_mode() != PB_AUDIO_NET_OFF;
+    BOOL running = partyboard_audio_net_clock_begin(locked);
+
     msmSysIrqDisable();
+    if (running && locked) {
+        msmSeStopAll(FALSE, 0);
+        msmMusStopAll(FALSE, 0);
+        msmStreamStopAll(0);
+        partyboard_audio_net_clock_settle();
+    }
     memset(netSe, 0xFF, sizeof(netSe));
     memset(netStream, 0xFF, sizeof(netStream));
     netSeNext = netStreamNext = 0;
+    netNumPlayPolls = 0;
     msmSysIrqEnable();
 }
 
@@ -121,7 +160,7 @@ MSM_LOCKED_VOID(msmStreamSetMasterVolume, (s32 vol), (vol))
         msmSysIrqDisable();                           \
         result = name##Unlocked args;                 \
         msmSysIrqEnable();                            \
-        return NetAnswers() ? (net) : result;     \
+        return NetHandles() ? (net) : result;     \
     }
 
 MSM_LOCKED_NET(s32, msmMusStop, (int musNo, s32 speed), (musNo, speed), 0)
@@ -133,7 +172,15 @@ MSM_LOCKED_NET(int, msmMusPlay, (int musId, MSM_MUSPARAM *musParam), (musId, mus
 s32 msmMusGetStatusUnlocked(int musNo);
 s32 msmMusGetStatus(int musNo)
 {
-    return NetAnswers() ? 0 : msmMusGetStatusUnlocked(musNo);
+    s32 result;
+
+    if (NetAnswers()) {
+        return 0;
+    }
+    msmSysIrqDisable();
+    result = msmMusGetStatusUnlocked(musNo);
+    msmSysIrqEnable();
+    return result;
 }
 
 s32 msmMusGetMidiCtrlUnlocked(int musNo, s32 channel, s32 ctrl);
@@ -157,7 +204,7 @@ int msmSePlay(int seId, MSM_SEPARAM *param)
 
     msmSysIrqDisable();
     result = msmSePlayUnlocked(seId, param);
-    if (NetAnswers()) {
+    if (NetHandles()) {
         result = NetHandleAdd(netSe, NET_SE_HANDLES, &netSeNext, result);
     }
     msmSysIrqEnable();
@@ -170,7 +217,7 @@ s32 msmSeStop(int seNo, s32 speed)
     s32 result;
 
     msmSysIrqDisable();
-    if (NetAnswers()) {
+    if (NetHandles()) {
         msmSeStopUnlocked(NetHandleReal(netSe, NET_SE_HANDLES, seNo), speed);
         result = 0;
     } else {
@@ -186,7 +233,7 @@ s32 msmSeSetParam(int seNo, MSM_SEPARAM *param)
     s32 result;
 
     msmSysIrqDisable();
-    if (NetAnswers()) {
+    if (NetHandles()) {
         msmSeSetParamUnlocked(NetHandleReal(netSe, NET_SE_HANDLES, seNo), param);
         result = 0;
     } else {
@@ -205,7 +252,7 @@ s32 msmSeGetStatus(int seNo)
         return 0;
     }
     msmSysIrqDisable();
-    result = msmSeGetStatusUnlocked(seNo);
+    result = msmSeGetStatusUnlocked(NetHandles() ? NetHandleReal(netSe, NET_SE_HANDLES, seNo) : seNo);
     msmSysIrqEnable();
     return result;
 }
@@ -221,7 +268,7 @@ s32 msmSeGetEntryID(s32 seId, int *seNo)
     s32 n;
 
     msmSysIrqDisable();
-    if (!NetAnswers()) {
+    if (!NetHandles()) {
         num = msmSeGetEntryIDUnlocked(seId, seNo);
         msmSysIrqEnable();
         return num;
@@ -250,7 +297,7 @@ int msmStreamPlay(int streamId, MSM_STREAMPARAM *streamParam)
 
     msmSysIrqDisable();
     result = msmStreamPlayUnlocked(streamId, streamParam);
-    if (NetAnswers()) {
+    if (NetHandles()) {
         result = NetHandleAdd(netStream, NET_STREAM_HANDLES, &netStreamNext, result);
     }
     msmSysIrqEnable();
@@ -263,7 +310,7 @@ s32 msmStreamStop(int streamNo, s32 speed)
     s32 result;
 
     msmSysIrqDisable();
-    if (NetAnswers()) {
+    if (NetHandles()) {
         msmStreamStopUnlocked(NetHandleReal(netStream, NET_STREAM_HANDLES, streamNo), speed);
         result = 0;
     } else {
@@ -282,7 +329,52 @@ s32 msmStreamGetStatus(int streamNo)
         return 0;
     }
     msmSysIrqDisable();
-    result = msmStreamGetStatusUnlocked(streamNo);
+    result = NetHandles() ? NetHandleReal(netStream, NET_STREAM_HANDLES, streamNo) : streamNo;
+    /* A play msm refused, or one older than the 64 kept: done. */
+    result = result < 0 && NetHandles() ? 0 : msmStreamGetStatusUnlocked(result);
+    msmSysIrqEnable();
+    return result;
+}
+
+/*
+ * N122: SNDGRP_WAIT (src/game/audio.c) polls these after stopping everything, until both read 0 or 500 ms of OSGetTick
+ * passed. On a frame clock nothing would end inside that loop, so during netplay each poll that reads sounds still
+ * playing lets one 5 ms cycle pass (as the DSP would while the game polled), and after 100 of them in a row (the 500
+ * ms) it reads 0. Both depend only on msm's state, not on time.
+ */
+#define NET_NUMPLAY_POLLS 100
+
+static s32 NetNumPlay(s32 result)
+{
+    if (result == 0 || partyboard_audio_net_mode() == PB_AUDIO_NET_OFF) {
+        netNumPlayPolls = 0;
+        return result;
+    }
+    if (++netNumPlayPolls > NET_NUMPLAY_POLLS) {
+        return 0;
+    }
+    partyboard_audio_net_clock_cycle();
+    return result;
+}
+
+s32 msmSeGetNumPlayUnlocked(BOOL baseGrp);
+s32 msmSeGetNumPlay(BOOL baseGrp)
+{
+    s32 result;
+
+    msmSysIrqDisable();
+    result = NetNumPlay(msmSeGetNumPlayUnlocked(baseGrp));
+    msmSysIrqEnable();
+    return result;
+}
+
+s32 msmMusGetNumPlayUnlocked(BOOL baseGrp);
+s32 msmMusGetNumPlay(BOOL baseGrp)
+{
+    s32 result;
+
+    msmSysIrqDisable();
+    result = NetNumPlay(msmMusGetNumPlayUnlocked(baseGrp));
     msmSysIrqEnable();
     return result;
 }
