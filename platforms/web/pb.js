@@ -7,9 +7,12 @@
 // ?autoplay=1 starts with the stored disc without a click; ?fetch=a,b puts test/a and test/b (from the server) in
 // the game's /test (tools/web_check.mjs); ?env=K=V,K2 sets environment variables for the game; ?opfs=worker stores the
 // disc as browsers without createWritable do (tools/web_pw.mjs).
+// N98: ?code=rtco... is a join link (the host's Online lobby copies one): the game starts with the stored disc (or
+// once one is picked) and joins that lobby.
 'use strict';
 const $ = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);
+const joinCode = query.get('code');
 const status = text => { $('status').textContent = text; };
 const fail = text => { $('error').textContent += text + '\n'; console.error(text); };
 // Safari's Error.stack has no message in it
@@ -230,6 +233,7 @@ async function play(disc) {
         // canOwn: the FS keeps this array as the file's contents instead of copying a disc's worth of bytes
         FS.createDataFile('/disc', disc.name, bytes, true, false, true);
         module.ENV.PB_DISC = `/disc/${disc.name}`;
+        if (joinCode) module.ENV.PB_JOIN_CODE = joinCode;
         for (const kv of (query.get('env') ?? '').split(',').filter(Boolean)) {
           const at = kv.indexOf('=');
           module.ENV[at < 0 ? kv : kv.slice(0, at)] = at < 0 ? '1' : kv.slice(at + 1);
@@ -248,6 +252,12 @@ async function play(disc) {
     });
     canvas.focus();
     watchUserDir(window.pbModule.FS);
+    // a reload mustn't join again with the same code (the host's offer in it is spent once used)
+    if (joinCode) {
+      const url = new URL(location.href);
+      url.searchParams.delete('code');
+      history.replaceState(null, '', url.href);
+    }
   } catch (e) {
     document.body.classList.remove('playing');
     fail(describe(e));
@@ -297,4 +307,7 @@ gpuCheck.then(problem => {
   $('pick-label').hidden = true;
   $('play').disabled = true;
 });
-refresh().then(disc => { if (disc && query.get('autoplay')) play(disc); });
+refresh().then(disc => {
+  if (disc && (query.get('autoplay') || joinCode)) play(disc);
+  else if (joinCode) status('Pick your disc image to join the game.');
+});
