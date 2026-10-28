@@ -582,6 +582,13 @@ SettingsWindow::SettingsWindow(bool prelaunch)
                 .helpText = "Show an on-screen controller (stick, A/B/X/Y, L/R/Z, Start) for port 1 when the screen is "
                             "touched. A controller or keyboard press hides it again.",
             });
+        config_bool_select(leftPane, rightPane, getSettings().game.touchHaptics,
+            {
+                .key = "Vibrate on Touch Buttons",
+                .helpText = "A short vibration when an on-screen controller button is pressed, and a lighter one when "
+                            "its stick moves into a new direction. Controllers' own buttons never vibrate.",
+                .isDisabled = [] { return !getSettings().game.touchControls.getValue(); },
+            });
 
         leftPane.add_section("Tools");
         addOption("Turbo Key", getSettings().game.enableTurboKeybind, "Hold Tab to unlock the FPS, speeding up the game.",

@@ -381,8 +381,8 @@ if (IOS)
     find_library(UIKIT_FRAMEWORK UIKit REQUIRED)
     find_library(UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK UniformTypeIdentifiers REQUIRED)
     # In dol, whose file_select.cpp calls it: a dylib's undefined symbols do not resolve from the app (N86).
-    target_sources(dol PRIVATE src/port/ios/FileSelectDialog.m)
-    set_source_files_properties(src/port/ios/FileSelectDialog.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+    target_sources(dol PRIVATE src/port/ios/FileSelectDialog.m src/port/ios/Haptics.m)
+    set_source_files_properties(src/port/ios/FileSelectDialog.m src/port/ios/Haptics.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
     target_link_libraries(dol PRIVATE ${UIKIT_FRAMEWORK} ${UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK})
 endif ()
 

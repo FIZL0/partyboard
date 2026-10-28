@@ -2,11 +2,14 @@ package com.mariopartyrd.partyboard;
 
 import android.app.ActionBar;
 import android.content.ClipData;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.View;
@@ -229,5 +232,34 @@ public class PartyBoardActivity extends SDLActivity {
 
         String lastSegment = uri.getLastPathSegment();
         return lastSegment != null ? lastSegment : "";
+    }
+
+    // N111: the on-screen game pad's vibration (src/port/ui/touch_haptics.cpp), called from SDL's thread over JNI.
+    // kind 0: a button press (EFFECT_CLICK), 1: the stick into a new direction (EFFECT_TICK, lighter).
+    private static Vibrator sVibrator;
+
+    public static void touchHaptic(int kind) {
+        try {
+            if (sVibrator == null) {
+                if (mSingleton == null) {
+                    return;
+                }
+                sVibrator = (Vibrator) mSingleton.getSystemService(Context.VIBRATOR_SERVICE);
+            }
+            if (sVibrator == null || !sVibrator.hasVibrator()) {
+                return;
+            }
+            boolean press = kind == 0;
+            VibrationEffect effect;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                effect = VibrationEffect.createPredefined(
+                    press ? VibrationEffect.EFFECT_CLICK : VibrationEffect.EFFECT_TICK);
+            } else {
+                effect = VibrationEffect.createOneShot(press ? 20 : 8, VibrationEffect.DEFAULT_AMPLITUDE);
+            }
+            sVibrator.vibrate(effect);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "touchHaptic failed", e);
+        }
     }
 }
