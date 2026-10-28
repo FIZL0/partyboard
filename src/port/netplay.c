@@ -246,6 +246,9 @@ static void hash_log_line(FILE *out, u32 at)
  *                            results, event 1, leave on START alone; A turns their pages)
  *   mg-explain off           a --match party without the minigame explanations (instDll then needs no
  *                            START), as modeseldll's option sets it
+ *   lottery-stick on         in the board lottery's stick games, a human current player's stick is the
+ *                            script's own instead of the pad line's (N79): it spins the ball game's handle
+ *                            and sweeps the scratch ticket's hand over the whole ticket
  *
  * <buttons> is a number (0x... allowed) or names joined by '+': A B X Y START Z L R UP DOWN LEFT
  * RIGHT, or 0/none. A pad line sets that port's state from <frame> on; it holds until the next line
@@ -272,6 +275,10 @@ static struct {
     s16 alt_event[4];
     u16 alt_buttons[4];
     BOOL mg_explain_off;
+    BOOL lottery_stick;
+    /* lottery_stick: the stick game last seen (BoardLotteryNetplayStickGame) and the frames it has run. */
+    s32 lottery_game;
+    u32 lottery_t;
 } script;
 
 static FILE *hash_log;
@@ -398,6 +405,10 @@ static BOOL script_parse_line(char *line, const char *path, int lineno)
         script.mg_explain_off = TRUE;
         return TRUE;
     }
+    if (strcmp(tok[0], "lottery-stick") == 0 && n == 2 && strcmp(tok[1], "on") == 0) {
+        script.lottery_stick = TRUE;
+        return TRUE;
+    }
     if (strcmp(tok[0], "end") == 0 && n == 2) {
         if (!parse_long(tok[1], 1, 0x7FFFFFFF, &v[0])) {
             goto bad;
@@ -486,6 +497,47 @@ static BOOL script_load(const char *path)
     return TRUE;
 }
 
+s32 BoardLotteryNetplayStickGame(void);
+
+/* `lottery-stick on`: the stick for frame t of a lottery stick game (1 ball, 2 scratch). Values stay under 127 (the
+ * ball game ends at once on a COM's 0x7F) and over PADClamp's dead zone. */
+static void lottery_stick_at(s32 game, u32 t, s8 *x, s8 *y)
+{
+    /* The ball game: 20 degrees a frame clockwise (its angle is atan2d(x, y), and only rising steps under 30 count). */
+    static const s8 spin[18][2] = { { 0, 120 }, { 41, 113 }, { 77, 92 }, { 104, 60 }, { 118, 21 }, { 118, -21 },
+        { 104, -60 }, { 77, -92 }, { 41, -113 }, { 0, -120 }, { -41, -113 }, { -77, -92 }, { -104, -60 },
+        { -118, -21 }, { -118, 21 }, { -104, 60 }, { -77, 92 }, { -41, 113 } };
+    /* The scratch (TicketUpdate): the hand moves 8 px a frame in the stick's direction inside x 192..384, y 192..288
+     * (screen y down, stick y up), and starts at (320, 240) after a 60-frame descent. Wait out the descent, go to the
+     * top left corner, then rows: across (26 frames > 192 px), down one frame (8 px), back. 13 rows cover the 96 px,
+     * then it starts over at the corner until the ticket counts as scratched. */
+    enum { WAIT = 64, LEFT = 30, UP = 15, ACROSS = 26, ROWS = 13 };
+    u32 c;
+
+    *x = *y = 0;
+    if (game == 1) {
+        *x = spin[t % 18][0];
+        *y = spin[t % 18][1];
+        return;
+    }
+    if (t < WAIT) {
+        return;
+    }
+    c = (t - WAIT) % (LEFT + UP + ROWS * (ACROSS + 1));
+    if (c < LEFT) {
+        *x = -120;
+    } else if (c < LEFT + UP) {
+        *y = 120;
+    } else {
+        c -= LEFT + UP;
+        if (c % (ACROSS + 1) == ACROSS) {
+            *y = -120;
+        } else {
+            *x = (c / (ACROSS + 1)) % 2 == 0 ? 120 : -120;
+        }
+    }
+}
+
 /* Pads for the current frame: every script line up to and including this frame applied. */
 static void script_pads(PADStatus *status)
 {
@@ -500,6 +552,23 @@ static void script_pads(PADStatus *status)
         if (script.alt_ovl[i] >= 0 && omcurovl == script.alt_ovl[i] && omovlevtno == script.alt_event[i]
             && status[i].button != 0) {
             status[i].button = script.alt_buttons[i];
+        }
+    }
+    if (script.lottery_stick) {
+        s32 game = BoardLotteryNetplayStickGame();
+        s32 cur = GWSystem.player_curr;
+        if (game != script.lottery_game) {
+            if (game != 0) {
+                OSReport("netplay: script: lottery %s at frame %u (player %d)\n", game == 1 ? "ball game" : "scratch",
+                    (unsigned)frame, (int)cur);
+            }
+            script.lottery_game = game;
+            script.lottery_t = 0;
+        }
+        if (game != 0 && cur >= 0 && cur < 4 && !GWPlayer[cur].com && GWPlayer[cur].port >= 0
+            && GWPlayer[cur].port < 4) {
+            PADStatus *st = &status[GWPlayer[cur].port];
+            lottery_stick_at(game, script.lottery_t++, &st->stickX, &st->stickY);
         }
     }
 }

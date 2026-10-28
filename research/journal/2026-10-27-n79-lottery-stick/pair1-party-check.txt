@@ -1,0 +1,8 @@
+run1: 135000 frames, netplay: match over at frame 110988 (scripted run, the session goes on)
+run2: 135000 frames, netplay: match over at frame 116948 (scripted run, the session goes on)
+first differing frame: 78195 (last match: 78194)
+  hash  8022C4383CCB6C91  vs  8022C4383CCB6C91
+  frand  A5AF9DD5  vs  F009EABA
+  full   0F2BBEB8D245DDD1  vs  8B1D077150AE9AEA
+  ovl at last match: 48
+exit 1

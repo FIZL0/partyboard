@@ -113,6 +113,10 @@ static s16 turnMot = -1;
 static s16 ballMdl[4] = { -1, -1, -1, -1 };
 static s16 loseMot = -1;
 static s16 ticketSprGrp = -1;
+#ifdef TARGET_PC
+/* CreateLotteryWin's arg0 while lotteryInstWin is up, -1 otherwise: BoardLotteryNetplayStickGame (N79). */
+static s8 lotteryInstWinKind = -1;
+#endif
 
 static s8 comInputDraw1[][2] = { { 0x0B, 0xF8 }, { 0x2B, 0xDD }, { 0x2A, 0xDC }, { 0x2B, 0xDC }, { 0x2B, 0xDC }, { 0x29, 0xDB }, { 0x24, 0xD6 },
     { 0x02, 0xE8 }, { 0x00, 0x00 }, { 0xFC, 0x02 }, { 0xD8, 0x27 }, { 0xD8, 0x28 }, { 0xD8, 0x28 }, { 0xD8, 0x27 }, { 0xDA, 0x29 }, { 0xDE, 0x2C },
@@ -1928,6 +1932,9 @@ static void CreateLotteryWin(s32 arg0)
     HuWinBGTPLvlSet(lotteryInstWin, 0.0f);
     HuWinMesSpeedSet(lotteryInstWin, 0);
     HuWinMesSet(lotteryInstWin, var_r31);
+#ifdef TARGET_PC
+    lotteryInstWinKind = arg0;
+#endif
 }
 
 static void KillLotteryWin(void)
@@ -1936,6 +1943,9 @@ static void KillLotteryWin(void)
         HuWinKill(lotteryInstWin);
         lotteryInstWin = -1;
     }
+#ifdef TARGET_PC
+    lotteryInstWinKind = -1;
+#endif
 }
 
 void BoardLotteryTutorialExec(void)
@@ -2023,8 +2033,26 @@ void BoardLotteryNetplayReset(void)
     }
     lotterySpr = -1;
     lotteryInstWin = -1;
+    lotteryInstWinKind = -1;
     gripMdl[0] = gripMdl[1] = 0;
     turnMot = loseMot = -1;
     ticketSprGrp = -1;
+}
+
+/* --script's `lottery-stick on` (N79): which stick game the current player is in. 1: the ball game, spun with the
+ * stick (ExecBallGame, its window says so); 2: the ticket scratch, the hand moved with the stick (ExecScratchTicket,
+ * from the hand's descent to its rise); 0: neither (the ticket pick reads the d-pad and A). */
+s32 BoardLotteryNetplayStickGame(void)
+{
+    if (lotteryInstWin == -1) {
+        return 0;
+    }
+    if (lotteryInstWinKind == 0) {
+        return 1;
+    }
+    if (lotteryInstWinKind == 1) {
+        return 2;
+    }
+    return 0;
 }
 #endif

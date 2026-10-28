@@ -20,6 +20,7 @@ u32 frandSeedGet(void) { return fseed; } void frandSeedSet(u32 s) { fseed = s; }
 /* netplay_match.c is not linked here (tools/netplay/match_test.c tests it). */
 static int over, match_ends, still_drops;
 void netplay_match_tick(void) {} u64 netplay_heap_hash(void) { return 0; }
+s32 BoardLotteryNetplayStickGame(void) { return 0; }
 void netplay_match_end(void) { match_ends++; over = 0; }
 /* N64: the match's results still run here (the lobby waits for them). */
 static int results;
