@@ -2,10 +2,12 @@
 //! `hst-base/src/android.rs` init_tls / tls. reqwest's default reaches for `rustls-platform-verifier`, which on Android
 //! needs the JVM and the activity first (its JNI init) and panics in the request's task without them. The C side hands
 //! them over from SDL at boot ([`pbnet_android_init_tls`]); until then, or should that fail, Mozilla's root list.
+//!
+//! N128: also the Wi-Fi multicast lock LAN lobbies need ([`MulticastLock`]).
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 /// Whether `rustls-platform-verifier` is set up ([`pbnet_android_init_tls`]), so [`tls`] can check certificates the
 /// phone's way.
@@ -74,6 +76,10 @@ fn init_ndk_context(env: &mut jni22::Env, activity: &jni22::objects::JObject) {
         // SAFETY: `vm` is this process's JavaVM and `context` a global reference to the activity, which is never
         // deleted, so both stay valid for the process. `Once` makes this the only call.
         unsafe { ndk_context::initialize_android_context(vm.get_raw().cast(), context.cast()) };
+        match env.new_global_ref(activity) {
+            Ok(g) => _ = JVM.set((vm, g)),
+            Err(e) => eprintln!("pbnet: android: no global activity reference for the multicast lock ({e})"),
+        }
     });
 }
 
@@ -99,4 +105,92 @@ pub fn tls() -> rustls::ClientConfig {
         c
     })
     .clone()
+}
+
+/// The VM and the activity, for JNI calls from pbnet's own threads ([`MulticastLock`]); set by
+/// [`pbnet_android_init_tls`].
+static JVM: OnceLock<(jni22::JavaVM, jni22::refs::Global<jni22::objects::JObject<'static>>)> = OnceLock::new();
+
+/// How many [`MulticastLock`]s are alive, and the `WifiManager.MulticastLock` they share (None: none, or it couldn't
+/// be taken).
+static HELD: Mutex<(usize, Option<jni22::refs::Global<jni22::objects::JObject<'static>>>)> = Mutex::new((0, None));
+
+/// N128: Wi-Fi's multicast lock while held. Many phones' Wi-Fi drivers drop incoming multicast unless an app holds a
+/// `WifiManager.MulticastLock` (permission `CHANGE_WIFI_MULTICAST_STATE`, in the manifest), so iroh's mDNS and
+/// `dnssd.rs` would hear no LAN lobby. A LAN-enabled [`crate::transport::Transport`] holds one (browse, host and join
+/// alike: a join resolves a bare ID by mDNS too); the system lock is taken with the first and released with the last.
+/// Without the VM (no [`pbnet_android_init_tls`]) or the permission this logs why and holds nothing: LAN lobbies then
+/// work as far as the phone lets multicast in.
+pub struct MulticastLock(());
+
+impl MulticastLock {
+    pub fn acquire() -> MulticastLock {
+        let mut held = HELD.lock().unwrap_or_else(PoisonError::into_inner);
+        if held.0 == 0 {
+            held.1 = take_multicast_lock().inspect_err(|e| eprintln!("pbnet: android: no Wi-Fi multicast lock ({e})")).ok();
+        }
+        held.0 += 1;
+        MulticastLock(())
+    }
+}
+
+impl Drop for MulticastLock {
+    fn drop(&mut self) {
+        let mut held = HELD.lock().unwrap_or_else(PoisonError::into_inner);
+        held.0 -= 1;
+        if held.0 == 0 {
+            if let Some(lock) = held.1.take() {
+                if let Err(e) = release_multicast_lock(&lock) {
+                    eprintln!("pbnet: android: Wi-Fi multicast lock not released ({e})");
+                }
+            }
+        }
+    }
+}
+
+/// `context.getApplicationContext().getSystemService("wifi").createMulticastLock(..)`, not reference counted (this
+/// side counts), acquired.
+fn take_multicast_lock() -> Result<jni22::refs::Global<jni22::objects::JObject<'static>>, String> {
+    use jni22::{jni_sig, jni_str, JValue};
+    let (vm, context) = JVM.get().ok_or("no JavaVM yet")?;
+    vm.attach_current_thread(|env| -> jni22::errors::Result<_> {
+        let app = env
+            .call_method(context, jni_str!(jni = jni22, "getApplicationContext"), jni_sig!(jni = jni22, "()Landroid/content/Context;"), &[])?
+            .l()?;
+        let name = env.new_string("wifi")?;
+        let wifi = env
+            .call_method(
+                &app,
+                jni_str!(jni = jni22, "getSystemService"),
+                jni_sig!(jni = jni22, "(Ljava/lang/String;)Ljava/lang/Object;"),
+                &[JValue::Object(&name)],
+            )?
+            .l()?;
+        if wifi.is_null() {
+            return Err(jni22::errors::Error::NullPtr("no WifiManager"));
+        }
+        let tag = env.new_string("partyboard-lan")?;
+        let lock = env
+            .call_method(
+                &wifi,
+                jni_str!(jni = jni22, "createMulticastLock"),
+                jni_sig!(jni = jni22, "(Ljava/lang/String;)Landroid/net/wifi/WifiManager$MulticastLock;"),
+                &[JValue::Object(&tag)],
+            )?
+            .l()?;
+        env.call_method(&lock, jni_str!(jni = jni22, "setReferenceCounted"), jni_sig!(jni = jni22, "(Z)V"), &[JValue::Bool(false)])?;
+        env.call_method(&lock, jni_str!(jni = jni22, "acquire"), jni_sig!(jni = jni22, "()V"), &[])?;
+        env.new_global_ref(lock)
+    })
+    .map_err(|e| e.to_string())
+}
+
+fn release_multicast_lock(lock: &jni22::objects::JObject<'static>) -> Result<(), String> {
+    use jni22::{jni_sig, jni_str};
+    let (vm, _) = JVM.get().ok_or("no JavaVM")?;
+    vm.attach_current_thread(|env| -> jni22::errors::Result<()> {
+        env.call_method(lock, jni_str!(jni = jni22, "release"), jni_sig!(jni = jni22, "()V"), &[])?;
+        Ok(())
+    })
+    .map_err(|e| e.to_string())
 }

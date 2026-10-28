@@ -260,6 +260,10 @@ pub struct Transport {
     mdns: bool,
     /// N119: standard DNS-SD (`lan.rs`): what iPhones' Bonjour finds and registers.
     dns: Option<lan::Dns>,
+    /// N128: Wi-Fi lets multicast in while LAN discovery runs; released by [`Transport::close`] (a host's lobby keeps
+    /// its `Arc<Transport>` past that) or the drop.
+    #[cfg(target_os = "android")]
+    multicast_lock: Mutex<Option<crate::android::MulticastLock>>,
 }
 
 impl Transport {
@@ -304,7 +308,16 @@ impl Transport {
         if !has_mdns {
             eprintln!("pbnet: no LAN lobbies on this device");
         }
-        Ok(Transport { ep, dht, relays: *relay != Relay::Off, lan: watch_lan(mdns), mdns: has_mdns, dns })
+        Ok(Transport {
+            ep,
+            dht,
+            relays: *relay != Relay::Off,
+            lan: watch_lan(mdns),
+            mdns: has_mdns,
+            dns,
+            #[cfg(target_os = "android")]
+            multicast_lock: Mutex::new(has_mdns.then(crate::android::MulticastLock::acquire)),
+        })
     }
 
     pub fn endpoint(&self) -> &Endpoint {
@@ -417,6 +430,8 @@ impl Transport {
     /// Closes the endpoint (every connection with it).
     pub async fn close(&self) {
         self.ep.close().await;
+        #[cfg(target_os = "android")]
+        drop(self.multicast_lock.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take());
     }
 }
 

@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- N16: online play (pbnet: iroh QUIC, the DHT, short codes over HTTPS) -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- N128: LAN lobbies (mDNS / DNS-SD): many phones' Wi-Fi drops incoming multicast without a MulticastLock -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <application
         android:allowBackup="true"
