@@ -30,6 +30,7 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 
 use crate::codes;
+use crate::lan;
 
 /// The connection's protocol (one stream of length-prefixed JSON, plus datagrams).
 pub const ALPN: &[u8] = b"partyboard/lobby/1";
@@ -257,6 +258,8 @@ pub struct Transport {
     relays: bool,
     lan: Lan,
     mdns: bool,
+    /// N119: standard DNS-SD (`lan.rs`): what iPhones' Bonjour finds and registers.
+    dns: Option<lan::Dns>,
 }
 
 impl Transport {
@@ -268,6 +271,11 @@ impl Transport {
 
     /// As [`Transport::bind`], with the DHT node to use for short codes (tests: one on a local testnet).
     pub async fn bind_with(relay: &Relay, dht: Dht) -> Result<Transport, String> {
+        Transport::bind_lan(relay, dht, lan::Kind::default()).await
+    }
+
+    /// As [`Transport::bind_with`], with the LAN's DNS-SD backend `kind` (tests: an iPhone's on another OS).
+    pub async fn bind_lan(relay: &Relay, dht: Dht, kind: lan::Kind) -> Result<Transport, String> {
         // the DHT record carries the direct addresses too, so a peer with relays off can still be dialled by ID
         let lookup = DhtAddressLookup::builder().addr_filter(AddrFilter::unfiltered());
         let b = Endpoint::builder(presets::Minimal)
@@ -277,13 +285,26 @@ impl Transport {
             .address_lookup(lookup);
         // no waiting for the home relay here: a short code's ticket and a join wait for it themselves
         let ep = b.bind().await.map_err(|e| e.to_string())?;
-        // LAN: bare IDs resolve by mDNS and hosts' listings ride on it (no internet needed). An iPhone app may not
-        // use multicast without Apple's entitlement: then no LAN, but the rest still works.
-        let mdns = MdnsAddressLookup::builder().service_name(MDNS).build(ep.id()).map_err(|e| e.to_string());
-        let mdns = mdns.and_then(|m| ep.address_lookup().map_err(|e| e.to_string()).map(|l| l.add(m.clone())).map(|_| m));
-        let mdns = mdns.inspect_err(|e| eprintln!("pbnet: mDNS: {e}: no LAN lobbies on this device")).ok();
-        let has_mdns = mdns.is_some();
-        Ok(Transport { ep, dht, relays: *relay != Relay::Off, lan: watch_lan(mdns), mdns: has_mdns })
+        // LAN: bare IDs resolve by mDNS and hosts' listings ride on it (no internet needed). N119: standard DNS-SD too,
+        // so iPhones take part (an iPhone's Bonjour can't see iroh's mDNS records); on iOS through the system's
+        // Bonjour instead of raw multicast, which an app may not use without Apple's entitlement. Neither: no LAN, but
+        // the rest still works.
+        let iroh_mdns = {
+            #[cfg(not(target_os = "ios"))]
+            let on = kind == lan::Kind::Multicast;
+            #[cfg(target_os = "ios")]
+            let on = false;
+            on
+        };
+        let mdns = iroh_mdns.then(|| MdnsAddressLookup::builder().service_name(MDNS).build(ep.id()).map_err(|e| e.to_string()));
+        let mdns = mdns.map(|m| m.and_then(|m| ep.address_lookup().map_err(|e| e.to_string()).map(|l| l.add(m.clone())).map(|_| m)));
+        let mdns = mdns.and_then(|m| m.inspect_err(|e| eprintln!("pbnet: mDNS: {e}")).ok());
+        let dns = lan::Dns::start(&ep, kind).inspect_err(|e| eprintln!("pbnet: DNS-SD ({kind:?}): {e}")).ok();
+        let has_mdns = mdns.is_some() || dns.is_some();
+        if !has_mdns {
+            eprintln!("pbnet: no LAN lobbies on this device");
+        }
+        Ok(Transport { ep, dht, relays: *relay != Relay::Off, lan: watch_lan(mdns), mdns: has_mdns, dns })
     }
 
     pub fn endpoint(&self) -> &Endpoint {
@@ -341,9 +362,16 @@ impl Transport {
         Ok(())
     }
 
-    /// The hosts mDNS hears on the LAN now, with their listings.
+    /// The hosts mDNS hears on the LAN now, with their listings (iroh's mDNS and DNS-SD together).
     pub fn lan(&self) -> Vec<LanHost> {
-        self.lan.lock().unwrap().iter().map(|(id, l)| LanHost { id: *id, listing: l.clone() }).collect()
+        let mut all = self.lan.lock().unwrap().clone();
+        // DNS-SD's listing first where both have one: it never goes back to an older one (`lan.rs`)
+        for (id, d) in self.dns.as_ref().map(|d| d.book.user_data()).unwrap_or_default() {
+            if let Some(l) = d.strip_prefix(LAN_TAG) {
+                all.insert(id, l.to_string());
+            }
+        }
+        all.into_iter().map(|(id, l)| LanHost { id, listing: l }).collect()
     }
 
     /// The next incoming connection whose joiner opened its stream; None once the endpoint is closed. A connection
@@ -577,6 +605,62 @@ mod tests {
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
             panic!("not heard in 15 s");
+        });
+    }
+
+    /// N119: an "iPhone" (Bonjour; here Avahi's libdns_sd, so `--features bonjour` and a running avahi-daemon) and a
+    /// desktop (our DNS-SD socket; iroh's mDNS can't hear Bonjour), or two "iPhones", find each other's listing, follow
+    /// a listing change and dial the bare ID heard. Multicast as `lan_listing_heard_by_mdns`:
+    /// `cargo test --features bonjour -- --ignored bonjour`.
+    #[cfg(feature = "bonjour")]
+    #[test]
+    #[ignore]
+    fn bonjour_and_desktop_hear_each_other() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = n0_mainline::Testnet::new(3).await.unwrap();
+            let dht = || Dht::builder().bootstrap(&net.bootstrap).build().unwrap();
+            let kinds = [(lan::Kind::Bonjour, lan::Kind::Multicast), (lan::Kind::Multicast, lan::Kind::Bonjour), (lan::Kind::Bonjour, lan::Kind::Bonjour)];
+            for (hk, fk) in kinds {
+                let host = Transport::bind_lan(&Relay::Off, dht(), hk).await.unwrap();
+                let finder = Transport::bind_lan(&Relay::Off, dht(), fk).await.unwrap();
+                assert!(host.has_lan() && finder.has_lan());
+                let host_id = host.id();
+                let heard = async |what: &str, listing: Option<&str>| {
+                    for _ in 0..200 {
+                        let l = finder.lan().into_iter().find(|l| l.id == host_id).map(|l| l.listing);
+                        if l.as_deref() == listing {
+                            return;
+                        }
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                    panic!("{hk:?} host -> {fk:?} finder: {what}: not in 20 s; {:?}", finder.lan());
+                };
+                host.set_lan_listing(Some(r#"{"open":3}"#)).unwrap();
+                heard("listing", Some(r#"{"open":3}"#)).await;
+                host.set_lan_listing(Some(r#"{"open":2}"#)).unwrap();
+                heard("listing change", Some(r#"{"open":2}"#)).await;
+                let h = tokio::spawn({
+                    let ep = host.ep.clone();
+                    async move {
+                        let c = ep.accept().await.unwrap().await.unwrap();
+                        let (_tx, rx) = c.accept_bi().await.unwrap();
+                        Peer::<Msg>::new(c, _tx, rx).recv().await
+                    }
+                });
+                let p = finder.dial::<Msg>(&host.id().to_string()).await.unwrap();
+                p.send(Msg::Hello { name: "lan".into() });
+                assert_eq!(h.await.unwrap().unwrap(), Msg::Hello { name: "lan".into() });
+                host.set_lan_listing(None).unwrap();
+                heard("unlisted", None).await;
+                // gone when it stops (Bonjour's deregistration or our goodbye)
+                host.set_lan_listing(Some("again")).unwrap();
+                heard("listed again", Some("again")).await;
+                host.close().await;
+                drop(host);
+                heard("gone", None).await;
+                finder.close().await;
+            }
         });
     }
 }

@@ -86,7 +86,9 @@
     <true/>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Finds and joins online matches on your local network.</string>
-    <!-- N110: the mDNS service pbnet's LAN lobbies use (net/src/transport.rs MDNS: <id>._pbn._udp.local) -->
+    <!-- N110: the mDNS service pbnet's LAN lobbies use (net/src/transport.rs MDNS: <id>._pbn._udp.local). N119: on iOS
+         pbnet registers and browses it through Bonjour (net/src/bonjour.rs), which this key allows; raw multicast would
+         need Apple's multicast entitlement -->
     <key>NSBonjourServices</key>
     <array>
       <string>_pbn._udp</string>

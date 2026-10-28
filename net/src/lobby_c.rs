@@ -2434,6 +2434,50 @@ mod tests {
         });
     }
 
+    /// N119: as `lan_lobby_heard_joined_and_unlisted` with an iPhone on either side (its Bonjour; here Avahi's
+    /// libdns_sd): `cargo test --features bonjour -- --ignored bonjour`.
+    #[cfg(feature = "bonjour")]
+    #[test]
+    #[ignore]
+    fn bonjour_lan_lobby_heard_and_joined() {
+        use crate::lan::Kind;
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(3).await.unwrap();
+            let h = Handle::current();
+            let bind_as = |kind: Kind| {
+                let dht = Dht::builder().bootstrap(&net.bootstrap).build().unwrap();
+                async move { crate::transport::Transport::bind_lan(&Relay::Off, dht, kind).await.map(Transport::Iroh) }
+            };
+            let wait = async |b: &Browse, what: &str, f: &dyn Fn(&[LanGame]) -> bool| {
+                for _ in 0..300 {
+                    let games = b.list().games;
+                    if f(&games) {
+                        return games;
+                    }
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+                panic!("{what}: never; last {:?}", b.list());
+            };
+            for (hk, bk) in [(Kind::Multicast, Kind::Bonjour), (Kind::Bonjour, Kind::Multicast)] {
+                // its own match ID: `lan_lobby_heard_joined_and_unlisted` may run beside it
+                let host = Lobby::host(&h, bind_as(hk), Setup { id: Some("n119".into()), ..setup("h", "GMPE01-00") }, catch().0);
+                until(&host, "host open", |s| s.state == Phase::Open).await;
+                let b = Browse::new(&h, Relay::Off, bind_as(bk));
+                let games = wait(&b, "host heard", &|g| g.iter().any(|g| g.listing.id == "n119")).await;
+                let game = games.into_iter().find(|g| g.listing.id == "n119").unwrap();
+                assert_eq!((game.listing.name.as_str(), game.listing.open), ("h", 3));
+                let guest = Lobby::join(&h, Browse::or_bind(Some(b), Relay::Off), setup("g", "GMPE01-00"), &game.code, catch().0);
+                until(&guest, &format!("{hk:?} host, {bk:?} guest: seated"), |s| s.state == Phase::Open).await;
+                let b2 = Browse::new(&h, Relay::Off, bind_as(bk));
+                wait(&b2, "one seat fewer", &|g| g.iter().any(|g| g.listing.id == "n119" && g.listing.open == 2)).await;
+                guest.leave();
+                host.leave();
+                wait(&b2, "gone when it closes", &|g| !g.iter().any(|g| g.listing.id == "n119")).await;
+            }
+        });
+    }
+
     /// The C ABI with no lobby, and bad setups refused (the one test touching the global lobby).
     #[test]
     fn c_abi_without_lobby() {

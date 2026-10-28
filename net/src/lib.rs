@@ -5,10 +5,16 @@
 
 #[cfg(all(target_os = "android", feature = "iroh"))]
 pub mod android;
+#[cfg(all(feature = "iroh", any(target_os = "ios", feature = "bonjour")))]
+mod bonjour;
 #[cfg(feature = "iroh")]
 pub mod codes;
 pub mod desync;
+#[cfg(all(feature = "iroh", not(target_os = "ios")))]
+mod dnssd;
 pub mod keeper;
+#[cfg(feature = "iroh")]
+pub mod lan;
 pub mod lobby;
 pub mod lobby_c;
 pub mod lockstep;
