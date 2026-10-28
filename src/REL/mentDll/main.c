@@ -689,7 +689,8 @@ void fn_1_7A14(void)
     }
 }
 
-void fn_1_81A8(omObjData *arg0, void *arg1, void *arg2)
+// PB: called through unk_04 with two arguments; a third parameter trapped in wasm
+void fn_1_81A8(omObjData *arg0, void *arg1)
 {
     fn_1_1F868();
     lbl_1_bss_3114->unk_04 = NULL;

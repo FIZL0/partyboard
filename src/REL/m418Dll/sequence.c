@@ -62,8 +62,8 @@ void fn_1_AD14(omObjData* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4) {
 void fn_1_AE8C(M418DllUnkStruct7* arg0) {
     arg0->unk8 = 0;
     arg0->unkC = arg0->unk4[arg0->unk0].unk8;
-    arg0->unk10 = (M418DllFunc)arg0->unk4[arg0->unk0].unk0;
-    arg0->unk14 = (M418DllRetFunc)arg0->unk4[arg0->unk0].unk4;
+    arg0->unk10 = arg0->unk4[arg0->unk0].unk0;
+    arg0->unk14 = arg0->unk4[arg0->unk0].unk4;
 }
 
 void fn_1_AEDC(M418DllUnkStruct7* arg0, M418DllUnkStruct8* arg1) {

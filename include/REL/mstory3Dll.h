@@ -44,6 +44,7 @@ typedef struct {
     /* 0x00 */ omObjData* unk00;
 #ifdef TARGET_PC
     // arm64 passes variadic arguments on the stack but the handlers read them from registers
+    // N103: every handler takes both (an unused void * where it had none): wasm checks the type of an indirect call
     /* 0x04 */ void (*unk04)(omObjData*, void*);
 #else
     /* 0x04 */ void (*unk04)(omObjData*, ...);

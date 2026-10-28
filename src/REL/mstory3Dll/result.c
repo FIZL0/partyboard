@@ -938,7 +938,7 @@ void fn_1_18668(omObjData* arg0, s32 arg1) {
     HuSprGrpDrawNoSet(arg0->work[3], 0x7F);
 }
 
-void fn_1_18CFC(omObjData* arg0) {
+void fn_1_18CFC(omObjData* arg0, void* arg1) {
     float temp_f31;
     float var_f30;
     s32 var_r29;
@@ -1005,7 +1005,7 @@ void fn_1_18F98(void) {
     } else if (var_r30 == 5) {
         HuSprBankSet(lbl_1_bss_19BC.unk00->work[1], 3, 0);
     }
-    lbl_1_bss_19BC.unk04 = (void*) fn_1_18CFC;
+    lbl_1_bss_19BC.unk04 = fn_1_18CFC;
 }
 
 void fn_1_19144(void) {

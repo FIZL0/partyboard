@@ -46,8 +46,8 @@ void fn_1_14EF0(void);
 void fn_1_151C8(void);
 void fn_1_154A4(void);
 void fn_1_15774(void);
-void fn_1_157C4(void);
-void fn_1_15D48(void);
+void fn_1_157C4(omObjData *arg0, void *arg1);
+void fn_1_15D48(omObjData *arg0, void *arg1);
 void fn_1_16320(void);
 void fn_1_16600(s32 arg0);
 void fn_1_16874(s32);
@@ -121,7 +121,7 @@ s32 fn_1_126EC(s32 arg0)
     fn_1_1BA78(0x1A0005, -1, -1);
     fn_1_1B7D0(1);
     fn_1_1BF1C(0x330091);
-    lbl_1_bss_5DC.unk_04 = (MpexDllUnkFunc2)fn_1_157C4;
+    lbl_1_bss_5DC.unk_04 = fn_1_157C4;
     var_r29 = -1;
     while (TRUE) {
         fn_1_1B7D0(1);
@@ -428,7 +428,7 @@ s32 fn_1_13184(void)
     fn_1_1BA78(0x1A0005, -1, -1);
     fn_1_1B7D0(1);
     fn_1_1BF1C(0x330091);
-    lbl_1_bss_5DC.unk_04 = (MpexDllUnkFunc2)fn_1_15D48;
+    lbl_1_bss_5DC.unk_04 = fn_1_15D48;
 
     while (TRUE) {
         fn_1_1B7D0(1);
@@ -1321,7 +1321,8 @@ void fn_1_15774(void)
     HuSprAttrSet(var_r31, 2, 4);
 }
 
-void fn_1_157C4(void)
+// PB: called through unk_04 with (object, entry), unused; void(void) trapped in wasm
+void fn_1_157C4(omObjData *arg0, void *arg1)
 {
     float var_f31;
     float var_f30;
@@ -1430,7 +1431,8 @@ void fn_1_157C4(void)
     lbl_1_bss_5DC.unk_28 = 0;
 }
 
-void fn_1_15D48(void)
+// PB: as fn_1_157C4
+void fn_1_15D48(omObjData *arg0, void *arg1)
 {
     float var_f31;
     float var_f30;

@@ -35,8 +35,10 @@ typedef struct M418DllUnkStruct7 {
     M418DllUnkStruct8 *unk4;
     s32 unk8;
     s32 unkC;
-    M418DllFunc unk10;
-    M418DllRetFunc unk14;
+    // PB: the step functions take an s32 (the tables hold M418DllInFunc/M418DllInRetFunc); typed as void(void),
+    // wasm's call_indirect trapped with a signature mismatch. No step function reads it: callers pass 0
+    M418DllInFunc unk10;
+    M418DllInRetFunc unk14;
 } M418DllUnkStruct7; // sizeof 0x18
 
 float fn_1_A920(float, float, float);

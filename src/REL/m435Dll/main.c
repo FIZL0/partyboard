@@ -2503,6 +2503,14 @@ void fn_1_B828(StructBss9C* arg0) {
     temp_r29->work[0] = temp_r29->work[1] = temp_r29->work[2] = temp_r29->work[3] = 0;
 }
 
+#ifdef TARGET_PC
+/* N103: an object's func is void(omObjData *); s32 fn_1_B1F4 through it trapped in wasm (call_indirect checks the type) */
+static void fn_1_B1F4_obj(omObjData *arg0)
+{
+    fn_1_B1F4(arg0);
+}
+#endif
+
 void fn_1_B950(omObjData *arg0) {
     StructBss9C* var_r29;
     s32 i;
@@ -2529,7 +2537,11 @@ void fn_1_B950(omObjData *arg0) {
         var_r29->unk88[i] = 0.0f;
     }
     var_r29->unk04 = 1;
+#ifdef TARGET_PC
+    arg0->func = fn_1_B1F4_obj;
+#else
     arg0->func = (void*) fn_1_B1F4; // fn_1_B1F4 must return s32 to match
+#endif
 }
 
 void fn_1_BBE8(void) {
