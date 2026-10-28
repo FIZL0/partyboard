@@ -1,0 +1,65 @@
+diff --git i/src/port/ui/ui.cpp w/src/port/ui/ui.cpp
+index 12161699..4f66492a 100644
+--- i/src/port/ui/ui.cpp
++++ w/src/port/ui/ui.cpp
+@@ -21,6 +21,52 @@
+ 
+ #include <port/settings.h>
+ 
++#include "settings.hpp"
++#include <cstdio>
++#include <cstdlib>
++namespace partyboard::ui {
++namespace {
++// N124 temporary UI check: open Settings > Audio, press Left on Master Volume twice, Right once
++Rml::Element *n124_find(Rml::Element *e) {
++    for (int i = 0; i < e->GetNumChildren(); ++i) {
++        if (auto *f = n124_find(e->GetChild(i))) return f;
++    }
++    if (e->GetInnerRML().find("Master Volume") != Rml::String::npos) return e;
++    return nullptr;
++}
++Rml::Element *n124_row(Rml::Element *e) {
++    for (Rml::Element *p = e; p; p = p->GetParentNode())
++        if (p->GetInnerRML().find("%") != Rml::String::npos && p->GetInnerRML().size() < 2000) return p;
++    return e;
++}
++void n124_hook() {
++    static int frame = 0;
++    if (!getenv("PB_N124_UI")) return;
++    ++frame;
++    if (frame == 300) {
++        auto &doc = push_document(std::make_unique<SettingsWindow>());
++        (void)doc;
++        auto *w = dynamic_cast<Window *>(top_document());
++        fprintf(stderr, "N124 tab ok=%d\n", w ? w->set_active_tab(2) : -1);
++    }
++    if (frame >= 360 && frame <= 480 && frame % 40 == 0) {
++        Rml::Element *found = nullptr;
++        for (auto &d : get_document_stack()) {
++            auto *ctx = aurora::rmlui::get_context();
++            (void)d;
++            for (int i = 0; ctx && i < ctx->GetNumDocuments() && !found; ++i) found = n124_find(ctx->GetDocument(i));
++        }
++        if (!found) { fprintf(stderr, "N124 frame %d: Master Volume not found\n", frame); return; }
++        fprintf(stderr, "N124 frame %d: row=[%s] setting=%d\n", frame, n124_row(found)->GetInnerRML().c_str(),
++            getSettings().audio.masterVolume.getValue());
++        if (frame < 480) {
++            Rml::Dictionary p{{"key_identifier", Rml::Variant{(int)(frame < 440 ? Rml::Input::KI_LEFT : Rml::Input::KI_RIGHT)}}};
++            found->DispatchEvent(Rml::EventId::Keydown, p);
++        }
++    }
++}
++}
++}
+ namespace partyboard::ui {
+ namespace {
+ 
+@@ -230,6 +276,7 @@ Document *top_document() noexcept
+ 
+ void update() noexcept
+ {
++    n124_hook();
+     if (!aurora::rmlui::is_initialized()) {
+         return;
+     }

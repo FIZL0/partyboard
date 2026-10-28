@@ -6,6 +6,7 @@
 #include "bool_button.hpp"
 #include "button_glyphs.hpp"
 #include "controller_config.hpp"
+#include "port/audio.h"
 #include "port/config.hpp"
 #include "port/log_file.hpp"
 #include "port/button_icons.h"
@@ -595,56 +596,40 @@ SettingsWindow::SettingsWindow(bool prelaunch)
             [] { return getSettings().game.speedrunMode; });
     });
 
-    // add_tab("Audio", [this](Rml::Element *content) {
-    //     auto &leftPane = add_child<Pane>(content, Pane::Type::Controlled);
-    //     auto &rightPane = add_child<Pane>(content, Pane::Type::Uncontrolled);
-    //
-    //     // TODO: Individual sliders for Main Music, Sub Music, Sound Effects, and Fanfare.
-    //     // leftPane.add_section("Volume");
-    //     // leftPane.register_control(
-    //     //     leftPane.add_child<NumberButton>(NumberButton::Props {
-    //     //         .key = "Master Volume",
-    //     //         .getValue = [] { return getSettings().audio.masterVolume.getValue(); },
-    //     //         .setValue =
-    //     //             [](int value) {
-    //     //                 getSettings().audio.masterVolume.setValue(value);
-    //     //                 config::Save();
-    //     //                 // audio::SetMasterVolume(value / 100.f); // TODO PC
-    //     //             },
-    //     //         .isModified = [] { return getSettings().audio.masterVolume.getValue() != getSettings().audio.masterVolume.getDefaultValue(); },
-    //     //         .max = 100,
-    //     //         .suffix = "%",
-    //     //     }),
-    //     //     rightPane, [](Pane &pane) {
-    //     //         pane.clear();
-    //     //         pane.add_text("Adjusts the volume of all sounds in the game.");
-    //     //     });
-    //
-    //     leftPane.add_section("Effects");
-    //     // config_bool_select(leftPane, rightPane, getSettings().audio.enableReverb,
-    //     //     {
-    //     //         .key = "Enable Reverb",
-    //     //         .helpText = "Enables the reverb effect in game audio.",
-    //     //         .onChange = [](bool value) {
-    //     //             // audio::SetEnableReverb(value); // TODO PC
-    //     //         },
-    //     //     });
-    //     // config_bool_select(leftPane, rightPane, getSettings().audio.enableHrtf,
-    //     //     {
-    //     //         .key = "Enable Spatial Sound",
-    //     //         .helpText = "Emulate surround sound via HRTF. Recommended only for use with headphones!",
-    //     //         .onChange = [](bool value) {
-    //     //             // audio::EnableHrtf = value; // TODO PC
-    //     //         },
-    //     //     });
-    //     // config_bool_select(leftPane, rightPane, getSettings().audio.menuSounds,
-    //     //     {
-    //     //         .key = "Party Board Menu Sounds",
-    //     //         .helpText = "Play sound effects when navigating the Party Board menu.",
-    //     //     });
-    //
-    //     leftPane.add_section("Tweaks");
-    // });
+    add_tab("Audio", [this](Rml::Element *content) {
+        auto &leftPane = add_child<Pane>(content, Pane::Type::Controlled);
+        auto &rightPane = add_child<Pane>(content, Pane::Type::Uncontrolled);
+
+        // N124: only Master Volume. audio.mainMusicVolume / soundEffectsVolume / ... stay unmapped: the game owns
+        // msmMusSetMasterVolume / msmSeSetMasterVolume / msmStreamSetMasterVolume (sreset.c mutes all three,
+        // selmenuDll toggles music 0/127) and would overwrite them. Reverb/HRTF have no backend here.
+        leftPane.add_section("Volume");
+        leftPane.register_control(
+            leftPane.add_child<NumberButton>(NumberButton::Props {
+                .key = "Master Volume",
+                .getValue = [] { return getSettings().audio.masterVolume.getValue(); },
+                .setValue =
+                    [](int value) {
+                        value = std::clamp(value, 0, 100);
+                        getSettings().audio.masterVolume.setValue(value);
+                        config::Save();
+                        partyboard_audio_set_master_volume(value);
+                    },
+                .isModified =
+                    [] {
+                        return getSettings().audio.masterVolume.getValue() !=
+                               getSettings().audio.masterVolume.getDefaultValue();
+                    },
+                .min = 0,
+                .max = 100,
+                .step = 5,
+                .suffix = "%",
+            }),
+            rightPane, [](Pane &pane) {
+                pane.clear();
+                pane.add_text("Adjusts the volume of all sounds in the game. Takes effect right away.");
+            });
+    });
 
     add_tab("Gameplay", [this](Rml::Element *content) {
         auto &leftPane = add_child<Pane>(content, Pane::Type::Controlled);

@@ -11,6 +11,8 @@ extern "C" {
 void partyboard_audio_lock(void);
 void partyboard_audio_unlock(void);
 void partyboard_audio_pre_init(void);
+/* N124: output gain in percent (0-100, clamped), applied live to the mixed output. */
+void partyboard_audio_set_master_volume(s32 volume);
 void partyboard_audio_start(void);
 void partyboard_audio_shutdown(void);
 BOOL partyboard_audio_read_async(DVDFileInfo *fileInfo, void *addr, s32 length, s32 offset, DVDCallback callback);

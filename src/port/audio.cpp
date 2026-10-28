@@ -37,7 +37,9 @@ aurora::Module Log("partyboard::audio");
 std::recursive_mutex sAudioMutex;
 
 AIDCallback sDmaCallback = nullptr;
-s32 sMasterVolume = 100;
+// Settings > Audio > Master Volume (0-100). Applied after the mix, so no game or MusyX state sees it (netplay-safe);
+// read by the output callback on SDL's audio thread, written by the settings UI.
+std::atomic<s32> sMasterVolume{100};
 
 bool sDeviceOpened = false;
 bool sDeviceStarted = false;
@@ -78,8 +80,9 @@ void output_callback(s16 *output, size_t frames, u32 rate, u32 channels) {
         sDmaCallback();
     }
 
-    if (sMasterVolume < 100) {
-        const s32 gain = sMasterVolume * 32768 / 100;
+    const s32 volume = sMasterVolume.load(std::memory_order_relaxed);
+    if (volume < 100) {
+        const s32 gain = volume * 32768 / 100;
         for (size_t i = 0; i < frames * channels; ++i) {
             output[i] = static_cast<s16>((output[i] * gain) >> 15);
         }
@@ -260,8 +263,10 @@ void partyboard_audio_lock(void) { sAudioMutex.lock(); }
 
 void partyboard_audio_unlock(void) { sAudioMutex.unlock(); }
 
+void partyboard_audio_set_master_volume(s32 volume) { sMasterVolume.store(std::clamp(volume, 0, 100)); }
+
 void partyboard_audio_pre_init(void) {
-    sMasterVolume = std::clamp(partyboard::getSettings().audio.masterVolume.getValue(), 0, 100);
+    partyboard_audio_set_master_volume(partyboard::getSettings().audio.masterVolume.getValue());
     sndPCSetSynchronization(partyboard_audio_lock, partyboard_audio_unlock);
 
 #if defined(__APPLE__)
