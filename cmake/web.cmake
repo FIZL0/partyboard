@@ -12,6 +12,8 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # libco has no wasm backend: Emscripten fibers (Asyncify) instead.
 set_source_files_properties(${CMAKE_SOURCE_DIR}/extern/libco/libco.c PROPERTIES HEADER_FILE_ONLY ON)
 target_sources(dol PRIVATE ${CMAKE_SOURCE_DIR}/src/port/web/libco_emscripten.c)
+# N92: the page's clipboard (SDL has none on Emscripten): online codes are copied both ways.
+target_sources(dol PRIVATE ${CMAKE_SOURCE_DIR}/src/port/web/web_clipboard.c)
 
 # The C/C++ is built without exception handling (Asyncify can't unwind through a function that has any), but these
 # catch what libc++/nlohmann throw (a config file that isn't there yet, ...). None of their functions is on the
@@ -87,10 +89,18 @@ function(pb_web_link target)
             -sMODULARIZE=1
             -sEXPORT_NAME=createPartyBoard
             -sFORCE_FILESYSTEM=1
-            -sEXPORTED_RUNTIME_METHODS=FS,ENV,IDBFS,callMain,addRunDependency,removeRunDependency
+            -sEXPORTED_RUNTIME_METHODS=FS,ENV,IDBFS,callMain,addRunDependency,removeRunDependency,UTF8ToString,stringToNewUTF8
             # The user dir (/libsdl: config, memory card) is kept in IndexedDB by the page.
             -lidbfs.js
             -sEXIT_RUNTIME=0)
+    # N92: pbnet's WebRTC in the page (net/src/rtc.rs); the C stub has no imports.
+    if (NOT PBNET_STUB)
+        target_link_options(${target} PRIVATE "--js-library=${CMAKE_SOURCE_DIR}/src/port/web/pbnet_rtc.js")
+        set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/port/web/pbnet_rtc.js)
+        # The lobby's C ABI for the page's scripts (tools/web_pair.mjs drives two tabs' lobbies with it).
+        target_link_options(${target} PRIVATE
+                "-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_pbnet_lobby_host,_pbnet_lobby_join,_pbnet_lobby_answer,_pbnet_lobby_json,_pbnet_lobby_ready,_pbnet_lobby_start,_pbnet_lobby_leave,_pbnet_lobby_cpu,_pbnet_frame,_pbnet_waiting_on")
+    endif ()
 endfunction()
 
 # Probe: partyboard linked without Asyncify and with its names, to list the functions that use wasm exceptions

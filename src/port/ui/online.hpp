@@ -61,6 +61,10 @@ protected:
 
 private:
     void refresh();
+#ifdef __EMSCRIPTEN__
+    // N92: the host takes a browser guest's answer from the clipboard.
+    void paste_answer();
+#endif
     void show_right(Pane &pane, std::function<void(Pane &)> builder);
     void confirm_leave();
     void leave_to_menu();

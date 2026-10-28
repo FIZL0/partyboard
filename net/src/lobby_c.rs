@@ -661,6 +661,7 @@ impl Shared {
             seats,
             room,
             gen: self.gen,
+            answer: crate::transport::answer_code(),
         }
     }
 }
@@ -691,6 +692,9 @@ pub struct Snapshot {
     pub room: Option<Room>,
     /// Changes on every change above.
     pub gen: u32,
+    /// N92, a browser guest while it connects: its answer for the host to paste (`pbnet_lobby_answer`).
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub answer: String,
 }
 
 /// What hosting or joining needs, as the menu passes it (`pbnet_lobby_host` / `pbnet_lobby_join` JSON).
@@ -973,8 +977,23 @@ async fn keep_code(t: Arc<Transport>, sh: std::sync::Weak<Mutex<Shared>>) {
                     code = Some(c);
                 }
                 // the ticket still joins; the next round tries again
+                #[cfg(feature = "iroh")]
                 Err(e) => {
                     s.error = format!("The short code isn't online ({e}); share the long code instead.");
+                    s.bump();
+                }
+                // N92: no offer could be made (no WebRTC, no network)
+                #[cfg(not(feature = "iroh"))]
+                Err(e) => {
+                    s.error = e;
+                    s.bump();
+                }
+            }
+            // N92: a pasted answer that didn't connect (the code shown is the next guest's), or "" once one did
+            #[cfg(not(feature = "iroh"))]
+            if let Some(e) = t.take_error() {
+                if s.error != e {
+                    s.error = e;
                     s.bump();
                 }
             }
@@ -1389,6 +1408,7 @@ impl Drop for Browse {
 // ---------------------------------------------------------------- C ABI
 
 /// The process's runtime for the lobby's tasks (two worker threads, made on first use).
+#[cfg(feature = "iroh")]
 fn rt() -> &'static Runtime {
     static RT: OnceLock<Runtime> = OnceLock::new();
     RT.get_or_init(|| {
@@ -1399,6 +1419,33 @@ fn rt() -> &'static Runtime {
             .build()
             .expect("pbnet: no tokio runtime")
     })
+}
+
+/// N92, the browser: no threads, so the lobby's tasks run on this thread when the game pumps them ([`pump`]).
+#[cfg(not(feature = "iroh"))]
+fn rt() -> &'static Runtime {
+    static RT: OnceLock<Runtime> = OnceLock::new();
+    RT.get_or_init(|| tokio::runtime::Builder::new_current_thread().enable_time().build().expect("pbnet: no tokio runtime"))
+}
+
+/// N92, the browser: runs the lobby's and the connections' tasks that are due (a few rounds, so a message read
+/// can be answered in the same frame). Called at the top of the C ABI's per-frame calls (`pbnet_lobby_state`,
+/// `pbnet_step`), never with a lock held or from a task.
+#[cfg(not(feature = "iroh"))]
+pub(crate) fn pump() {
+    for _ in 0..4 {
+        rt().block_on(tokio::task::yield_now());
+    }
+}
+
+/// The desktop's tasks run on their own threads.
+#[cfg(feature = "iroh")]
+pub(crate) fn pump() {}
+
+/// N92: the lobby's runtime, for the lockstep's drain after a match (no threads in the browser).
+#[cfg(not(feature = "iroh"))]
+pub(crate) fn spawn(f: impl Future<Output = ()> + Send + 'static) {
+    rt().spawn(f);
 }
 
 static LOBBY: Mutex<Option<Lobby>> = Mutex::new(None);
@@ -1529,6 +1576,7 @@ pub extern "C" fn pbnet_lobby_back() -> i32 {
 /// The lobby's `PBNET_LOBBY_*` state (`PBNET_LOBBY_NONE` with none). Safe to call any time, from any thread.
 #[no_mangle]
 pub extern "C" fn pbnet_lobby_state() -> i32 {
+    pump();
     global().as_ref().map_or(PBNET_LOBBY_NONE, |l| lock(&l.shared).phase.c())
 }
 
@@ -1705,13 +1753,37 @@ pub unsafe extern "C" fn pbnet_lan_browse(setup_json: *const c_char, buf: *mut c
     unsafe { put(&json, buf, cap) }
 }
 
+/// N92, a browser host: takes the answer a guest sent back for the code shown (`pbnet.h`). 1 if taken (the guest
+/// then connects and is seated, or the lobby's `error` says why not), else 0 and why into `why`/`cap` as snprintf
+/// (`why` may be null). Always 0 on the desktop, whose guests need no answer.
+///
+/// # Safety
+///
+/// `answer` is null or a valid NUL-terminated string, `why` null or `cap` writable bytes, for the call only.
+#[no_mangle]
+pub unsafe extern "C" fn pbnet_lobby_answer(answer: *const c_char, why: *mut c_char, cap: i32) -> i32 {
+    // SAFETY: the caller's contract on `answer`.
+    let r = match unsafe { arg(answer) } {
+        Some(a) => crate::transport::take_answer(a),
+        None => Err("no answer".into()),
+    };
+    match r {
+        Ok(()) => 1,
+        Err(e) => {
+            // SAFETY: the caller's contract on `why`.
+            unsafe { put(&e, why, cap) };
+            0
+        }
+    }
+}
+
 /// Ends the LAN browse (closing its endpoint), if one runs. Safe to call any time, from any thread.
 #[no_mangle]
 pub extern "C" fn pbnet_lan_stop() {
     browse().take();
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "iroh"))]
 mod tests {
     use super::*;
     use n0_mainline::{Dht, Testnet};
@@ -2379,6 +2451,7 @@ mod tests {
             seats: h.room().seats_of(HOST),
             room: Some(h.room().clone()),
             gen: 9,
+            answer: String::new(),
         };
         let json = serde_json::to_string(&snap).unwrap();
         assert_eq!(json, include_str!("../../tools/netplay/lobby_started.json").trim_end(), "regenerate the fixture: {json}");

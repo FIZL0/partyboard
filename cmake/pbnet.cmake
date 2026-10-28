@@ -87,6 +87,11 @@ endif ()
 set(PBNET_DIR ${CMAKE_SOURCE_DIR}/net)
 set(PBNET_TARGET_DIR ${CMAKE_BINARY_DIR}/pbnet-cargo)
 set(PBNET_CARGO_ARGS build --release --locked --manifest-path ${PBNET_DIR}/Cargo.toml --target-dir ${PBNET_TARGET_DIR})
+if (EMSCRIPTEN)
+    # N92: the browser has no iroh (no UDP, no threads): WebRTC through the page (net/src/rtc.rs,
+    # src/port/web/pbnet_rtc.js, linked by cmake/web.cmake).
+    list(APPEND PBNET_CARGO_ARGS --no-default-features)
+endif ()
 if (PBNET_CARGO_TARGET)
     list(APPEND PBNET_CARGO_ARGS --target ${PBNET_CARGO_TARGET})
     set(PBNET_OUT_DIR ${PBNET_TARGET_DIR}/${PBNET_CARGO_TARGET}/release)
@@ -169,6 +174,12 @@ if (MSVC)
     endif ()
     set(PBNET_LIB ${PBNET_CARGO_LIB})
     add_custom_target(pbnet_lib DEPENDS pbnet_cargo)
+elseif (EMSCRIPTEN)
+    # N92: linked as is, as aurora's nod is on the web (cmake/web.cmake: hiding a Rust staticlib's std there gave
+    # wasm-ld an invalid module). wasm-ld takes the first copy of each std symbol and leaves the other archive's
+    # member out.
+    set(PBNET_LIB ${PBNET_CARGO_LIB})
+    add_custom_target(pbnet_lib DEPENDS pbnet_cargo)
 else ()
     set(PBNET_OBJ ${PBNET_TARGET_DIR}/pbnet.o)
     set(PBNET_LIB ${PBNET_TARGET_DIR}/libpbnet_hidden.a)
@@ -201,6 +212,8 @@ elseif (APPLE)
     set_property(TARGET pbnet PROPERTY INTERFACE_LINK_LIBRARIES "-framework CoreFoundation" "-framework Security" "-framework SystemConfiguration" iconv)
 elseif (ANDROID)
     set_property(TARGET pbnet PROPERTY INTERFACE_LINK_LIBRARIES dl log m)
+elseif (EMSCRIPTEN)
+    # the page's side, src/port/web/pbnet_rtc.js, is linked by cmake/web.cmake
 else ()
     set_property(TARGET pbnet PROPERTY INTERFACE_LINK_LIBRARIES pthread dl m util rt)
 endif ()

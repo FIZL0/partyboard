@@ -84,6 +84,8 @@ struct View {
     std::string code;
     std::string shortCode;
     std::string error;
+    // N92, a browser guest while it connects: its answer for the host (empty otherwise).
+    std::string answer;
     // This device's seat indices, in the order of Profile::players.
     std::vector<int> mySeats;
     bool hasRoom = false;

@@ -187,6 +187,15 @@ int pbnet_lan_browse(const char *setup, char *buf, int cap);
 void pbnet_lan_stop(void);
 
 /*
+ * N92, the browser build (net/src/rtc.rs): WebRTC needs a code each way. The host's code is an offer; a guest that
+ * joins with it gets an answer (the lobby JSON's "answer", while it connects) to send back, and the host passes it
+ * here: 1 if taken (the guest connects and is seated; if it can't, the lobby's "error" says so), else 0 and why
+ * snprintf'd into why/cap (why may be NULL). The host's code then changes (a fresh offer for the next guest). Always
+ * 0 on the desktop, whose guests need no answer.
+ */
+int pbnet_lobby_answer(const char *answer, char *why, int cap);
+
+/*
  * Drops never end a match (net/src/recover.rs, N10). After the start a guest whose connection drops redials the
  * host and rejoins with its token: the lockstep resumes on the same frame, or (a peer that lost its state, a CPU
  * stand-in) every peer reloads the room's last checkpoint as a new epoch of the started lobby.
