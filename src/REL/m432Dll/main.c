@@ -485,7 +485,11 @@ void fn_1_1FC4(Vec *arg0, float *arg1, s32 arg2, s32 arg3)
             var_r30 = 1;
         }
     }
+#ifndef TARGET_PC
+    // PB: adds to the stack slot of the pointer arg0, not *arg0. On GC that is 8(r1) and the 8 bytes after it, the
+    // spills of arg2/arg3, never read again (the function has no callers either); on PC it wrote past the slot (N121).
     VECAdd((Vec *)&arg0, &sp18, (Vec *)&arg0);
+#endif
 }
 
 s16 lbl_1_data_0[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };

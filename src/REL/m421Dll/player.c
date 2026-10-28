@@ -1051,7 +1051,17 @@ void fn_1_7AA0(omObjData *object)
     sp2C.y = 0.0f;
     VECSubtract(&sp38, &sp2C, &sp8);
     sp8.y = 0.0f;
+#ifdef TARGET_PC
+    // PB: reads 4 bytes past sp8. GC's frame has sp14 right after sp8 (sp8 at 8(r1), sp14 at 20(r1)), so GC takes
+    // the length of (sp8.y, sp8.z, sp14.x). x86-64 read the stack canary's low half there, random per process, and
+    // the COM weights below split runs and peers (N116, N121).
+    {
+        Vec gcVec = { sp8.y, sp8.z, sp14.x };
+        var_f28 = VECMag(&gcVec);
+    }
+#else
     var_f28 = VECMag((Vec *)&sp8.y);
+#endif
     var_f29 = 0.0025f * var_f28;
     if (var_f29 > 1.0f) {
         var_f29 = 1.0f;

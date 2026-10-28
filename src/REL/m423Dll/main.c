@@ -5675,6 +5675,11 @@ float fn_1_1367C(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3, f32 *arg4)
     return VECMag(&sp8);
 }
 
+#ifdef TARGET_PC
+// PB: the cases' VECAdd((Vec *)&arg3, ...) add sp10 to the stack slot of the pointer arg3, not to *arg3. On GC that
+// slot is 8(r1), followed by arg5's spill and sp10.x, and the function returns right after, so *arg3 never gets sp10
+// and nothing else changes. On PC the 12-byte write went past the 8-byte (4 in wasm) slot: it is left out (N121).
+#endif
 s32 fn_1_137C4(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3, float arg4, s32 arg5)
 {
     Vec sp40;
@@ -5710,7 +5715,9 @@ s32 fn_1_137C4(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3, float arg4, s32 arg5)
                     arg3->x = temp_f30;
                     arg3->y = arg0[0].y + arg4 + 1.0f;
                     arg3->z = temp_f28;
+#ifndef TARGET_PC
                     VECAdd((Vec *)&arg3, &sp10, (Vec *)&arg3);
+#endif
                     return 1;
                 }
             }
@@ -5729,7 +5736,9 @@ s32 fn_1_137C4(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3, float arg4, s32 arg5)
                     arg3->x = temp_f30;
                     arg3->y = arg0[0].y - arg4 - 1.0f;
                     arg3->z = temp_f28;
+#ifndef TARGET_PC
                     VECAdd((Vec *)&arg3, &sp10, (Vec *)&arg3);
+#endif
                     return 1;
                 }
             }
@@ -5748,7 +5757,9 @@ s32 fn_1_137C4(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3, float arg4, s32 arg5)
                     arg3->x = arg0[0].x - arg4 - 1.0f;
                     arg3->y = temp_f29;
                     arg3->z = temp_f28;
+#ifndef TARGET_PC
                     VECAdd((Vec *)&arg3, &sp10, (Vec *)&arg3);
+#endif
                     return 1;
                 }
             }
@@ -5767,7 +5778,9 @@ s32 fn_1_137C4(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3, float arg4, s32 arg5)
                     arg3->x = arg0[0].x + arg4 + 1.0f;
                     arg3->y = temp_f29;
                     arg3->z = temp_f28;
+#ifndef TARGET_PC
                     VECAdd((Vec *)&arg3, &sp10, (Vec *)&arg3);
+#endif
                     return 1;
                 }
             }
@@ -5786,7 +5799,9 @@ s32 fn_1_137C4(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3, float arg4, s32 arg5)
                     arg3->x = temp_f30;
                     arg3->y = temp_f29;
                     arg3->z = arg0[0].z + arg4 + 1.0f;
+#ifndef TARGET_PC
                     VECAdd((Vec *)&arg3, &sp10, (Vec *)&arg3);
+#endif
                     return 1;
                 }
             }
@@ -5805,7 +5820,9 @@ s32 fn_1_137C4(Vec *arg0, Vec *arg1, Vec *arg2, Vec *arg3, float arg4, s32 arg5)
                     arg3->x = temp_f30;
                     arg3->y = temp_f29;
                     arg3->z = arg0[0].z - arg4 - 1.0f;
+#ifndef TARGET_PC
                     VECAdd((Vec *)&arg3, &sp10, (Vec *)&arg3);
+#endif
                     return 1;
                 }
             }
