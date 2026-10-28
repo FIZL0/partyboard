@@ -1,0 +1,104 @@
+diff --git a/lib/webgpu/gpu.cpp b/lib/webgpu/gpu.cpp
+--- a/lib/webgpu/gpu.cpp
++++ b/lib/webgpu/gpu.cpp
+@@ -1024,8 +1024,20 @@
+   cache_shutdown();
+ }
+ 
+-void release_surface() noexcept {
++// gfx::gpu_synchronize for the surface calls below. Their callers hold the SurfaceLock (begin_frame,
++// aurora_can_present) and the render thread's queued frame takes it to present, so waiting for that frame under the
++// lock deadlocks, and on Android surfaceDestroyed (same mutex) then hangs the UI thread: give it up while waiting.
++// The render thread itself never waits, and with nothing queued (only this thread queues frames) there is no wait.
++static void synchronize_surface_unlocked() {
++  if (gfx::render_worker::is_worker_thread() || gfx::render_worker::is_idle()) {
++    return;
++  }
++  window::SurfaceUnlock unlock;
+   gfx::gpu_synchronize();
++}
++
++void release_surface() noexcept {
++  synchronize_surface_unlocked();
+   if (g_surface) {
+     g_surface.Unconfigure();
+   }
+@@ -1033,7 +1045,7 @@
+ }
+ 
+ bool refresh_surface(bool recreate) {
+-  gfx::gpu_synchronize();
++  synchronize_surface_unlocked();
+   if (!g_instance || !g_device) {
+     return false;
+   }
+diff --git a/lib/window.cpp b/lib/window.cpp
+--- a/lib/window.cpp
++++ b/lib/window.cpp
+@@ -470,18 +470,41 @@
+ 
+ void set_surface_ready(bool ready) noexcept { g_surfaceReady.store(ready, std::memory_order_release); }
+ 
++// SurfaceLocks this thread holds (the activity mutex is recursive)
++static thread_local int g_surfaceLockDepth = 0;
++
+ SurfaceLock::SurfaceLock() noexcept {
+ #if defined(SDL_PLATFORM_ANDROID)
+   Android_LockActivityMutex();
+ #endif
++  ++g_surfaceLockDepth;
+ }
+ 
+ SurfaceLock::~SurfaceLock() {
++  --g_surfaceLockDepth;
+ #if defined(SDL_PLATFORM_ANDROID)
+   Android_UnlockActivityMutex();
+ #endif
+ }
+ 
++SurfaceUnlock::SurfaceUnlock() noexcept : m_depth(g_surfaceLockDepth) {
++  g_surfaceLockDepth = 0;
++#if defined(SDL_PLATFORM_ANDROID)
++  for (int i = 0; i < m_depth; ++i) {
++    Android_UnlockActivityMutex();
++  }
++#endif
++}
++
++SurfaceUnlock::~SurfaceUnlock() {
++#if defined(SDL_PLATFORM_ANDROID)
++  for (int i = 0; i < m_depth; ++i) {
++    Android_LockActivityMutex();
++  }
++#endif
++  g_surfaceLockDepth = m_depth;
++}
++
+ bool push_custom_event(CustomEvent eventType) {
+   SDL_Event event{.type = g_sdlCustomEventsStart + eventType};
+   return SDL_PushEvent(&event);
+diff --git a/lib/window.hpp b/lib/window.hpp
+--- a/lib/window.hpp
++++ b/lib/window.hpp
+@@ -26,6 +26,21 @@
+   SurfaceLock& operator=(const SurfaceLock&) = delete;
+ };
+ 
++// Gives up this thread's SurfaceLock (if it holds one) until the end of the scope, for waits on the render thread:
++// its frame takes the SurfaceLock to present, so waiting for it under the lock deadlocks (and the SDLActivity's
++// surfaceDestroyed, which takes the same mutex, blocks the UI thread behind both).
++class SurfaceUnlock {
++public:
++  SurfaceUnlock() noexcept;
++  ~SurfaceUnlock();
++
++  SurfaceUnlock(const SurfaceUnlock&) = delete;
++  SurfaceUnlock& operator=(const SurfaceUnlock&) = delete;
++
++private:
++  int m_depth = 0;
++};
++
+ bool initialize();
+ bool initialize_event_watch();
+ bool push_custom_event(CustomEvent eventType);
