@@ -106,10 +106,14 @@ static TutorialScene sceneTbl[42] = {
 	{-1, NULL },
 };
 
+#ifdef TARGET_PC
+void TutorialHookExec(s16 arg0, s32 arg1) {
+#else
 int TutorialHookExec(s16 arg0, s32 arg1) {
+#endif
     if (arg0 == 30) {
         CloseTutorial();
-#ifdef NON_MATCHING
+#if defined(NON_MATCHING) && !defined(TARGET_PC)
         return 0;
 #else
         return;

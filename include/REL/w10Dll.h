@@ -39,7 +39,12 @@ void TutorialSpaceHide(void);
 void TutorialSprCreate(void);
 void TutorialSprKill(void);
 void HostCreate(void);
+#ifdef TARGET_PC
+/* N107: BoardTutorialHookExec calls it as void (*)(s16, s32); wasm traps on the int it doesn't read */
+void TutorialHookExec(s16, s32);
+#else
 int TutorialHookExec(s16, s32);
+#endif
 
 void TutorialStartExec(void);
 void TutorialPreRollExec(void);
