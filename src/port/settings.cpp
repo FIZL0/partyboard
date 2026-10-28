@@ -44,6 +44,7 @@ UserSettings g_userSettings = {
         .allowBackgroundInput {"game.allowBackgroundInput", true},
         .buttonIcons {"game.buttonIcons", 0},
         .touchControls {"game.touchControls", true},
+        .touchHaptics {"game.touchHaptics", true},
 
         // Cheats
         .infiniteHearts {"game.infiniteHearts", false},
@@ -115,6 +116,7 @@ void registerSettings() {
     Register(g_userSettings.game.allowBackgroundInput);
     Register(g_userSettings.game.buttonIcons);
     Register(g_userSettings.game.touchControls);
+    Register(g_userSettings.game.touchHaptics);
 
     Register(g_userSettings.backend.isoPath);
     Register(g_userSettings.backend.isoVerification);

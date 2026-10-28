@@ -9,6 +9,7 @@
 #include "touch_pad.hpp"
 
 #include "port/settings.h"
+#include "port/touch_haptics.h"
 #include "port/touch_pad.h"
 
 #include <RmlUi/Core.h>
@@ -70,6 +71,12 @@ namespace {
     constexpr float kStickDeadZone = 0.12f;
     // The analog value aurora gives a digital L/R press (pad.cpp).
     constexpr u8 kTriggerPressed = 180;
+    // N111: the stick's haptic tick: past this deflection (of the base's radius) it is in one of 8 directions, and
+    // back under kStickDirectionRelease it is centred again (the gap stops a finger on the edge from buzzing).
+    constexpr float kStickDirectionPress = 0.5f;
+    constexpr float kStickDirectionRelease = 0.35f;
+    // Of a direction's 45 degree sector: how far past its edge the stick goes before the next direction takes over.
+    constexpr float kStickSectorSlack = 0.15f;
     // A controller stick moved this far hides the pad; less is drift.
     constexpr Sint16 kAxisHideThreshold = 16000;
 
@@ -80,6 +87,8 @@ namespace {
         // Pressed since the last frame: a tap that is down and up within one frame's events still reaches PADRead.
         u16 latched = 0;
         int stickFinger = -1;
+        // N111: the stick's 8-way direction (0 = east, counter-clockwise on screen), -1 centred.
+        int stickDirection = -1;
         Rml::Vector2f stickOrigin;
         Rml::Vector2f stickTouch;
     };
@@ -261,10 +270,38 @@ namespace {
         sState.published = true;
     }
 
+    // N111: a light tick each time the stick moves into another of its 8 directions (not when it re-centres).
+    void update_stick_direction(const Layout &l) noexcept
+    {
+        const Rml::Vector2f v = stick_offset(l) / l.boxes[kStick].half.x;
+        const float len = std::sqrt(v.x * v.x + v.y * v.y);
+        if (len < kStickDirectionRelease || (sState.stickDirection < 0 && len < kStickDirectionPress)) {
+            sState.stickDirection = -1;
+            return;
+        }
+        if (len < kStickDirectionPress) {
+            return;
+        }
+        const float sector = std::atan2(-v.y, v.x) / (2.0f * 3.14159265f) * 8.0f;
+        if (sState.stickDirection >= 0) {
+            // Stay in the current direction until a bit past its edge: a finger on the line between two would buzz.
+            const float off = std::abs(std::remainder(sector - static_cast<float>(sState.stickDirection), 8.0f));
+            if (off < 0.5f + kStickSectorSlack) {
+                return;
+            }
+        }
+        const int direction = (static_cast<int>(std::lround(sector)) + 8) % 8;
+        if (direction != sState.stickDirection) {
+            sState.stickDirection = direction;
+            touch_haptic(TOUCH_HAPTIC_STICK);
+        }
+    }
+
     void release_fingers() noexcept
     {
         sState.fingers = {};
         sState.stickFinger = -1;
+        sState.stickDirection = -1;
         sState.latched = 0;
     }
 
@@ -313,9 +350,11 @@ namespace {
             sState.stickFinger = slot;
             sState.stickOrigin = origin;
             sState.stickTouch = p;
+            update_stick_direction(l);
         }
         else {
             sState.latched |= kControls[c].button;
+            touch_haptic(TOUCH_HAPTIC_PRESS);
         }
     }
 
@@ -329,6 +368,7 @@ namespace {
         const Rml::Vector2f p = finger_position(event, *context);
         if (f->control == kStick) {
             sState.stickTouch = p;
+            update_stick_direction(compute_layout(*context));
             return;
         }
         // Sliding onto another button presses that one instead (A to B without lifting).
@@ -336,6 +376,7 @@ namespace {
         if (c != kNone && c != f->control) {
             f->control = c;
             sState.latched |= kControls[c].button;
+            touch_haptic(TOUCH_HAPTIC_PRESS);
         }
     }
 
@@ -347,6 +388,7 @@ namespace {
         }
         if (f->control == kStick) {
             sState.stickFinger = -1;
+            sState.stickDirection = -1;
         }
         *f = {};
     }
