@@ -34,7 +34,8 @@ Everything below "Overview" is upstream's README; the port itself is their work.
 - **Log file** on every platform (`<user dir>/logs/partyboard.log`, Settings > Advanced).
 - **First launch** uses the Party Board preset directly, with no Classic / Party Board prompt.
 - **Mobile**: the Rust netcode (`net/`, `pbnet`) builds for Android (Gradle APKs), and `tools/ios-ipa.sh` builds an
-  **unsigned iOS IPA on Linux** (`build/partyboard-ios.ipa`) for you to sign and sideload.
+  **unsigned iOS IPA on Linux** (`build/partyboard-ios.ipa`) for you to sign and sideload. Released IPAs install and
+  update through the FIZL0 source: add `https://fizl0.github.io/apps/source.json` in AltStore, SideStore or Feather.
 
 **Platforms**: Linux, Windows, Android, iOS and the browser. macOS and tvOS are **not targets** of this fork:
 upstream's files for them are left as they are, but nothing here is built, tested or fixed for them.
@@ -77,7 +78,10 @@ Version Completion:
 
 ### 1. Download [Party Board](https://github.com/mariopartyrd/partyboard/releases)
 
-Those are upstream's builds, without online play. This fork publishes no releases yet: build it from source (below).
+Those are upstream's builds, without online play. This fork's releases ([FIZL0/partyboard](https://github.com/FIZL0/partyboard/releases),
+`tools/release.sh`) carry only the unsigned iOS IPA so far: on an iPhone, add the source
+`https://fizl0.github.io/apps/source.json` in AltStore, SideStore or Feather to install and update it. Other platforms:
+build it from source (below).
 
 ### 2. Setup the game
 
