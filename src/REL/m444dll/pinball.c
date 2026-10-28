@@ -19,6 +19,9 @@
 #ifndef __MWERKS__
 #include "game/frand.h"
 #endif
+#ifdef TARGET_PC
+#include "port/netplay.h"
+#endif
 
 s16 lbl_1_bss_198F0[5][2];
 Vec lbl_1_bss_D8F0[4096];
@@ -272,6 +275,11 @@ void fn_1_9418(s16 arg0)
         temp_r27 = frandmod(100) + 20;
     }
     while (1) {
+#ifdef TARGET_PC
+        if (netplay_active()) {
+            netplay_script_plunger_wait(lbl_1_bss_2D8);
+        }
+#endif
         temp_r26 = HuPadBtnDown[lbl_1_bss_2D8];
         temp_r23 = HuPadBtn[lbl_1_bss_2D8];
         temp_r25 = HuPadStkY[lbl_1_bss_2D8];
@@ -923,7 +931,10 @@ s16 fn_1_B1E8(Vec *arg0, Vec *arg1, s16 arg2)
     }
     if (temp_r30 == lbl_1_data_3A4[arg2]) {
         arg1->y += 0.3;
-#if VERSION_REV2
+#if VERSION_REV2 && !defined(TARGET_PC)
+        /* Reads the stack, not *arg1. On GC the 12 bytes are arg1 itself (0x80xxxxxx, a float under 1e-37), the volatile
+         * temp of sqrtf(6.0f) above (2.449) and spC: the length is never under 0.000001 and this never runs. On PC they
+         * are a 64-bit pointer and stack garbage, so with ASLR the ball fell twice as fast in some runs (N114). */
         if (VECMag((Vec *)&arg1) < 0.000001) {
             arg1->y += 0.3;
         }

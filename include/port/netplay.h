@@ -103,6 +103,13 @@ BOOL netplay_debug_scripted(void);
 /* True if the --script has `mg-explain off`: a --match party then starts with the minigame explanations off. */
 BOOL netplay_debug_mg_explain_off(void);
 /*
+ * m444's plunger loop (fn_1_9418), while netplay_active(): called every frame it waits for its human player to pull the
+ * plunger (stick down) and press A, with the pad it reads. --script's `plunger-stick on` (N114) then pulls that pad's
+ * stick and holds its A back until the pull is a full one: a launch from a short pull can leave the ball bouncing
+ * between the plunger and the lane's wall for ever.
+ */
+void netplay_script_plunger_wait(s32 pad);
+/*
  * `--turbo` (with --script, N50): the run skips the 60 Hz frame limiter, like holding the TAB turbo key, so
  * scripted checks run as fast as the machine goes. True only for a --script run outside lockstep (a lockstep
  * session keeps the pace its peers share); without --script the flag is ignored (and logged).
