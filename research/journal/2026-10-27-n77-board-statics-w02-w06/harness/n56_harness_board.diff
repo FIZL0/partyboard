@@ -1,0 +1,19 @@
+--- research/journal/2026-10-27-n56-brand-desync-1080/harness/n56_harness.inc	2026-10-27 17:34:33.236851562 -0400
++++ build/n77/n56_harness.inc	2026-10-27 20:20:01.000855357 -0400
+@@ -185,6 +185,16 @@
+             return;
+         case 3: {
+             const auto j = nlohmann::json::parse(pbnet_text(pbnet_lobby_json), nullptr, false);
++            if (const char *nb = std::getenv("PB_N77_BOARD"); nb && j.is_object() && j.contains("room") &&
++                j["room"].value("board", -1) != std::atoi(nb)) {
++                const auto &rm = j["room"];
++                uint8_t hc[4] = {};
++                pbnet_lobby_settings(std::atoi(nb), rm.value("turns", 20), rm.value("bonus", true) ? 1 : 0,
++                    rm.value("teams", false) ? 1 : 0, hc);
++                std::fprintf(stderr, "n77: board set to %s\n", nb);
++                wait = 30;
++                return;
++            }
+             if (j.is_object() && j.contains("room") && j["room"].contains("ready") && j["room"]["ready"].size() >= 1 &&
+                 n38_press("Start Match")) {
+                 wait = 120;

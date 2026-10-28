@@ -1,0 +1,270 @@
+diff --git i/src/game/board/main.c w/src/game/board/main.c
+index fe25a359..e01e07ed 100644
+--- i/src/game/board/main.c
++++ w/src/game/board/main.c
+@@ -1,3 +1,6 @@
++#ifdef TARGET_PC
++#define _GNU_SOURCE 1
++#endif
+ #include "game/board/main.h"
+ #include "ext_math.h"
+ #include "game/board/battle.h"
+@@ -1448,8 +1451,35 @@ void BoardRandInit(void)
+ #endif
+ }
+ 
++#ifdef TARGET_PC
++#include <dlfcn.h>
++#include <execinfo.h>
++#include <stdio.h>
++#include <stdlib.h>
++static void n56_trace(void *ra)
++{
++    static int on = -1;
++    Dl_info di;
++    if (on < 0) on = getenv("PB_N56") != NULL;
++    if (!on) return;
++    void *bt[6];
++    int n = backtrace(bt, 6), i;
++    fprintf(stderr, "n56: brand f%u seed %08X", netplay_frame(), boardRandSeed);
++    for (i = 1; i < n; i++) {
++        if (dladdr(bt[i], &di) && di.dli_fname) {
++            const char *b = strrchr(di.dli_fname, '/');
++            fprintf(stderr, " %s+%lx(%s)", b ? b + 1 : di.dli_fname, (unsigned long)((char *)bt[i] - (char *)di.dli_fbase),
++                di.dli_sname ? di.dli_sname : "?");
++        }
++    }
++    fprintf(stderr, "\n");
++}
++#endif
+ u32 BoardRand(void)
+ {
++#ifdef TARGET_PC
++    n56_trace(__builtin_return_address(0));
++#endif
+     boardRandSeed = (boardRandSeed*0x19660D)+(0x3C6EF35F);
+     return boardRandSeed;
+ }
+diff --git i/src/game/board/start.c w/src/game/board/start.c
+index 80704468..a53ba587 100755
+--- i/src/game/board/start.c
++++ w/src/game/board/start.c
+@@ -33,6 +33,7 @@
+ #include "dolphin.h"
+ #include "ext_math.h"
+ #include <string.h>
++#include <stdlib.h> /* N77 scratch */
+ 
+ typedef struct {
+     struct {
+@@ -229,6 +230,14 @@ static void ExecStart(void) {
+             HuPrcVSleep();
+         }
+     } else {
++#ifdef TARGET_PC
++        if (netplay_active() && !getenv("PB_N77_NOFIX")) { /* N77 scratch: NOFIX */
++            /* N77: on w06 the first star's show runs Bowser's spot (boardStarShowNextHook: a BoardRand draw, a space
++             * type, a message) unless itemPrev is 9 (a Chomp Call this turn). No turn has set itemPrev yet: it is
++             * what the last session left, 9 if that one was left after a Chomp Call before the move ended. */
++            BoardItemPrevSet(-1);
++        }
++#endif
+         BoardStarShowNext(-1);
+     }
+     HuPrcEnd();
+diff --git i/src/game/objmain.c w/src/game/objmain.c
+index f85297a4..ef765d63 100644
+--- i/src/game/objmain.c
++++ w/src/game/objmain.c
+@@ -101,6 +101,7 @@ static void omWatchOverlayProc(void)
+                 if (netplay_active() || netplay_match_results()) {
+                     netplay_ovl_start(omnextovl);
+                 }
++                { void n68_dump(s32); if (netplay_active()) n68_dump(omnextovl); }
+ #endif
+                 OSReport("objman>Init esp\n");
+                 espInit();
+diff --git i/src/port/netplay.c w/src/port/netplay.c
+index 8cd7412f..25480a11 100644
+--- i/src/port/netplay.c
++++ w/src/port/netplay.c
+@@ -659,8 +659,34 @@ BOOL netplay_lobby_returned(void)
+     return r;
+ }
+ 
++#include "game/hu3d.h"
++#include <dlfcn.h>
++static void n56_mot(void)
++{
++    s32 i;
++    static s16 *mdl;
++    static s16 (*BoardModelIDGet)(s16);
++    if (!getenv("PB_N56") || frame < 1080 || frame > 1175 || omcurovl != 89) return;
++    if (!mdl) {
++        mdl = (s16 *)dlsym(RTLD_DEFAULT, "boardPlayerMdl");
++        BoardModelIDGet = (s16 (*)(s16))dlsym(RTLD_DEFAULT, "BoardModelIDGet");
++        if (!mdl || !BoardModelIDGet) { OSReport("n56: no syms\n"); return; }
++    }
++    for (i = 0; i < 4; i++) {
++        s16 id = BoardModelIDGet(mdl[GWPlayer[i].player_idx]);
++        HU3DMODEL *m;
++        if (id < 0) continue;
++        m = &Hu3DData[id];
++        OSReport("n56: mot f%u p%d id%d mot%d sh%d attr%08X mattr%08X t%.3f s%.3f e%.3f sht%.3f shs%.3f jump%d\n", frame, i, id,
++            m->motId, m->motIdShift, m->attr, m->motAttr, m->motWork.time, m->motWork.speed, m->motWork.end,
++            m->motShiftWork.time, m->motShiftWork.speed, GWPlayer[i].jump);
++    }
++}
++
+ void netplay_frame_end(void)
+ {
++    { void n68_dump(s32); if (netplay_match_running() && frame % 1000 == 300) n68_dump(-1); } /* N68 scratch */
++    n56_mot();
+     if (hash_log != NULL) {
+         hash_log_line(hash_log, frame);
+     }
+@@ -677,6 +703,12 @@ void netplay_frame_end(void)
+     }
+     if (debug_leave_at != 0 && frame == debug_leave_at && netplay_match_running()) {
+         match_left("--leave-at");
++        if (getenv("PB_N77_ITEMPREV")) { /* N77 scratch: as if left after a Chomp Call, before the move ended */
++            void BoardItemPrevSet(s32 type);
++            BoardItemPrevSet(atoi(getenv("PB_N77_ITEMPREV")));
++            OSReport("n77: itemPrev set to %s at the leave\n", getenv("PB_N77_ITEMPREV"));
++        }
++        if (getenv("PB_N68_LEAVE_ONCE")) debug_leave_at = 0; /* N68 scratch */
+     }
+     if (debug_match_at != 0 && frame == debug_match_at && debug_continue_size != 0) {
+         netplay_match_continue(&debug_match, debug_continue, debug_continue_size);
+@@ -719,6 +751,24 @@ BOOL netplay_lockstep(void)
+     return pbnet_lockstep_active() != 0;
+ }
+ 
++/* N38 scratch: this machine's seat mashes A (START in instDll and the party results). */
++static void n38_pads(PADStatus *local, u32 at)
++{
++    static int last_ovl = -1;
++    static u32 since;
++    if (getenv("PB_N38") == NULL) {
++        return;
++    }
++    if ((int)omcurovl != last_ovl) {
++        last_ovl = (int)omcurovl;
++        since = at;
++    }
++    memset(local, 0, 4 * sizeof(*local));
++    if (at % 24 < 4 && !(omcurovl == 3 && at - since < 120)) {
++        local[0].button = (omcurovl == 3 || omcurovl == 78) ? PAD_BUTTON_START : PAD_BUTTON_A;
++    }
++}
++
+ BOOL netplay_tick_begin(void)
+ {
+     PADStatus local[4];
+@@ -735,9 +785,9 @@ BOOL netplay_tick_begin(void)
+     }
+     /*
+      * N56: the lockstep's frame 0 is the match's frame 0 on every peer. A debug session (--hash-log) has netplay on
+-     * in the menus too: it stepped a started lobby's lockstep there until netplay_lobby_poll applied the start, so
+-     * its match's frame 0 was pbnet's frame 1 or 2 (a race with the lobby thread), not the other peers'. The board's
+-     * intro hashes alike a frame apart, but a message that got ready a frame later missed an A press there (BoardRand
++     * in the menus too: stepping a started lobby's lockstep there, before netplay_lobby_poll applied the start, put
++     * that peer's match one frame behind the others' (its frame 0 was pbnet's frame 1). Whether it did was a race
++     * with the lobby thread, and a board message that got ready one frame later missed an A press (BoardRand
+      * diverged at the turn-order dice, frame ~1080 on w01).
+      */
+     if (!netplay_match_running()) {
+@@ -749,6 +799,10 @@ BOOL netplay_tick_begin(void)
+      * timing), and raise no desync. */
+     if (next % 30 == 0 && (!step_hash_set || step_hash_frame != next) && netplay_gameplay_ovl(omcurovl)) {
+         pbnet_set_hash(next, netplay_hash());
++        if (getenv("PB_N56") && next < 100) {
++            OSReport("n56: hash f%u (frame %u) %016llX frand=%08X rand8=%08X brand=%08X pending=%d\n", next, frame,
++                (unsigned long long)netplay_hash(), (unsigned)frandSeedGet(), (unsigned)rnd_seed, (unsigned)boardRandSeed, 0);
++        }
+         step_hash_frame = next;
+         step_hash_set = TRUE;
+     }
+@@ -772,6 +826,7 @@ BOOL netplay_tick_begin(void)
+             local[i].err = PAD_ERR_NONE;
+         }
+     }
++    n38_pads(local, next);
+     /* pbnet takes the local pads at the first call for a frame only. */
+     if (!step_taken_set || step_taken_frame != next) {
+         for (i = 0; i < 4; i++) {
+diff --git i/src/port/netplay_match.c w/src/port/netplay_match.c
+index 4c4a06d1..5c1ccacb 100644
+--- i/src/port/netplay_match.c
++++ w/src/port/netplay_match.c
+@@ -961,3 +961,44 @@ BOOL netplay_match_parse_debug(const char *spec, NetplayMatch *m, u32 *at_frame)
+     *at_frame = (u32)at;
+     return TRUE;
+ }
++
++/* N68 scratch: dump libdol's writable segments at an overlay start (PB_N68_DUMP=<dir>). */
++#include <link.h>
++static int n68_phdr(struct dl_phdr_info *info, size_t size, void *user)
++{
++    FILE *f = (FILE *)user;
++    int i;
++    (void)size;
++    if (info->dlpi_name == NULL || strstr(info->dlpi_name, "libdol.so") == NULL) {
++        return 0;
++    }
++    for (i = 0; i < info->dlpi_phnum; i++) {
++        const ElfW(Phdr) *ph = &info->dlpi_phdr[i];
++        if (ph->p_type == PT_LOAD && (ph->p_flags & PF_W)) {
++            unsigned long long v = ph->p_vaddr, n = ph->p_memsz, base = info->dlpi_addr;
++            fwrite(&base, 8, 1, f);
++            fwrite(&v, 8, 1, f);
++            fwrite(&n, 8, 1, f);
++            fwrite((void *)(info->dlpi_addr + ph->p_vaddr), 1, ph->p_memsz, f);
++        }
++    }
++    return 1;
++}
++
++void n68_dump(s32 ovl)
++{
++    static int seq;
++    const char *dir = getenv("PB_N68_DUMP");
++    char path[512];
++    FILE *f;
++    if (dir == NULL) {
++        return;
++    }
++    snprintf(path, sizeof(path), "%s/%02d-f%u-ovl%d.bin", dir, seq++, netplay_frame(), (int)ovl);
++    f = fopen(path, "wb");
++    if (f == NULL) {
++        return;
++    }
++    dl_iterate_phdr(n68_phdr, f);
++    fclose(f);
++}
+diff --git i/src/port/ui/online.cpp w/src/port/ui/online.cpp
+index 2023fae1..fb91461f 100644
+--- i/src/port/ui/online.cpp
++++ w/src/port/ui/online.cpp
+@@ -13,6 +13,10 @@
+ #include "ui.hpp"
+ 
+ #include <SDL3/SDL_clipboard.h>
++#include <RmlUi/Core.h>
++#include <cstdio>
++#include <fstream>
++#include <sys/time.h>
+ #include <fmt/chrono.h>
+ #include <fmt/format.h>
+ #include <nlohmann/json.hpp>
+@@ -752,8 +756,10 @@ std::string OnlineWindow::lan_status() const
+     return "Press a game to join it.";
+ }
+ 
++#include "/home/ryha/repos/partyboard-slots/s2/build/n77/n56_harness.inc"
+ void update_online_match()
+ {
++    n38_harness();
+     static std::shared_ptr<bool> alive = std::make_shared<bool>(false);
+     static HoldModal *shown = nullptr;
+     static std::string shownKey;
