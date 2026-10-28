@@ -33,6 +33,9 @@
 #   for the game's hold; aurora_begin_frame_always() begins a frame that can't be shown and aurora_end_frame drops it
 #   without a submit; aurora_end_frame with no frame begun drops the recorded GX instead of aborting ("No active frame
 #   packet": the iOS crash on Control Center and the Local Network prompt).
+# - 0011-gfx-negative-viewport (N105): a GX viewport with a negative width or height (m411 hides split-screen quarters
+#   with one, under an empty scissor) reaches the render pass as the same rectangle with positive sides. The browser's
+#   WebGPU rejected SetViewport(1284, 20, -20, 938) as a fatal validation error; desktop Dawn skips validation.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)

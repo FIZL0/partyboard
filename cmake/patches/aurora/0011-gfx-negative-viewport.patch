@@ -1,0 +1,27 @@
+diff --git a/lib/gfx/common.cpp b/lib/gfx/common.cpp
+--- a/lib/gfx/common.cpp
++++ b/lib/gfx/common.cpp
+@@ -1459,7 +1459,22 @@
+       const auto& vp = cmd.data.setViewport;
+       const float minDepth = gx::UseReversedZ ? 1.f - vp.zfar : vp.znear;
+       const float maxDepth = gx::UseReversedZ ? 1.f - vp.znear : vp.zfar;
+-      pass.SetViewport(vp.left, vp.top, vp.width, vp.height, minDepth, maxDepth);
++      // GX takes a negative width or height (a mirrored viewport; games set one for a hidden split-screen
++      // quarter, with an empty scissor). WebGPU rejects it as a fatal validation error: give it the same
++      // rectangle with positive sides.
++      float left = vp.left;
++      float top = vp.top;
++      float width = vp.width;
++      float height = vp.height;
++      if (width < 0.f) {
++        left += width;
++        width = -width;
++      }
++      if (height < 0.f) {
++        top += height;
++        height = -height;
++      }
++      pass.SetViewport(left, top, width, height, minDepth, maxDepth);
+     } break;
+     case CommandType::SetScissor: {
+       const auto& sc = cmd.data.setScissor;
