@@ -229,6 +229,14 @@ static void ExecStart(void) {
             HuPrcVSleep();
         }
     } else {
+#ifdef TARGET_PC
+        if (netplay_active()) {
+            /* N77: on w06 the first star's show runs Bowser's spot (boardStarShowNextHook: a BoardRand draw, a space
+             * type, a message) unless itemPrev is 9 (a Chomp Call this turn). No turn has set itemPrev yet: it is
+             * what the last session left, 9 if that one was left after a Chomp Call before the move ended. */
+            BoardItemPrevSet(-1);
+        }
+#endif
         BoardStarShowNext(-1);
     }
     HuPrcEnd();
