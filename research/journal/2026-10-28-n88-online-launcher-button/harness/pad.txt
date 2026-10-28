@@ -1,0 +1,10 @@
+120 dump
+130 pad 12
+135 dump
+140 pad 0
+200 dump
+210 pad 12
+215 dump
+220 pad 0
+400 dump
+420 quit

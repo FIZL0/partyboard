@@ -1,0 +1,44 @@
+diff --git i/src/port/ui/prelaunch.cpp w/src/port/ui/prelaunch.cpp
+index fa7c3eb1..c003b277 100644
+--- i/src/port/ui/prelaunch.cpp
++++ w/src/port/ui/prelaunch.cpp
+@@ -582,6 +582,7 @@ void ensure_initialized() noexcept
+ void open_iso_picker() noexcept
+ {
+     ensure_initialized();
++    if (const char *fake = getenv("PB_N88_FAKEPICK")) { fprintf(stderr, "n88: fake pick %s\n", fake); file_dialog_callback(nullptr, fake, nullptr); return; }
+     ShowFileSelect(
+         &file_dialog_callback, nullptr, aurora::window::get_sdl_window(), kDiscFileFilters.data(), kDiscFileFilters.size(), nullptr, false);
+ }
+@@ -773,12 +774,14 @@ void Prelaunch::update()
+     const bool canLaunchConfiguredDisc = state.configuredDiscCanLaunch;
+     const bool activeDiscLoaded = !state.activeDiscPath.empty();
+     const bool discRestartPending = activeDiscLoaded && state.configuredDiscPath != state.activeDiscPath;
++    // Launched before this update: launchUILoop has ended and this update runs from the game's loop (heaps set up).
++    const bool gameRunning = PartyBoard_IsGameLaunched;
+     mDocument->SetClass("disc-ready", PartyBoard_IsGameLaunched);
+     if (canLaunchConfiguredDisc) {
+         PartyBoard_IsGameLaunched = true;
+     }
+ 
+-    if (mOnlineAfterDisc && activeDiscLoaded && top_document() == this) {
++    if (mOnlineAfterDisc && activeDiscLoaded && gameRunning && top_document() == this) {
+         launch_online();
+     }
+ 
+diff --git i/src/port/ui/ui.cpp w/src/port/ui/ui.cpp
+index 12161699..75334934 100644
+--- i/src/port/ui/ui.cpp
++++ w/src/port/ui/ui.cpp
+@@ -228,8 +228,11 @@ Document *top_document() noexcept
+     return nullptr;
+ }
+ 
++#include "port/main.h"
++#include "/tmp/claude-1000/-home-ryha-repos-partyboard-slots-s2/649d4459-4d3f-47d5-b29b-2f9db54e842c/scratchpad/n88_test.inc"
+ void update() noexcept
+ {
++    n88_tick();
+     if (!aurora::rmlui::is_initialized()) {
+         return;
+     }
