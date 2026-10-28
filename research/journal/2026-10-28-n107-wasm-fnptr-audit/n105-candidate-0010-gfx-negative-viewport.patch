@@ -1,0 +1,24 @@
+diff --git a/lib/gfx/common.cpp b/lib/gfx/common.cpp
+--- a/lib/gfx/common.cpp
++++ b/lib/gfx/common.cpp
+@@ -1459,7 +1459,19 @@
+       const auto& vp = cmd.data.setViewport;
+       const float minDepth = gx::UseReversedZ ? 1.f - vp.zfar : vp.znear;
+       const float maxDepth = gx::UseReversedZ ? 1.f - vp.znear : vp.zfar;
+-      pass.SetViewport(vp.left, vp.top, vp.width, vp.height, minDepth, maxDepth);
++      // GX takes a negative width or height (a mirrored viewport; m411's split screen sets one at full size,
++      // left of 642 and width -10, all of it outside its scissor). WebGPU rejects it and the browser build
++      // loses the device: the same span with a positive size (not mirrored).
++      float left = vp.left, top = vp.top, width = vp.width, height = vp.height;
++      if (width < 0.f) {
++        left += width;
++        width = -width;
++      }
++      if (height < 0.f) {
++        top += height;
++        height = -height;
++      }
++      pass.SetViewport(left, top, width, height, minDepth, maxDepth);
+     } break;
+     case CommandType::SetScissor: {
+       const auto& sc = cmd.data.setScissor;

@@ -1,0 +1,41 @@
+diff --git i/src/REL/bootDll/main.c w/src/REL/bootDll/main.c
+index ef53e659..703bcce4 100644
+--- i/src/REL/bootDll/main.c
++++ w/src/REL/bootDll/main.c
+@@ -16,6 +16,9 @@
+ #include "game/window.h"
+ #include "game/wipe.h"
+ #include "math.h"
++#include <stdlib.h> /* N107_TMP */
++#include "game/flag.h" /* N107_TMP */
++#include "game/objsub.h" /* N107_TMP */
+ 
+ #include "data_num/title.h"
+ 
+@@ -155,11 +158,25 @@ void ObjectSetup(void)
+ #endif
+ #endif
+ #ifdef TARGET_PC
+-     if (omovlevtno == 0 && partyboard_settings_skipBootSequence()) {
++     if (omovlevtno == 0 && (partyboard_settings_skipBootSequence() || getenv("PB_N107_TUT"))) { /* N107_TMP */
+          for (i = 0; i < 4; i++) {
+              GWPlayerCfg[i].pad_idx = i;
+          }
+          BootInitForSkippedSequence();
++         if (getenv("PB_N107_TUT")) { /* N107_TMP: the tutorial board as selmenuDll starts it */
++             for (i = 0; i < 4; i++) {
++                 GWPlayerCfg[i].character = i;
++                 GWPlayerCfg[i].iscom = 1;
++                 GWPlayerCfg[i].group = i;
++             }
++             GWSystem.mg_next = omMgIndexGet(DLL_w10dll);
++             _SetFlag(0x1000B);
++             omOvlCallEx(DLL_w10dll, 1, 0, 0);
++             HuPrcEnd();
++             do {
++                 HuPrcVSleep();
++             } while (1);
++         }
+          omOvlCallEx(DLL_modeseldll, 1, MODESEL_EVENT_SKIP_BOOT, 0);
+          for (i = 0; i < 4; i++) {
+              GWPlayerCfg[i].character = -1;

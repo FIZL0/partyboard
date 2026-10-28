@@ -1,0 +1,93 @@
+UNPROTO  src/game/board/com.c:179 ExecComKeyLeft 'void (void)' [()->void] -> 'void (*)()' arg0 of BoardWinComKeyFuncSet
+UNPROTO  src/game/board/com.c:187 ExecComKeyRight 'void (void)' [()->void] -> 'void (*)()' arg0 of BoardWinComKeyFuncSet
+UNPROTO  src/game/board/com.c:195 ExecComKeyUp 'void (void)' [()->void] -> 'void (*)()' arg0 of BoardWinComKeyFuncSet
+UNPROTO  src/game/board/com.c:203 ExecComKeyDown 'void (void)' [()->void] -> 'void (*)()' arg0 of BoardWinComKeyFuncSet
+NOPROTO  src/game/board/last5.c:519 direct HuPrcVSleep 'void (*)()' (i32)
+NOPROTO  src/game/board/last5.c:585 direct HuPrcVSleep 'void (*)()' (i32)
+NOPROTO  src/game/board/last5.c:648 direct HuPrcVSleep 'void (*)()' (i32)
+NOPROTO  src/game/board/last5.c:672 direct HuPrcVSleep 'void (*)()' (i32)
+MISMATCH src/game/board/mushroom.c:39 MushroomMain 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg0 of HuPrcChildCreate
+MISMATCH src/game/board/mushroom.c:40 KillMushroom 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg1 of HuPrcDestructorSet2
+SINK     src/game/board/tutorial.c:59 'void *' -> 'void (*)(s16, s32)' [(i32,i32)->void] = tutorialHook from arg0
+SINK     src/game/hsfdraw.c:2310 'void *' -> 'void (*)(HU3DMODEL *, f32 (*)[4])' [(i32,i32)->void] = hookFunc from .hsf
+SINK     src/game/objmain.c:264 'void *' -> 'void (*)(struct om_obj_data *)' [(i32)->void] = .func from BinaryOperator
+SINK     src/port/netplay_match.c:674 'unsigned long' -> 'void (*)(void)' [()->void] arg0 of code_module from retaddr
+ESCAPE   src/port/web/web_clipboard.c:10 web_clipboard_write 'void (const char *)' [(i32)->void] -> 'void *' init __em_js_ref_web_clipboard_write
+ESCAPE   src/port/web/web_clipboard.c:32 pb_web_join_link 'char *(const char *)' [(i32)->i32] -> 'void *' init __em_js_ref_pb_web_join_link
+ESCAPE   src/port/web/web_rel.c:33 web_rel_table_function_index 'int (int)' [(i32)->i32] -> 'void *' init __em_js_ref_web_rel_table_function_index
+PCAST    src/port/web/web_rel.c:51 'int (*)(void)' [()->i32] -> 'void (*)(void)' [()->void] arg0 of web_rel_function_index from .first
+PCAST    src/port/web/web_rel.c:52 'int (*)(void)' [()->i32] -> 'void (*)(void)' [()->void] arg0 of web_rel_function_index from .last
+SINK     src/REL/m410Dll/game.c:1191 'void *' -> 'void (*)(u16, u16, u16)' [(i32,i32,i32)->void] = lbl_1_bss_44 from arg0
+ESCAPE   src/REL/m410Dll/player.c:823 fn_1_A828 'void (u16, u16, u16)' [(i32,i32,i32)->void] -> 'void *' arg0 of fn_1_77E8
+MISMATCH src/REL/m414Dll/main.c:261 fn_1_8A70 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg0 of HuPrcChildCreate
+MISMATCH src/REL/m414Dll/main.c:861 fn_1_6644 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg0 of HuPrcChildCreate
+MISMATCH src/REL/m414Dll/main.c:881 fn_1_3ECC 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg0 of HuPrcChildCreate
+MISMATCH src/REL/m414Dll/main.c:901 fn_1_8A10 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg0 of HuPrcChildCreate
+UNPROTO  src/REL/m420dll/map.c:85 fn_1_7704 'void (void)' [()->void] -> 'void (*)()' init-list of void (*[4])()
+UNPROTO  src/REL/m420dll/map.c:85 fn_1_7E24 'void (void)' [()->void] -> 'void (*)()' init-list of void (*[4])()
+UNPROTO  src/REL/m420dll/map.c:85 fn_1_8240 'void (void)' [()->void] -> 'void (*)()' init-list of void (*[4])()
+UNPROTO  src/REL/m420dll/map.c:85 fn_1_8414 'void (void)' [()->void] -> 'void (*)()' init-list of void (*[4])()
+PCAST    src/REL/m420dll/map.c:438 'void (*)()' [?->None] -> 'void (*)(void)' [()->void] arg0 of HuPrcChildCreate from lbl_1_data_154[]
+PCAST    src/REL/m420dll/map.c:1095 'void (*)()' [?->None] -> 'void (*)(void)' [()->void] arg0 of HuPrcChildCreate from lbl_1_data_154[]
+SINK     src/REL/m423Dll/main.c:5292 'void *' -> 'void (*)(HU3DMODEL *, struct struct_m423_05 *, f32 (*)[4])' [(i32,i32,i32)->void] = var_r18 from .unk4C
+PCAST    src/REL/m450Dll/main.c:1921 'void (*)()' [?->None] -> 'void (*)(void)' [()->void] arg0 of HuPrcChildCreate from arg0
+UNPROTO  src/REL/m450Dll/main.c:2366 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2367 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2395 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2402 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2410 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2416 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2426 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2427 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2438 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2439 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2446 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2452 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2460 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2466 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2474 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2480 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2487 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2488 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2500 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:2505 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:3409 fn_1_7D40 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:3412 fn_1_8120 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:7288 fn_1_8500 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:7315 fn_1_8BDC 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:7387 fn_1_9074 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:7438 fn_1_96C0 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:7490 fn_1_9824 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+UNPROTO  src/REL/m450Dll/main.c:7550 fn_1_9BA4 'void (void)' [()->void] -> 'void (*)()' arg0 of fn_1_6CB0
+MISMATCH src/REL/modeltestDll/main.c:55 fn_1_29C 'void ()' -> 'void (*)(struct om_obj_data *)' [?->None vs (i32)->void] arg5 of omAddObjEx
+ESCAPE   src/REL/modeltestDll/main.c:317 fn_1_F9C 'omObjFunc2' [(i32)->void] -> 'omObjFunc2 *' = .func
+MISMATCH src/REL/modeltestDll/modeltest00.c:46 fn_1_46F0 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg0 of HuPrcCreate
+ESCAPE   src/REL/mpexDll/main.c:157 fn_1_438 'void (void)' [()->void] -> 'void *' = .unk_04
+MISMATCH src/REL/w02Dll/main.c:112 fn_1_72C 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg0 of BoardLightHookSet
+MISMATCH src/REL/w02Dll/main.c:112 fn_1_770 'void ()' -> 'void (*)(void)' [?->None vs ()->void] arg1 of BoardLightHookSet
+MISMATCH src/REL/w02Dll/main.c:144 fn_1_800 's32 ()' -> 's32 (*)(void)' [?->i32 vs ()->i32] arg0 of BoardSpaceWalkEventFuncSet
+MISMATCH src/REL/w02Dll/main.c:145 fn_1_1128 's32 ()' -> 's32 (*)(void)' [?->i32 vs ()->i32] arg0 of BoardSpaceWalkMiniEventFuncSet
+MISMATCH src/REL/w02Dll/main.c:146 fn_1_774 's32 ()' -> 's32 (*)(void)' [?->i32 vs ()->i32] arg0 of BoardSpaceLandEventFuncSet
+UNPROTO  src/REL/w02Dll/shuffleboard.c:90 fn_1_9250 's32 (void)' [()->i32] -> 's32 (*)()' arg1 of BoardPlayerPostTurnHookSet
+UNPROTO  src/REL/w03Dll/main.c:226 fn_1_2930 's32 (void)' [()->i32] -> 's32 (*)()' arg1 of BoardPlayerPreTurnHookSet
+UNPROTO  src/REL/w03Dll/river.c:452 fn_1_6698 's32 (void)' [()->i32] -> 's32 (*)()' arg1 of BoardPlayerPostTurnHookSet
+UNPROTO  src/REL/w03Dll/statue.c:126 fn_1_15E8 's32 (void)' [()->i32] -> 's32 (*)()' arg1 of BoardPlayerPostTurnHookSet
+UNPROTO  src/REL/w05Dll/mg_coin.c:87 fn_1_9B74 's32 (void)' [()->i32] -> 's32 (*)()' arg1 of BoardPlayerPostTurnHookSet
+UNPROTO  src/REL/w06Dll/bowser.c:156 fn_1_C9BC 's32 (void)' [()->i32] -> 's32 (*)()' arg1 of BoardPlayerPreTurnHookSet
+UNPROTO  src/REL/w06Dll/bowser.c:1113 fn_1_C9BC 's32 (void)' [()->i32] -> 's32 (*)()' arg1 of BoardPlayerPreTurnHookSet
+UNPROTO  src/REL/w06Dll/fire.c:140 fn_1_72A4 's32 (void)' [()->i32] -> 's32 (*)()' arg1 of BoardPlayerPostTurnHookSet
+ESCAPE   src/REL/w10Dll/main.c:87 TutorialHookExec 'int (s16, s32)' [(i32,i32)->i32] -> 'void *' arg0 of BoardTutorialHookSet
+XDECL    src/game/board/mushroom.c:39 MushroomMain declared [?->None], defined [()->void] at src/game/board/mushroom.c:191
+XDECL    src/game/board/mushroom.c:40 KillMushroom declared [?->None], defined [()->void] at src/game/board/mushroom.c:220
+XDECL    src/REL/m414Dll/main.c:261 fn_1_8A70 declared [?->None], defined [()->void] at src/REL/m414Dll/main.c:2349
+XDECL    src/REL/m414Dll/main.c:861 fn_1_6644 declared [?->None], defined [()->void] at src/REL/m414Dll/main.c:1951
+XDECL    src/REL/m414Dll/main.c:881 fn_1_3ECC declared [?->None], defined [()->void] at src/REL/m414Dll/main.c:1119
+XDECL    src/REL/m414Dll/main.c:901 fn_1_8A10 declared [?->None], defined [()->void] at src/REL/m414Dll/main.c:2242
+XDECL    src/REL/modeltestDll/main.c:55 fn_1_29C declared [?->None], defined [(i32)->void] at src/REL/modeltestDll/main.c:318
+XDECL    src/REL/modeltestDll/main.c:317 fn_1_F9C declared [(i32)->void], defined [(i32)->i32] at src/REL/modeltestDll/main.c:534
+XDECL    src/REL/modeltestDll/modeltest00.c:46 fn_1_46F0 declared [?->None], defined [()->void] at src/REL/modeltestDll/modeltest00.c:223
+XDECL    src/REL/w02Dll/main.c:112 fn_1_72C declared [?->None], defined [()->void] at src/REL/w02Dll/main.c:190
+XDECL    src/REL/w02Dll/main.c:112 fn_1_770 declared [?->None], defined [()->void] at src/REL/w02Dll/main.c:192
+XDECL    src/REL/w02Dll/main.c:144 fn_1_800 declared [?->i32], defined [()->i32] at src/REL/w02Dll/main.c:249
+XDECL    src/REL/w02Dll/main.c:145 fn_1_1128 declared [?->i32], defined [()->i32] at src/REL/w02Dll/main.c:465
+XDECL    src/REL/w02Dll/main.c:146 fn_1_774 declared [?->i32], defined [()->i32] at src/REL/w02Dll/main.c:210
