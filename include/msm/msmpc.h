@@ -15,6 +15,7 @@
 #define msmSeDelListener msmSeDelListenerUnlocked
 #define msmSeGetStatus msmSeGetStatusUnlocked
 #define msmSeGetEntryID msmSeGetEntryIDUnlocked
+#define msmSeGetNumPlay msmSeGetNumPlayUnlocked
 
 #define msmMusPlay msmMusPlayUnlocked
 #define msmMusStop msmMusStopUnlocked
@@ -24,6 +25,7 @@
 #define msmMusSetParam msmMusSetParamUnlocked
 #define msmMusGetStatus msmMusGetStatusUnlocked
 #define msmMusGetMidiCtrl msmMusGetMidiCtrlUnlocked
+#define msmMusGetNumPlay msmMusGetNumPlayUnlocked
 
 #define msmStreamPlay msmStreamPlayUnlocked
 #define msmStreamStop msmStreamStopUnlocked

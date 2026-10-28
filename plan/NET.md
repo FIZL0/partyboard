@@ -34,7 +34,10 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
 - Randomness: `frand` reseeds from `OSGetTime()` when 0 (`src/game/frand.c:10`); `BoardRandInit`
   (`src/game/board/main.c:1429`) seeds from `OSGetTime()`; `rand8` is a fixed LCG. Other OSGetTime
   users: bootDll, `src/game/audio.c`, `saveload.c:384,838`, ztardll.
-- Audio is stubbed (no effect on state). DVD reads are synchronous.
+- Audio (N112, N122): during netplay MusyX runs on a frame clock (10 5 ms cycles per 3 game frames, on the game thread,
+  48 kHz on every peer, `src/port/audio.cpp`) and msm gives real statuses (`src/port/msm.c`); `netplay_begin` stops
+  all sound and resets the engine. Findings: `research/journal/2026-10-28-n122-frame-locked-musyx`. DVD reads are
+  synchronous.
 - Party setup: `BoardPartyConfigSet`, `BoardSaveInit` (`src/game/board/main.c:281,374`).
 - Checkpoint: `SLSaveBoard`/`SLLoadBoard` `src/game/saveload.c:393,581`; written after each minigame in
   `src/REL/resultDll/main.c:1018`.
