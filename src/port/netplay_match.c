@@ -665,13 +665,27 @@ static void board_statics_reset(void)
     BoardWinNetplayReset();
 }
 
+/*
+ * The module holding the code at a block's caller (HU_MEM_CALLER), NULL if it is not loaded or unknown. N102: on the web
+ * the caller is an offset in the wasm module's code (no dladdr there, and not a function pointer, which
+ * web_rel_function_owner needs): web_rel_code_module places it, and before that the dead overlay's blocks were never
+ * freed there.
+ */
+static const void *caller_module(uintptr_t retaddr)
+{
+#if defined(__EMSCRIPTEN__)
+    return web_rel_code_module(retaddr);
+#else
+    return code_module((void (*)(void))retaddr);
+#endif
+}
+
 /* A block whose allocating code is not loaded any more: the old overlay's own (its code is gone before the next one
  * loads). 0xCDCDCDCD and 0xA5A5A5A5 are memory.c's and process.c's marks, not code. */
 static BOOL dead_code_block(uintptr_t retaddr, void *user)
 {
     (void)user;
-    return retaddr != 0 && retaddr != 0xCDCDCDCD && retaddr != 0xA5A5A5A5
-        && code_module((void (*)(void))retaddr) == NULL;
+    return retaddr != 0 && retaddr != 0xCDCDCDCD && retaddr != 0xA5A5A5A5 && caller_module(retaddr) == NULL;
 }
 
 /*
@@ -701,7 +715,11 @@ static void leftovers_free(void)
     }
     /* What the old overlay allocated and would have freed at its own end (N57: m427's screen copies, m440's objects,
      * m415's anims). Only where this platform can tell code modules apart. */
+#if defined(__EMSCRIPTEN__)
+    if (caller_module(HU_MEM_CALLER()) != NULL) {
+#else
     if (code_module((void (*)(void))netplay_match_tick) != NULL) {
+#endif
         for (heap = 0; heap < HEAP_MAX; heap++) {
             if (HuMemHeapPtrGet((HeapID)heap) != NULL) {
                 s32 freed = HuMemMemoryFreeIf(HuMemHeapPtrGet((HeapID)heap), dead_code_block, NULL);
