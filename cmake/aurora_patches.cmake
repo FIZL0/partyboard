@@ -47,6 +47,12 @@
 #   backend, RmlUi's textures (Rml::ReleaseTextures) and render interface targets, then initialize again. More than 3
 #   losses in 10 s still FATAL. aurora_force_device_loss() (aurora/gfx.h, Dawn's ForceLoss) for tests. Its hunks keep
 #   clear of the other patches' context (the recovery check sits between 0004's and 0010's hunks in update()).
+# - 0013-surface-sync-unlocked (N123): webgpu::release_surface/refresh_surface wait for the render thread without the
+#   SurfaceLock (window::SurfaceUnlock). begin_frame and aurora_can_present call them under it, and the render
+#   thread's queued frame takes it to present: on Android the game thread, the render thread and the UI thread
+#   (surfaceDestroyed takes the same activity mutex) deadlocked on going to the background with a frame in flight
+#   ("Activity stop timeout", black view after). Hunks only in window.hpp/.cpp's SurfaceLock and gpu.cpp's surface
+#   functions, clear of 0010's and 0012's.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
