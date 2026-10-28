@@ -184,6 +184,8 @@ void main(void)
 
         HuPerfBegin(2);
 #ifdef TARGET_PC
+        /* N120: --turbo draws ~30 of its frames a second, the GPU stays near idle (false: every frame, no-op) */
+        frame_present_throttle(netplay_debug_turbo());
         /* N110: a frame that can't be shown (backgrounded since the hold check) is recorded and dropped */
         if (!aurora_begin_frame_always(&framed)) {
             /* no frame at all (the GPU device is lost): no tick */

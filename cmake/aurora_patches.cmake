@@ -36,6 +36,10 @@
 # - 0011-gfx-negative-viewport (N105): a GX viewport with a negative width or height (m411 hides split-screen quarters
 #   with one, under an empty scissor) reaches the render pass as the same rectangle with positive sides. The browser's
 #   WebGPU rejected SetViewport(1284, 20, -20, 938) as a fatal validation error; desktop Dawn skips validation.
+# - 0011-turbo-present-skip (N120): aurora_set_present_skip(bool): while set, a frame's texture uploads and palette
+#   conversions are submitted but its vertex/uniform/index/storage copies, render passes and EFB copies aren't encoded
+#   and nothing is presented. All in gfx/common.cpp (begin_frame/end_frame of aurora.cpp are 0003's and 0010's hunks). partyboard's
+#   --turbo shows ~30 frames a second with it.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
