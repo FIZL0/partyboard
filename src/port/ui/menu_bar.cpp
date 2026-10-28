@@ -22,6 +22,9 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
 
 extern "C" {
 #include "game/object.h"
@@ -75,6 +78,13 @@ namespace {
     {
         sRelaunchParsed = true;
         const char *spec = std::getenv("PB_RELAUNCH_TEST");
+#if defined(__ANDROID__)
+        // An app gets no env vars: `adb shell setprop debug.partyboard.relaunch <steps>` (setprop ... "" to stop).
+        char prop[PROP_VALUE_MAX] = {};
+        if (spec == nullptr && __system_property_get("debug.partyboard.relaunch", prop) > 0) {
+            spec = prop;
+        }
+#endif
         if (spec == nullptr) {
             return;
         }

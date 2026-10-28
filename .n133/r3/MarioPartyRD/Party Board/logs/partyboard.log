@@ -1,0 +1,347 @@
+[error] [partyboard::main] No bundled initial pipeline cache found at '/home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/initial_pipeline_cache.db'
+[INFO | aurora] Aurora initializing
+[INFO | aurora::system_info] CPU model: AMD Ryzen 7 9800X3D 8-Core Processor
+[INFO | aurora::system_info] Memory: 31217 MiB
+[INFO | aurora::system_info] Architecture: x86_64
+[INFO | aurora::system_info] OS: Omarchy 
+[INFO | aurora::gpu] Creating WebGPU instance
+[INFO | aurora::gpu] Attempting to initialize Vulkan
+(lsfg-vk) [ERROR]: Failed to initialize global info:
+(lsfg-vk) [ERROR]: - Invalid profiles section in configuration
+Warning: loader_create_instance_chain: Failed to find 'vkGetInstanceProcAddr' in layer "liblsfg-vk-layer.so"
+WARNING: radv is not a conformant Vulkan implementation, testing use only.
+[INFO | aurora::gpu] Graphics adapter information
+  API: Vulkan
+  Device: AMD Radeon RX 9070 XT (RADV GFX1201) (DiscreteGPU)
+  Driver: radv: Mesa 26.2.5-arch1.1
+[INFO | aurora::gpu] Using limits:
+  maxTextureDimension1D: 32768
+  maxTextureDimension2D: 16384
+  maxTextureDimension3D: 16384
+  maxTextureArrayLayers: 8192
+  maxDynamicStorageBuffersPerPipelineLayout: 8
+  maxStorageBuffersPerShaderStage: 16
+  minUniformBufferOffsetAlignment: 64
+  minStorageBufferOffsetAlignment: 16
+Error: Loader Message: loader_create_device_chain: Failed to find 'vkGetInstanceProcAddr' in layer "liblsfg-vk-layer.so".  Skipping layer.
+[DEBUG | aurora::gpu::cache] SQLite version 3.54.0
+[DEBUG | aurora::gpu::cache] Using dawn cache at /home/ryha/repos/partyboard-slots/s1/.n133/r3/Party Board/dawn_cache.db
+[DEBUG | aurora::gpu::cache] SQLite cache init succeeded
+[INFO | aurora::gpu] Using surface format BGRA8Unorm, present mode Fifo
+[INFO | aurora::gfx::pipeline_cache] No bundled initial pipeline cache found at '/home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/initial_pipeline_cache.db'
+[INFO | aurora] Using framebuffer size 2048x1536 scale 1.6
+[INFO | partyboard::log] Party Board UNKNOWN-VERSION (task/N133 86c4809c759871a7142029e1fc4e4fe66b193e1f, RelWithDebInfo build of Wed Oct 28 17:55:51 2026 -0400)
+[INFO | partyboard::log] Platform: Linux x86_64
+[INFO | partyboard::log] Device: ASUS System Product Name
+[INFO | partyboard::log] OS: Omarchy, Linux 7.2.8-9-omarchy x86_64
+[INFO | partyboard::log] User dir: /home/ryha/repos/partyboard-slots/s1/.n133/r3/MarioPartyRD/Party Board/
+[INFO | partyboard::log] Log file: /home/ryha/repos/partyboard-slots/s1/.n133/r3/MarioPartyRD/Party Board/logs/partyboard.log
+[INFO | partyboard::main] pbnet 0.1.0
+[INFO | aurora::rmlui] Loaded font face 'Alegreya SC' [regular] from 'res/AlegreyaSC-Regular.ttf'.
+[INFO | aurora::rmlui] Loaded font face 'Alegreya SC' [bold] from 'res/AlegreyaSC-Bold.ttf'.
+[INFO | aurora::rmlui] Loaded font face 'Material Symbols Rounded' [regular] from 'res/MaterialSymbolsRounded-Regular.ttf'.
+[INFO | aurora::rmlui] Loaded font face 'N64 Party' [regular] from 'res/N64Party-Monochromatic.otf'.
+[INFO | aurora::rmlui] Loaded font face 'FOT-NewRodin Pro' [weight=600] from 'res/FOT-NewRodin Pro DB.otf'.
+OSDisableInterrupts is a stub
+OSRestoreInterrupts is a stub
+[INFO | aurora::input] Added controller 'Xbox 360 Controller' (instance 5, vid 045e, pid 028e, type 2)
+[INFO | partyboard::main] Loading DVD image: /home/ryha/repos/partyboard/orig/GMPE01_01/GMPE01_01.ciso
+[INFO | partyboard::log] Disc id: GMPE01 (disc 0, version 1)
+[INFO | partyboard::config] Saving config to '/home/ryha/repos/partyboard-slots/s1/.n133/r3/MarioPartyRD/Party Board/config.json'
+[INFO | partyboard::version] Loaded game disc is GMPE01
+HuMem> left memory space 64319KB(65863584)
+[INFO | partyboard::audio] Audio output: 48000 Hz, 8 channels
+[DEBUG | aurora::ar] Initialized 0x1800000 bytes of ARAM!
+[INFO | aurora::card] CARD API Initialized BUILT <Oct 28 2026 14:23:59>
+OSDisableInterrupts is a stub
+OSRestoreInterrupts is a stub
+GXSetDrawSyncCallback is a stub
+DLL DBG OUT
+objman>Call New Ovl 1(1)
+VIGetNextField is a stub
+VI_FIELD_BELOW
+VISetBlack is a stub
+relaunch test: 5 steps
+++++++++++++++++++++ Start New OVL 1 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump a1086010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+a1086010 0000a040 a5 01 a1090190 a1090050 ffffff00 a1086050 db4591ff
+a1090050 00000140 a5 01 a1086010 a1090190 ffffff00 a1090090 db49014f
+a1090190 008f5e80 cd 00 a1090050 a1086010 00000000 a10901d0 db49014f
+MCB:3(2/1) MEM:00900000(0000a180/008f5e80)
+======== HuMem heap dump a1086010 end =====
+======== HuMem heap dump 855fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+855fe010 00000080 a5 01 85601210 855fe090 ffffff00 855fe050 db493319
+855fe090 00000060 a5 01 855fe010 855fe0f0 ffffff00 855fe0d0 db493348
+855fe0f0 00000060 a5 01 855fe090 855fe150 ffffff00 855fe130 db4933a5
+855fe150 000003c0 a5 01 855fe0f0 855fe510 ffffff00 855fe190 db493407
+855fe510 00000080 a5 01 855fe150 855fe590 ffffff00 855fe550 db493319
+855fe590 00000060 a5 01 855fe510 855fe5f0 ffffff00 855fe5d0 db493348
+855fe5f0 00000060 a5 01 855fe590 855fe650 ffffff00 855fe630 db4933a5
+855fe650 000003c0 a5 01 855fe5f0 855fea10 ffffff00 855fe690 db493407
+855fea10 00000080 a5 01 855fe650 855fea90 ffffff00 855fea50 db493319
+855fea90 00000060 a5 01 855fea10 855feaf0 ffffff00 855fead0 db493348
+855feaf0 00000060 a5 01 855fea90 855feb50 ffffff00 855feb30 db4933a5
+855feb50 000003c0 a5 01 855feaf0 855fef10 ffffff00 855feb90 db493407
+855fef10 00000080 a5 01 855feb50 855fef90 ffffff00 855fef50 db493319
+855fef90 00000060 a5 01 855fef10 855feff0 ffffff00 855fefd0 db493348
+855feff0 00000060 a5 01 855fef90 855ff050 ffffff00 855ff030 db4933a5
+855ff050 000003c0 a5 01 855feff0 855ff410 ffffff00 855ff090 db493407
+855ff410 00000080 a5 01 855ff050 855ff490 ffffff00 855ff450 db493319
+855ff490 00000060 a5 01 855ff410 855ff4f0 ffffff00 855ff4d0 db493348
+855ff4f0 00000060 a5 01 855ff490 855ff550 ffffff00 855ff530 db4933a5
+855ff550 000003c0 a5 01 855ff4f0 855ff910 ffffff00 855ff590 db493407
+855ff910 00000080 a5 01 855ff550 855ff990 ffffff00 855ff950 db493319
+855ff990 00000060 a5 01 855ff910 855ff9f0 ffffff00 855ff9d0 db493348
+855ff9f0 00000060 a5 01 855ff990 855ffa50 ffffff00 855ffa30 db4933a5
+855ffa50 000003c0 a5 01 855ff9f0 855ffe10 ffffff00 855ffa90 db493407
+855ffe10 00000080 a5 01 855ffa50 855ffe90 ffffff00 855ffe50 db493319
+855ffe90 00000060 a5 01 855ffe10 855ffef0 ffffff00 855ffed0 db493348
+855ffef0 00000060 a5 01 855ffe90 855fff50 ffffff00 855fff30 db4933a5
+855fff50 000003c0 a5 01 855ffef0 85600310 ffffff00 855fff90 db493407
+85600310 00000080 a5 01 855fff50 85600390 ffffff00 85600350 db493319
+85600390 00000060 a5 01 85600310 856003f0 ffffff00 856003d0 db493348
+856003f0 00000060 a5 01 85600390 85600450 ffffff00 85600430 db4933a5
+85600450 000003c0 a5 01 856003f0 85600810 ffffff00 85600490 db493407
+85600810 00000080 a5 01 85600450 85600890 ffffff00 85600850 db493319
+85600890 00000060 a5 01 85600810 856008f0 ffffff00 856008d0 db493348
+856008f0 00000060 a5 01 85600890 85600950 ffffff00 85600930 db4933a5
+85600950 000003c0 a5 01 856008f0 85600d10 ffffff00 85600990 db493407
+85600d10 00000080 a5 01 85600950 85600d90 ffffff00 85600d50 db493319
+85600d90 00000060 a5 01 85600d10 85600df0 ffffff00 85600dd0 db493348
+85600df0 00000060 a5 01 85600d90 85600e50 ffffff00 85600e30 db4933a5
+85600e50 000003c0 a5 01 85600df0 85601210 ffffff00 85600e90 db493407
+85601210 029fce00 cd 00 85600e50 855fe010 00000000 85601250 db493407
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump 855fe010 end =====
+======== HuMem heap dump 83ffd010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+83ffd010 01600000 cd 00 83ffd010 83ffd010 ffffff00 83ffd050 cdcdcdcd
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump 83ffd010 end =====
+objman>Used Memory Size:0000a180
+objman>Used Memory Cnt:2
+objman>Init esp
+objman>Call objectsetup
+DLLStart 1 0
+Search:bootDll.so
+objdll>Link DLL:bootDll.so
+objdll> bootDll.so prolog start
+******* Boot ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+objdll> bootDll.so prolog end
+objman>ObjectSetup end
+DLL DBG OUT
+relaunch test: step 0 play in overlay 1
+Rest Memory 15fd520
+ARAM Trans 20
+Rest Memory 15dd000
+ARAM Trans 2ac0
+Rest Memory 15863e0
+ARAM Trans 25a80
+Rest Memory 15e4f20
+ARAM Trans 9f660
+Rest Memory 15b9560
+data num 74000b
+Rest Memory 12708a0
+relaunch test: step 1 quit in overlay 1
+netplay: quit to the prelaunch menu from overlay 1
+netplay: reboot: overlay 1, killed 1 of its processes
+OvlKill 1
+objman>Destory ObjMan
+objdll>omDLLNumEnd 1 1
+Search:bootDll.so
++++++++++++ Find0: bootDll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:bootDll.so
+odjdll>Unlink DLL:bootDll.so
+objdll>End DLL finish
+++++++++++++++++++++ Start New OVL 1 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump a1086010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+a1086010 0000a040 a5 01 a109d010 a1090050 ffffff00 a1086050 db4591ff
+a1090050 00000140 a5 01 a1086010 a1090190 ffffff00 a1090090 db49014f
+a1090190 00002400 cd 00 a1090050 a1092590 ffffff00 a10901d0 db48ca24
+a1092590 0000a040 a5 01 a1090190 a109c5d0 ffffff00 a10925d0 db4591ff
+a109c5d0 00000120 a5 01 a1092590 a109c6f0 ffffff00 a109c610 db48695b
+a109c6f0 00000420 a5 01 a109c5d0 a109cb10 ffffff00 a109c730 db4869db
+a109cb10 00000420 a5 01 a109c6f0 a109cf30 ffffff00 a109cb50 db486a3b
+a109cf30 00000080 a5 01 a109cb10 a109cfb0 ffffff00 a109cf70 db486a9b
+a109cfb0 00000060 a5 01 a109cf30 a109d010 ffffff00 a109cff0 db486b1b
+a109d010 008e9000 cd 00 a109cfb0 a1086010 ffffff00 a109d050 db4908e3
+MCB:10(8/2) MEM:00900000(00014c00/008eb400)
+======== HuMem heap dump a1086010 end =====
+======== HuMem heap dump 855fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+855fe010 00000080 a5 01 85601210 855fe090 ffffff00 855fe050 db493319
+855fe090 00000060 a5 01 855fe010 855fe0f0 ffffff00 855fe0d0 db493348
+855fe0f0 00000060 a5 01 855fe090 855fe150 ffffff00 855fe130 db4933a5
+855fe150 000003c0 a5 01 855fe0f0 855fe510 ffffff00 855fe190 db493407
+855fe510 00000080 a5 01 855fe150 855fe590 ffffff00 855fe550 db493319
+855fe590 00000060 a5 01 855fe510 855fe5f0 ffffff00 855fe5d0 db493348
+855fe5f0 00000060 a5 01 855fe590 855fe650 ffffff00 855fe630 db4933a5
+855fe650 000003c0 a5 01 855fe5f0 855fea10 ffffff00 855fe690 db493407
+855fea10 00000080 a5 01 855fe650 855fea90 ffffff00 855fea50 db493319
+855fea90 00000060 a5 01 855fea10 855feaf0 ffffff00 855fead0 db493348
+855feaf0 00000060 a5 01 855fea90 855feb50 ffffff00 855feb30 db4933a5
+855feb50 000003c0 a5 01 855feaf0 855fef10 ffffff00 855feb90 db493407
+855fef10 00000080 a5 01 855feb50 855fef90 ffffff00 855fef50 db493319
+855fef90 00000060 a5 01 855fef10 855feff0 ffffff00 855fefd0 db493348
+855feff0 00000060 a5 01 855fef90 855ff050 ffffff00 855ff030 db4933a5
+855ff050 000003c0 a5 01 855feff0 855ff410 ffffff00 855ff090 db493407
+855ff410 00000080 a5 01 855ff050 855ff490 ffffff00 855ff450 db493319
+855ff490 00000060 a5 01 855ff410 855ff4f0 ffffff00 855ff4d0 db493348
+855ff4f0 00000060 a5 01 855ff490 855ff550 ffffff00 855ff530 db4933a5
+855ff550 000003c0 a5 01 855ff4f0 855ff910 ffffff00 855ff590 db493407
+855ff910 00000080 a5 01 855ff550 855ff990 ffffff00 855ff950 db493319
+855ff990 00000060 a5 01 855ff910 855ff9f0 ffffff00 855ff9d0 db493348
+855ff9f0 00000060 a5 01 855ff990 855ffa50 ffffff00 855ffa30 db4933a5
+855ffa50 000003c0 a5 01 855ff9f0 855ffe10 ffffff00 855ffa90 db493407
+855ffe10 00000080 a5 01 855ffa50 855ffe90 ffffff00 855ffe50 db493319
+855ffe90 00000060 a5 01 855ffe10 855ffef0 ffffff00 855ffed0 db493348
+855ffef0 00000060 a5 01 855ffe90 855fff50 ffffff00 855fff30 db4933a5
+855fff50 000003c0 a5 01 855ffef0 85600310 ffffff00 855fff90 db493407
+85600310 00000080 a5 01 855fff50 85600390 ffffff00 85600350 db493319
+85600390 00000060 a5 01 85600310 856003f0 ffffff00 856003d0 db493348
+856003f0 00000060 a5 01 85600390 85600450 ffffff00 85600430 db4933a5
+85600450 000003c0 a5 01 856003f0 85600810 ffffff00 85600490 db493407
+85600810 00000080 a5 01 85600450 85600890 ffffff00 85600850 db493319
+85600890 00000060 a5 01 85600810 856008f0 ffffff00 856008d0 db493348
+856008f0 00000060 a5 01 85600890 85600950 ffffff00 85600930 db4933a5
+85600950 000003c0 a5 01 856008f0 85600d10 ffffff00 85600990 db493407
+85600d10 00000080 a5 01 85600950 85600d90 ffffff00 85600d50 db493319
+85600d90 00000060 a5 01 85600d10 85600df0 ffffff00 85600dd0 db493348
+85600df0 00000060 a5 01 85600d90 85600e50 ffffff00 85600e30 db4933a5
+85600e50 000003c0 a5 01 85600df0 85601210 ffffff00 85600e90 db493407
+85601210 029fce00 cd 00 85600e50 855fe010 ffffff00 85601250 db48d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump 855fe010 end =====
+======== HuMem heap dump 83ffd010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+83ffd010 01600000 cd 00 83ffd010 83ffd010 10000000 83ffd050 db4603de
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump 83ffd010 end =====
+objman>Used Memory Size:00014c00
+objman>Used Memory Cnt:8
+objman>Init esp
+objman>Call objectsetup
+DLLStart 1 0
+Search:bootDll.so
+objdll>Link DLL:bootDll.so
+objdll> bootDll.so prolog start
+******* Boot ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+objdll> bootDll.so prolog end
+objman>ObjectSetup end
+netplay: reboot: bootDll runs
+DLL DBG OUT
+Rest Memory 15b9560
+data num 74000b
+Rest Memory 12708a0
+relaunch test: step 2 play in overlay 1
+relaunch test: step 3 quit in overlay 1
+netplay: quit to the prelaunch menu from overlay 1
+netplay: reboot: overlay 1, killed 1 of its processes
+OvlKill 1
+objman>Destory ObjMan
+objdll>omDLLNumEnd 1 1
+Search:bootDll.so
++++++++++++ Find0: bootDll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:bootDll.so
+odjdll>Unlink DLL:bootDll.so
+objdll>End DLL finish
+++++++++++++++++++++ Start New OVL 1 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump a1086010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+a1086010 0000a040 a5 01 a109d010 a1090050 ffffff00 a1086050 db4591ff
+a1090050 00000140 a5 01 a1086010 a1090190 ffffff00 a1090090 db49014f
+a1090190 00002400 cd 00 a1090050 a1092590 ffffff00 a10901d0 db48ca24
+a1092590 0000a040 a5 01 a1090190 a109c5d0 ffffff00 a10925d0 db4591ff
+a109c5d0 00000120 a5 01 a1092590 a109c6f0 ffffff00 a109c610 db48695b
+a109c6f0 00000420 a5 01 a109c5d0 a109cb10 ffffff00 a109c730 db4869db
+a109cb10 00000420 a5 01 a109c6f0 a109cf30 ffffff00 a109cb50 db486a3b
+a109cf30 00000080 a5 01 a109cb10 a109cfb0 ffffff00 a109cf70 db486a9b
+a109cfb0 00000060 a5 01 a109cf30 a109d010 ffffff00 a109cff0 db486b1b
+a109d010 008e9000 cd 00 a109cfb0 a1086010 ffffff00 a109d050 db4908e3
+MCB:10(8/2) MEM:00900000(00014c00/008eb400)
+======== HuMem heap dump a1086010 end =====
+======== HuMem heap dump 855fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+855fe010 00000080 a5 01 85601210 855fe090 ffffff00 855fe050 db493319
+855fe090 00000060 a5 01 855fe010 855fe0f0 ffffff00 855fe0d0 db493348
+855fe0f0 00000060 a5 01 855fe090 855fe150 ffffff00 855fe130 db4933a5
+855fe150 000003c0 a5 01 855fe0f0 855fe510 ffffff00 855fe190 db493407
+855fe510 00000080 a5 01 855fe150 855fe590 ffffff00 855fe550 db493319
+855fe590 00000060 a5 01 855fe510 855fe5f0 ffffff00 855fe5d0 db493348
+855fe5f0 00000060 a5 01 855fe590 855fe650 ffffff00 855fe630 db4933a5
+855fe650 000003c0 a5 01 855fe5f0 855fea10 ffffff00 855fe690 db493407
+855fea10 00000080 a5 01 855fe650 855fea90 ffffff00 855fea50 db493319
+855fea90 00000060 a5 01 855fea10 855feaf0 ffffff00 855fead0 db493348
+855feaf0 00000060 a5 01 855fea90 855feb50 ffffff00 855feb30 db4933a5
+855feb50 000003c0 a5 01 855feaf0 855fef10 ffffff00 855feb90 db493407
+855fef10 00000080 a5 01 855feb50 855fef90 ffffff00 855fef50 db493319
+855fef90 00000060 a5 01 855fef10 855feff0 ffffff00 855fefd0 db493348
+855feff0 00000060 a5 01 855fef90 855ff050 ffffff00 855ff030 db4933a5
+855ff050 000003c0 a5 01 855feff0 855ff410 ffffff00 855ff090 db493407
+855ff410 00000080 a5 01 855ff050 855ff490 ffffff00 855ff450 db493319
+855ff490 00000060 a5 01 855ff410 855ff4f0 ffffff00 855ff4d0 db493348
+855ff4f0 00000060 a5 01 855ff490 855ff550 ffffff00 855ff530 db4933a5
+855ff550 000003c0 a5 01 855ff4f0 855ff910 ffffff00 855ff590 db493407
+855ff910 00000080 a5 01 855ff550 855ff990 ffffff00 855ff950 db493319
+855ff990 00000060 a5 01 855ff910 855ff9f0 ffffff00 855ff9d0 db493348
+855ff9f0 00000060 a5 01 855ff990 855ffa50 ffffff00 855ffa30 db4933a5
+855ffa50 000003c0 a5 01 855ff9f0 855ffe10 ffffff00 855ffa90 db493407
+855ffe10 00000080 a5 01 855ffa50 855ffe90 ffffff00 855ffe50 db493319
+855ffe90 00000060 a5 01 855ffe10 855ffef0 ffffff00 855ffed0 db493348
+855ffef0 00000060 a5 01 855ffe90 855fff50 ffffff00 855fff30 db4933a5
+855fff50 000003c0 a5 01 855ffef0 85600310 ffffff00 855fff90 db493407
+85600310 00000080 a5 01 855fff50 85600390 ffffff00 85600350 db493319
+85600390 00000060 a5 01 85600310 856003f0 ffffff00 856003d0 db493348
+856003f0 00000060 a5 01 85600390 85600450 ffffff00 85600430 db4933a5
+85600450 000003c0 a5 01 856003f0 85600810 ffffff00 85600490 db493407
+85600810 00000080 a5 01 85600450 85600890 ffffff00 85600850 db493319
+85600890 00000060 a5 01 85600810 856008f0 ffffff00 856008d0 db493348
+856008f0 00000060 a5 01 85600890 85600950 ffffff00 85600930 db4933a5
+85600950 000003c0 a5 01 856008f0 85600d10 ffffff00 85600990 db493407
+85600d10 00000080 a5 01 85600950 85600d90 ffffff00 85600d50 db493319
+85600d90 00000060 a5 01 85600d10 85600df0 ffffff00 85600dd0 db493348
+85600df0 00000060 a5 01 85600d90 85600e50 ffffff00 85600e30 db4933a5
+85600e50 000003c0 a5 01 85600df0 85601210 ffffff00 85600e90 db493407
+85601210 029fce00 cd 00 85600e50 855fe010 ffffff00 85601250 db48d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump 855fe010 end =====
+======== HuMem heap dump 83ffd010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+83ffd010 01600000 cd 00 83ffd010 83ffd010 10000000 83ffd050 db4603de
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump 83ffd010 end =====
+objman>Used Memory Size:00014c00
+objman>Used Memory Cnt:8
+objman>Init esp
+objman>Call objectsetup
+DLLStart 1 0
+Search:bootDll.so
+objdll>Link DLL:bootDll.so
+objdll> bootDll.so prolog start
+******* Boot ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+objdll> bootDll.so prolog end
+objman>ObjectSetup end
+netplay: reboot: bootDll runs
+DLL DBG OUT
+Rest Memory 15b9560
+data num 74000b
+Rest Memory 12708a0
+relaunch test: step 4 play in overlay 1
+0
+GroupSet 0
+***********GroupSet Error 0
+>>>>>>>>MSM_SE_SEL_01 0
+>>>>>>>>SE Num 0
+>>>>>>>>MSM_SE_SEL_01 0
+>>>>>>>>SE Num 0
