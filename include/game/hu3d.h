@@ -662,6 +662,9 @@ HU3DANIMID Hu3DAnimLink(HU3DANIMID linkAnimId, HU3DMODELID modelId, char *bmpNam
 void Hu3DAnimKill(HU3DANIMID animId);
 void Hu3DAnimModelKill(HU3DMODELID modelId);
 void Hu3DAnimAllKill(void);
+#ifdef TARGET_PC
+BOOL Hu3DTexAnimUseCheck(ANIMDATA *anim);
+#endif
 void Hu3DAnimAttrSet(HU3DANIMID animId, u16 attr);
 void Hu3DAnimAttrReset(HU3DANIMID animId, s32 attr);
 void Hu3DAnimSpeedSet(HU3DANIMID animId, float speed);

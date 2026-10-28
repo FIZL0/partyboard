@@ -1,0 +1,85 @@
+diff --git i/src/REL/bootDll/main.c w/src/REL/bootDll/main.c
+index ef53e659..6e5dda65 100644
+--- i/src/REL/bootDll/main.c
++++ w/src/REL/bootDll/main.c
+@@ -16,6 +16,8 @@
+ #include "game/window.h"
+ #include "game/wipe.h"
+ #include "math.h"
++#include <stdlib.h> /* N75 TEMP */
++#include "game/objsub.h"
+ 
+ #include "data_num/title.h"
+ 
+@@ -160,6 +162,14 @@ void ObjectSetup(void)
+              GWPlayerCfg[i].pad_idx = i;
+          }
+          BootInitForSkippedSequence();
++         if (getenv("N75_MG")) { /* N75 TEMP */
++             for (i = 0; i < 4; i++) {
++                 GWPlayerCfg[i].character = i; GWPlayerCfg[i].iscom = 1; GWPlayerCfg[i].diff = 0; GWPlayerCfg[i].group = 0;
++             }
++             GWSystem.mg_next = omMgIndexGet(atoi(getenv("N75_MG")));
++             omOvlCallEx(atoi(getenv("N75_MG")), 1, 0, 0);
++             HuPrcEnd();
++         }
+          omOvlCallEx(DLL_modeseldll, 1, MODESEL_EVENT_SKIP_BOOT, 0);
+          for (i = 0; i < 4; i++) {
+              GWPlayerCfg[i].character = -1;
+diff --git i/src/port/netplay.c w/src/port/netplay.c
+index 8cd7412f..708ef227 100644
+--- i/src/port/netplay.c
++++ w/src/port/netplay.c
+@@ -1,3 +1,4 @@
++#define _GNU_SOURCE 1 /* N75 TEMP */
+ /*
+  * Netplay, C side: deterministic time and seeds, the state hash, and the --script/--hash-log debug
+  * mode used to check that two runs of the same input stay identical. See plan/NET.md.
+@@ -719,6 +720,39 @@ BOOL netplay_lockstep(void)
+     return pbnet_lockstep_active() != 0;
+ }
+ 
++/* N75 TEMP: N75_RESTART=<ovl>:<frames>:<times> restarts that overlay that many frames in, as a reload kills it */
++#include <dlfcn.h>
++#include "game/process.h"
++#include "game/memory.h"
++#include "game/object.h"
++static BOOL n75_foreign(const Process *p, void *dol)
++{
++    Dl_info a, b;
++    const void *f = (p->func && dladdr((void *)(uintptr_t)p->func, &a)) ? a.dli_fbase : NULL;
++    const void *d = (p->dtor && dladdr((void *)(uintptr_t)p->dtor, &b)) ? b.dli_fbase : NULL;
++    return (f != NULL && f != dol) || (d != NULL && d != dol);
++}
++static void n75_restart_proc(void)
++{
++    Dl_info me;
++    dladdr((void *)(uintptr_t)netplay_tick_begin, &me);
++    OSReport("n75: restart: killed %d\n", (int)HuPrcKillIf(n75_foreign, me.dli_fbase));
++    omOvlGotoEx(omcurovl, 1, 0, 0);
++    HuPrcEnd();
++}
++static void n75_restart(void)
++{
++    static int ovl = -2, frames, times, last = -1, n, done;
++    const char *e = getenv("N75_RESTART");
++    if (e == NULL) return;
++    if (ovl == -2) sscanf(e, "%d:%d:%d", &ovl, &frames, &times);
++    if ((int)omcurovl != last) { last = omcurovl; n = 0; }
++    if ((int)omcurovl == ovl && ++n == frames && done < times) {
++        done++;
++        HuPrcCreate(n75_restart_proc, 0xFFFF, 0x2000, 0);
++    }
++}
++
+ BOOL netplay_tick_begin(void)
+ {
+     PADStatus local[4];
+@@ -730,6 +764,7 @@ BOOL netplay_tick_begin(void)
+ 
+     /* A started match sets its state first: frame 0's hash and pads see it on every peer. */
+     netplay_match_tick();
++    n75_restart(); /* N75 TEMP */
+     if (script.loaded || !pbnet_lockstep_active()) {
+         return TRUE;
+     }

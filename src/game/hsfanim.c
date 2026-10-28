@@ -180,6 +180,22 @@ void Hu3DAnimKill(HU3DANIMID animId)
     }
 }
 
+#ifdef TARGET_PC
+/* N75: TRUE if a live texture anim draws with anim (HuSprAnimKill leaves it for that texture anim's kill). */
+BOOL Hu3DTexAnimUseCheck(ANIMDATA *anim)
+{
+    HU3DTEXANIM *texAnimP = &Hu3DTexAnimData[0];
+    HU3DANIMID animId;
+
+    for (animId = 0; animId < HU3D_TEXANIM_MAX; animId++, texAnimP++) {
+        if (texAnimP->modelId != HU3D_MODELID_NONE && texAnimP->anim == anim) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+#endif
+
 void Hu3DAnimModelKill(HU3DMODELID modelId)
 {
     HU3DTEXANIM *texAnimP = &Hu3DTexAnimData[0];

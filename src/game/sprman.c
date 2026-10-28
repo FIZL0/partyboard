@@ -464,6 +464,27 @@ void HuSprKill(s16 sprite)
     sprite_ptr->data = NULL;
 }
 
+#ifdef OPTIMIZED_TEXTURE_LOADING
+static void HuSprAnimTexDestroy(ANIMDATA *anim)
+{
+    int i;
+    int j;
+    /* N69: without the mask a HuSprAnimMake anim (bmpNum 1|ANIM_BMP_ALLOC) walked 0x8001 bitmaps past its block
+     * and destroyed the texture objects of whatever lay there (and zeroed their ids) */
+    for(i=0; i<(anim->bmpNum & ANIM_BMP_NUM_MASK); i++) {
+        for (j = 0; j < sizeof(anim->bmp[0].texData) / sizeof(anim->bmp[0].texData[0]); j++) {
+            AnimTexData *tex = &anim->bmp[i].texData[j];
+            if (tex->tex_initialized) {
+                GXDestroyTexObj(&tex->tex_obj);
+            }
+            if (tex->tlut_initialized) {
+                GXDestroyTlutObj(&tex->tlut_obj);
+            }
+        }
+    }
+}
+#endif
+
 void HuSprAnimKill(ANIMDATA *anim)
 {
     if(--anim->useNum <= 0) {
@@ -483,22 +504,16 @@ void HuSprAnimKill(ANIMDATA *anim)
                 HuMemDirectFree(anim->bmp->palData);
             }
         }
-#ifdef OPTIMIZED_TEXTURE_LOADING
-        int i;
-        int j;
-        /* N69: without the mask a HuSprAnimMake anim (bmpNum 1|ANIM_BMP_ALLOC) walked 0x8001 bitmaps past its block
-         * and destroyed the texture objects of whatever lay there (and zeroed their ids) */
-        for(i=0; i<(anim->bmpNum & ANIM_BMP_NUM_MASK); i++) {
-            for (j = 0; j < sizeof(anim->bmp[0].texData) / sizeof(anim->bmp[0].texData[0]); j++) {
-                AnimTexData *tex = &anim->bmp[i].texData[j];
-                if (tex->tex_initialized) {
-                    GXDestroyTexObj(&tex->tex_obj);
-                }
-                if (tex->tlut_initialized) {
-                    GXDestroyTlutObj(&tex->tlut_obj);
-                }
-            }
+#ifdef TARGET_PC
+        /* N75: m411's end kills its made anims while their texture anims (Hu3DAnimCreate) still draw with them, and
+         * omOvlKill's Hu3DAllKill -> Hu3DAnimKill then freed each one again (8 'memory free error's per play, GC
+         * too). The owner's bitmap data went above, as on GC; the anim itself goes with its last texture anim. */
+        if(Hu3DTexAnimUseCheck(anim)) {
+            return;
         }
+#endif
+#ifdef OPTIMIZED_TEXTURE_LOADING
+        HuSprAnimTexDestroy(anim);
 #endif
 #ifdef BYTESWAPPING
         if (!anim->raw) {
@@ -520,13 +535,17 @@ void HuSprAnimKill(ANIMDATA *anim)
 #ifdef BYTESWAPPING
 /* Hu3DAnimKill's free of an anim. On GC that is one block (the file block, or HuSprAnimMake's) and its bitmap data
  * stays; here the converted anim's own blocks go with it (N57: m411 left mid-play kept five blocks per anim). An anim
- * HuSprAnimKill already freed (m411's own end) is only reported, as before. */
+ * that is not a used block any more is only reported, as before. */
 void HuSprAnimFree(ANIMDATA *anim)
 {
     if (!HuMemDirectUsedCheck(anim)) {
         HuMemDirectFree(anim);
         return;
     }
+#ifdef OPTIMIZED_TEXTURE_LOADING
+    /* N75: its texture anim drew it, so it has texture objects (HuSprAnimKill's deferred kill ends here) */
+    HuSprAnimTexDestroy(anim);
+#endif
     if (anim->raw) {
         HuMemDirectFree(anim->raw);
     } else {
