@@ -19,8 +19,8 @@ web build (wasm32, clang, musl) and the Linux build (x86_64, GCC, glibc) up to f
   extern/aurora/include/dolphin/os/OSFastCast.h:15:1: runtime error: -1.33333 is outside ... 'unsigned char'   (OSf32tou8: board fade alpha)
   src/game/hsfdraw.c:482:49: runtime error: 1424 is outside ... 'unsigned char'   (a material's ambient color)
   ```
-  m415 (the paint minigame) `fn_1_4660` (a painter object), state `unk5D == 1`, a COM painter picking its next cell: `temp_r28 = (u8)(((0.5f * (600 +
-  x)) - 150 * cell) / 50.0f)` goes negative when the painter stands left of/above its target block. Converting a
+  m415 (the paint minigame) `fn_1_4660` (a painter object), state `unk5D == 1`, a COM painter picking its next
+  cell: `temp_r28 = (u8)(((0.5f * (600 + x)) - 150 * cell) / 50.0f)` goes negative when the painter stands left of/above its target block. Converting a
   negative float to `u8` is undefined in C. GCC on x86_64 does `cvttss2si` (to s32) and keeps the low byte: -1.7 ->
   -1 -> 255, the loop over `temp_r28 - 1 .. temp_r28 + 1` (254..256) finds no cell in 0..2, nothing happens. clang
   on wasm32 converts with `i32.trunc_sat_f32_u` (unsigned, saturating): -1.7 -> 0, the loop looks at cells 0 and 1,
@@ -93,6 +93,15 @@ without a run that reaches them:
 The rest (mentDll/ztardll handlers with typed pointer parameters: same wasm type, fine; others not audited) is
 follow-up **N102**.
 
+The next browser run (all of the above but mentDll/w02/w05, which this party doesn't load) played the whole party equal
+to the desktop to `match over` at 110988 and trapped once more on the next frame, at the start of the party results
+(mstory3Dll `fn_1_D48C`, result_seq.c). `StructBss1530.unk04` was made `(omObjData *, void *)` on PC for arm64
+(98ac07fd: the variadic `(omObjData *, ...)` passed its arguments on the stack there), and every call passes
+`(obj, NULL)`; but result_seq.c's handlers take only the object, and two of them (`fn_1_BE5C`, `fn_1_BF60`) nothing.
+result_seq.c now calls its handlers as `void (*)(omObjData *)` (`RESULT_SEQ_CALL`, PC only) and those two take the
+object; result.c's handlers take two arguments and are called with two, but `fn_1_18CFC` took one: it now takes the
+(unused) second.
+
 ## Also fixed: the web build's CMake hooks
 
 The N86 merge (a86810a5) dropped N87's lines from CMakeLists.txt: `PB_DOL_LIBRARY_TYPE`/`PB_REL_LIBRARY_TYPE` and the
@@ -101,6 +110,9 @@ fmt (web_early's `-includecstdlib` missing). Restored as they were (main has the
 them).
 
 ## Checks
+
+**Result: the web build and the desktop build give the same per-frame hash logs for the whole scripted party and
+beyond (135000 frames, web6 vs fix4).**
 
 All with `tools/netplay/party.script --match 0@1500 --turbo --hash-log`, fresh user dirs, GMPE01 Rev 1, compared with
 `tools/netplay/hashdiff.py`. Desktop = `build/linux-default-relwithdebinfo` (GCC 16, glibc), web = `build/web-cmake`
@@ -113,9 +125,13 @@ a copy of the script next to a `build/web` symlink to serve another build while 
 | pbm | desktop, bundled musl math only | = base, all 135000 frames (heap= too) |
 | fix | desktop, + m415/OSFastCast casts | = base, 135000 frames |
 | fix2 | desktop, + hsfdraw cast, m418 calls | = base, 135000 frames |
+| fix3 | desktop, + Boo/statue hooks | = base, 135000 frames |
+| fix4 | desktop, + w02/w05/mentDll/mstory3 | = base, 135000 frames |
 | web1 | web, bundled math, no cast fix (stopped at 1500 s) | splits from desktop at 10869, plr3, in m415: as N87 |
 | web2 | web, + m415/OSFastCast casts | = desktop for all 82785 frames it ran (turns 1-8, 11 minigames), then m418's trap |
-| web3 | web, + m418 calls | WEB3 |
+| web3 | web, + m418 calls | = desktop for all 88995 frames, then the Boo hook's trap (turn 9) |
+| web4 | web, + Boo/statue hooks | **= desktop for all 110988 frames to `match over`** (10 turns, 13 minigames), then mstory3's trap |
+| web6 | web, + w02/w05/mentDll/mstory3 (the final code) | **= desktop for all 135000 frames**: the party, `match over` at 110988, the results (mstory3), the menus and into the next party (board from ~118900); no trap, every field but heap= (the heap layout, not state: 32-bit pointers) |
 | fco | desktop with float-cast-overflow, before | 4 sites (above) |
 | fco3 | the same after the fixes (`tools/netplay/float_cast_check.sh`) | none, 135000 frames, match over at 110988, = fix |
 
@@ -136,7 +152,6 @@ a copy of the script next to a `build/web` symlink to serve another build while 
 - The decomp's own MSL fdlibm (src/MSL_C.PPCEABI.bare.H, the GC's libm) instead of musl: big-endian word access
   (`__HI(x)` = `*(int*)&x`), no float functions; musl is the same fdlibm lineage, portable, and is already what the web
   build runs.
-
 - A clang desktop build with `-fsanitize=function` (UBSan's "call through a pointer of another function type", the
   check wasm does) to list every such call in one party instead of one browser run per trap: clang 23's x86_64 build
   spun in `HuPrcCall` (process.c:382) at boot, before the first frame, also a problem of its own (the game is only
@@ -157,5 +172,8 @@ a copy of the script next to a `build/web` symlink to serve another build while 
   `float_cast_check.sh` through the rest.
 - **A real two-peer browser + desktop match**: not run (the desktop and the browser lobby use different transports,
   iroh vs WebRTC: N96). This task shows the two builds compute the same frames from the same pads.
+- **The w02, w05 and mentDll signature fixes** ran in no party (this one is w01 and skips the party menu with
+  `--match`): built for desktop and web, desktop hashes unchanged (fix4), w05's return value checked against the old
+  desktop disassembly, but no browser run reached them.
 - **Which `GWPlayer[3]` field moved first at 10869**: not traced field by field (the hash log has per-player
   hashes only); the cause was found from the conversion instead and checked by the fixed run.
