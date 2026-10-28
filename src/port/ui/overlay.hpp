@@ -23,6 +23,7 @@ protected:
     Rml::Element *mCurrentToast = nullptr;
     Rml::Element *mControllerWarning = nullptr;
     Rml::Element *mMenuNotification = nullptr;
+    Rml::Element *mSaveIcon = nullptr; // N129
     clock::time_point mCurrentToastStartTime;
     clock::time_point mMenuNotificationStartTime;
 
@@ -38,6 +39,7 @@ protected:
     Uint64 mFpsLastUpdate = 0;
 
     void advance_fps_counter(float &outFps, Uint64 perfFreq);
+    void update_save_icon();
 };
 
 } // namespace partyboard::ui

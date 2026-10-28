@@ -94,6 +94,9 @@ static void ResultCreate(void);
 static void ResultStatAdd(void);
 static void ResultOrderApply(void);
 static void SaveExec(void);
+#ifdef TARGET_PC
+static void SaveExecQuiet(void);
+#endif
 static void ResultTeamExec(void);
 
 void ObjectSetup(void)
@@ -221,11 +224,21 @@ static void ResultMain(void)
     }
 #endif
     if (GWSaveModeGet() != 1 && SLSaveFlagGet()) {
+#ifdef TARGET_PC
+        /* N129: no saving screen (black, the WIN 0x20 sprite and SLSave's "Slot A: Saving!" window): the save runs
+           over the results with a saving icon in a corner, then the wipe-out of a party that doesn't save. */
+        SaveExecQuiet();
+        WipeCreate(WIPE_MODE_OUT, WIPE_TYPE_NORMAL, 60);
+        while (WipeStatGet()) {
+            HuPrcVSleep();
+        }
+#else
         WipeCreate(WIPE_MODE_OUT, WIPE_TYPE_NORMAL, 30);
         while (WipeStatGet()) {
             HuPrcVSleep();
         }
         SaveExec();
+#endif
     }
     else {
         WipeCreate(WIPE_MODE_OUT, WIPE_TYPE_NORMAL, 60);
@@ -1044,6 +1057,31 @@ static void SaveExec(void)
         HuPrcVSleep();
     }
 }
+
+#ifdef TARGET_PC
+/* N129: SaveExec's save, without its screen (SLSaveQuiet shows the port's saving icon). */
+static void SaveExecQuiet(void)
+{
+    if (GWSaveModeGet() == 2) {
+        GWSaveModeSet(1);
+    }
+    if (GWPartyGet() == 1) {
+        GWGameStat.party_continue = 1;
+        SLSaveBoard();
+    }
+    else {
+        GWGameStat.story_continue = 1;
+        SLSaveBoardStory();
+    }
+    SLCommonSet();
+    if (SLSaveQuiet()) {
+        saveExecF = 1;
+    }
+    else {
+        GWSaveModeSet(1);
+    }
+}
+#endif
 
 static s32 resultCharMdlTbl[] = { DATADIR_MARIOMDL1, DATADIR_LUIGIMDL1, DATADIR_PEACHMDL1, DATADIR_YOSHIMDL1, DATADIR_WARIOMDL1, DATADIR_DONKEYMDL1,
     DATADIR_DAISYMDL1, DATADIR_WALUIGIMDL1 };

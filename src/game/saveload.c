@@ -14,6 +14,7 @@
 
 #ifdef TARGET_PC
 #include <port/byteswap.h>
+#include <port/save_icon.h>
 #endif
 
 #if VERSION_ENG
@@ -59,6 +60,37 @@ static u8 sjisSpace[] = "　";
 #endif
 
 static s32 saveMessWin = -1;
+
+#ifdef TARGET_PC
+/* N129: SLSaveQuiet's save opens no "Slot A: Saving!" or "Please do not touch the Memory Card" window (the port's
+   saving icon stands in for them); card error windows (SLMessOut) still show. */
+static BOOL saveWinQuiet;
+
+static s32 SLWriteWinCreate(void)
+{
+    float winSize[2];
+    s32 window;
+
+    if (saveWinQuiet) {
+        return -1;
+    }
+    HuWinInit(1);
+    HuWinMesMaxSizeGet(1, winSize, MAKE_MESSID(16, 11));
+    window = HuWinExCreateStyled(-10000.0f, 200.0f, winSize[0], winSize[1], -1, 2);
+    HuWinExAnimIn(window);
+    HuWinMesSet(window, MAKE_MESSID(16, 11));
+    HuWinMesWait(window);
+    return window;
+}
+
+static void SLWriteWinKill(s32 window)
+{
+    if (window != -1) {
+        HuWinExAnimOut(window);
+        HuWinExCleanup(window);
+    }
+}
+#endif
 
 s32 SLFileOpen(char *fileName)
 {
@@ -145,18 +177,26 @@ s32 SLFileCreate(char *fileName, u32 size, void *addr)
         SLMessOut(3);
         return CARD_RESULT_INSSPACE;
     }
+#ifdef TARGET_PC
+    window = SLWriteWinCreate();
+#else
     HuWinInit(1);
     HuWinMesMaxSizeGet(1, winSize, MAKE_MESSID(16, 11));
     window = HuWinExCreateStyled(-10000.0f, 200.0f, winSize[0], winSize[1], -1, 2);
     HuWinExAnimIn(window);
     HuWinMesSet(window, MAKE_MESSID(16, 11));
     HuWinMesWait(window);
+#endif
     SAVE_WRITE_BEGIN
     result = HuCardCreate(curSlotNo, fileName, size, &curFileInfo);
     SAVE_WRITE_END
     if (result < 0) {
+#ifdef TARGET_PC
+        SLWriteWinKill(window);
+#else
         HuWinExAnimOut(window);
         HuWinExCleanup(window);
+#endif
     }
     if (result == CARD_RESULT_NOCARD) {
         SLMessOut(0);
@@ -170,8 +210,12 @@ s32 SLFileCreate(char *fileName, u32 size, void *addr)
     result = HuCardWrite(&curFileInfo, addr, size, 0);
     SAVE_WRITE_END
     if (result < 0) {
+#ifdef TARGET_PC
+        SLWriteWinKill(window);
+#else
         HuWinExAnimOut(window);
         HuWinExCleanup(window);
+#endif
     }
     if (result == CARD_RESULT_NOCARD) {
         SLMessOut(0);
@@ -184,8 +228,12 @@ s32 SLFileCreate(char *fileName, u32 size, void *addr)
     SAVE_WRITE_BEGIN
     result = SLStatSet(1);
     SAVE_WRITE_END
+#ifdef TARGET_PC
+    SLWriteWinKill(window);
+#else
     HuWinExAnimOut(window);
     HuWinExCleanup(window);
+#endif
     if (result < 0) {
         return result;
     }
@@ -201,6 +249,12 @@ s32 SLFileWrite(s32 length, void *addr)
     if (SaveEnableF == 0) {
         return 0;
     }
+#ifdef TARGET_PC
+    window = SLWriteWinCreate();
+    if (!saveWinQuiet) {
+        HuPrcSleep(60);
+    }
+#else
     HuWinInit(1);
     HuWinMesMaxSizeGet(1, winSize, MAKE_MESSID(16, 11));
     window = HuWinExCreateStyled(-10000.0f, 200.0f, winSize[0], winSize[1], -1, 2);
@@ -208,14 +262,19 @@ s32 SLFileWrite(s32 length, void *addr)
     HuWinMesSet(window, MAKE_MESSID(16, 11));
     HuWinMesWait(window);
     HuPrcSleep(60);
+#endif
     SAVE_WRITE_BEGIN
     result = HuCardWrite(&curFileInfo, addr, length, 0);
     if (result == 0) {
         result = SLStatSet(1);
     }
     SAVE_WRITE_END
+#ifdef TARGET_PC
+    SLWriteWinKill(window);
+#else
     HuWinExAnimOut(window);
     HuWinExCleanup(window);
+#endif
     return result;
 }
 
@@ -529,6 +588,11 @@ static s16 SLCreateSaveWin(void)
     float size[2];
     s16 window;
 
+#ifdef TARGET_PC
+    if (saveWinQuiet) {
+        return -1;
+    }
+#endif
     HuWinInit(1);
     HU_WIN_INSERT_MES_SIZE_GET_PTR(MAKE_MESSID_PTR(SAVEWIN_MESS[curSlotNo]), 0);
     HuWinMesMaxSizeGet(1, size, MAKE_MESSID(16, 68));
@@ -540,6 +604,19 @@ static s16 SLCreateSaveWin(void)
     HuWinMesWait(window);
     return window;
 }
+
+#ifdef TARGET_PC
+s32 SLSaveQuiet(void)
+{
+    s32 result;
+    port_save_icon_begin();
+    saveWinQuiet = TRUE;
+    result = SLSave();
+    saveWinQuiet = FALSE;
+    port_save_icon_end();
+    return result;
+}
+#endif
 
 static void SLKillSaveWin(void)
 {

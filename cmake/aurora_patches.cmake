@@ -53,6 +53,11 @@
 #   (surfaceDestroyed takes the same activity mutex) deadlocked on going to the background with a frame in flight
 #   ("Activity stop timeout", black view after). Hunks only in window.hpp/.cpp's SurfaceLock and gpu.cpp's surface
 #   functions, clear of 0010's and 0012's.
+# - 0014-gfx-frame-capture-ui (N129): aurora_capture_frame_ui(path, delay_frames) (aurora/frame_capture_ui.h) saves
+#   the frame as shown, RmlUi's render target (game image + RmlUi, no ImGui), to a PNG: 0003's capture is the EFB
+#   before RmlUi, so overlays (the saving icon) never showed in tests. Encoded in end_frame's present callback when
+#   RmlUi drew; new files plus one line each in aurora.cpp (include, encode), rmlui.cpp (capture_texture) and
+#   aurora_gx.cmake, clear of the other patches' context.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
