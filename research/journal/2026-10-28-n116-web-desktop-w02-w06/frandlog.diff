@@ -1,0 +1,94 @@
+diff --git i/extern/aurora w/extern/aurora
+--- i/extern/aurora
++++ w/extern/aurora
+@@ -1 +1 @@
+-Subproject commit 514339438178ef2bed1b14e5149d90ece0c6e0cc
++Subproject commit 514339438178ef2bed1b14e5149d90ece0c6e0cc-dirty
+diff --git i/src/game/frand.c w/src/game/frand.c
+index d5e65147..63e60317 100644
+--- i/src/game/frand.c
++++ w/src/game/frand.c
+@@ -1,9 +1,63 @@
++#if defined(TARGET_PC) && !defined(__EMSCRIPTEN__)
++#define _GNU_SOURCE
++#endif
+ #include "dolphin.h"
+ #ifdef TARGET_PC
+ #include "port/netplay.h"
+ #endif
+ 
+ static u32 frand_seed;
++#ifdef TARGET_PC
++/* N116 diagnostic (not committed): PB_N116_FR=<from>-<to> logs every frand/frandmod caller in those frames. */
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#else
++
++#include <dlfcn.h>
++#include <execinfo.h>
++#endif
++static void n116_log(const char *what, void *ra)
++{
++    static int from = -2, to;
++    u32 f;
++    if (from == -2) {
++        const char *e = getenv("PB_N116_FR");
++        from = -1;
++        if (e) sscanf(e, "%d-%d", &from, &to);
++    }
++    if (from < 0) return;
++    f = netplay_frame();
++    if ((int)f < from || (int)f > to) return;
++#ifdef __EMSCRIPTEN__
++    {
++        static char buf[4096];
++        char *p, *q;
++        int n = 0;
++        (void)ra;
++        emscripten_get_callstack(EM_LOG_JS_STACK | EM_LOG_NO_PATHS, buf, sizeof buf);
++        /* "    at name (wasm-function[..]:..)" lines: skip the log's own frames */
++        for (p = buf; *p; p++)
++            if (*p == '\n') *p = '|';
++        fprintf(stderr, "N116 %s %u %s\n", what, f, buf);
++    }
++#else
++    {
++        Dl_info di;
++        void *r[6];
++        int i, n = backtrace(r, 6);
++        (void)ra;
++        fprintf(stderr, "N116 %s %u", what, f);
++        for (i = 2; i < n; i++)
++            if (dladdr(r[i], &di) && di.dli_sname) fprintf(stderr, " %s", di.dli_sname); else fprintf(stderr, " %p", r[i]);
++        fprintf(stderr, "\n");
++    }
++#endif
++}
++#endif
++
+ 
+ extern s32 rand8(void);
+ 
+@@ -30,6 +84,9 @@ static inline u32 frandom(u32 param)
+ }
+ 
+ u32 frand(void) {
++#ifdef TARGET_PC
++    n116_log("frand", __builtin_return_address(0));
++#endif
+     return frand_seed = frandom(frand_seed);
+ }
+ 
+@@ -43,6 +100,9 @@ f32 frandf(void) {
+ 
+ u32 frandmod(u32 arg0) {
+     u32 ret;
++#ifdef TARGET_PC
++    n116_log("frandmod", __builtin_return_address(0));
++#endif
+     frand_seed = frandom(frand_seed);
+ #ifdef TARGET_PC
+     if (arg0 == 0) {
