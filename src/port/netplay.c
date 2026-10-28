@@ -249,6 +249,8 @@ static void hash_log_line(FILE *out, u32 at)
  *   lottery-stick on         in the board lottery's stick games, a human current player's stick is the
  *                            script's own instead of the pad line's (N79): it spins the ball game's handle
  *                            and sweeps the scratch ticket's hand over the whole ticket
+ *   plunger-stick on         in m444's plunger (netplay_script_plunger_wait), the pad it reads pulls the
+ *                            stick down and its A presses are held back until a full pull (N114)
  *
  * <buttons> is a number (0x... allowed) or names joined by '+': A B X Y START Z L R UP DOWN LEFT
  * RIGHT, or 0/none. A pad line sets that port's state from <frame> on; it holds until the next line
@@ -279,6 +281,12 @@ static struct {
     /* lottery_stick: the stick game last seen (BoardLotteryNetplayStickGame) and the frames it has run. */
     s32 lottery_game;
     u32 lottery_t;
+    BOOL plunger_stick;
+    /* plunger_stick: the pad m444's plunger waited on in the last frame (-1: none), the pad of the wait under way and
+     * the frames it has run. */
+    s32 plunger_req;
+    s32 plunger_pad;
+    u32 plunger_t;
 } script;
 
 static FILE *hash_log;
@@ -409,6 +417,10 @@ static BOOL script_parse_line(char *line, const char *path, int lineno)
         script.lottery_stick = TRUE;
         return TRUE;
     }
+    if (strcmp(tok[0], "plunger-stick") == 0 && n == 2 && strcmp(tok[1], "on") == 0) {
+        script.plunger_stick = TRUE;
+        return TRUE;
+    }
     if (strcmp(tok[0], "end") == 0 && n == 2) {
         if (!parse_long(tok[1], 1, 0x7FFFFFFF, &v[0])) {
             goto bad;
@@ -481,6 +493,7 @@ static BOOL script_load(const char *path)
     for (i = 0; i < 4; i++) {
         script.alt_ovl[i] = -1;
     }
+    script.plunger_req = script.plunger_pad = -1;
     while (fgets(line, sizeof(line), f) != NULL) {
         lineno++;
         if (!script_parse_line(line, path, lineno)) {
@@ -498,6 +511,18 @@ static BOOL script_load(const char *path)
 }
 
 s32 BoardLotteryNetplayStickGame(void);
+
+/* `plunger-stick on`: the frames of waiting before A gets through. The plunger's pull grows 0.45 a frame with the stick
+ * down (up to 50) and the launch speed is 15 + pull / 4; its COM pulls 20 to 119 frames. */
+#define PLUNGER_PULL_FRAMES 90
+
+void netplay_script_plunger_wait(s32 pad)
+{
+    if (!script.plunger_stick || pad < 0 || pad >= 4) {
+        return;
+    }
+    script.plunger_req = pad;
+}
 
 /* `lottery-stick on`: the stick for frame t of a lottery stick game (1 ball, 2 scratch). Values stay under 127 (the
  * ball game ends at once on a COM's 0x7F) and over PADClamp's dead zone. */
@@ -571,6 +596,20 @@ static void script_pads(PADStatus *status)
             lottery_stick_at(game, script.lottery_t++, &st->stickX, &st->stickY);
         }
     }
+    if (script.plunger_req != script.plunger_pad) {
+        script.plunger_pad = script.plunger_req;
+        script.plunger_t = 0;
+    }
+    if (script.plunger_pad >= 0) {
+        PADStatus *st = &status[script.plunger_pad];
+        st->stickX = 0;
+        st->stickY = -120;
+        if (script.plunger_t++ < PLUNGER_PULL_FRAMES) {
+            st->button &= ~PAD_BUTTON_A;
+        }
+    }
+    /* The plunger asks again in the next frame while it still waits. */
+    script.plunger_req = -1;
 }
 
 BOOL netplay_debug_init(int argc, char *argv[])

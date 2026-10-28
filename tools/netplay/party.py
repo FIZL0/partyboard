@@ -9,6 +9,8 @@ modeseldll); from there all four ports tap A every TAP frames. The script needs 
   the pad of the player they show (fn_1_16924), leave on START and turn pages on A; START after an A is lost in the
   page animation. Event 0 (the ceremony before them) needs A. The match is then over (netplay: match over), back in
   modeseldll.
+- `plunger-stick on`: m444's plunger (a board event's pinball) launches a human's ball on A only after a stick pull,
+  and a short pull can leave the ball bouncing in the lane for ever (N114). The script pulls and holds A back.
 - `lottery-stick on`: the lottery's ball game and ticket scratch get the script's stick for a human current player
   (N79): A taps alone leave the party in them forever (since N69's party buys a ticket in turn 8).
 GMPE01 Rev 1, fresh user dir, at N53: board w01 from 1502, 13 minigames, turn 10 ends at ~115500 (mstory3), the match
@@ -28,7 +30,8 @@ def main():
            f"seed 0x{SEED:08X}",
            f"end {END}",
            "mg-explain off",
-           "lottery-stick on"]
+           "lottery-stick on",
+           "plunger-stick on"]
     out += [f"ovl 78 1 {p} START" for p in range(4)]
     f, i = 120, 0
     while f < MATCH_AT:
