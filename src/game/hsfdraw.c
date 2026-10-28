@@ -478,9 +478,10 @@ static void FaceDraw(HU3DDRAWOBJ *hsfDrawObject, HSFFACE *hsfFace) {
     if (faceMaterial != materialBak) {
         totalMatCnt++;
         materialBak = faceMaterial;
-        tempColor.r = faceMaterial->litColor[0] * model->ambR;
-        tempColor.g = faceMaterial->litColor[1] * model->ambG;
-        tempColor.b = faceMaterial->litColor[2] * model->ambB;
+        // N91: through s32: these pass 255 (1424 in a party), out of a u8's range is undefined as a direct conversion
+        tempColor.r = (s32)(faceMaterial->litColor[0] * model->ambR);
+        tempColor.g = (s32)(faceMaterial->litColor[1] * model->ambG);
+        tempColor.b = (s32)(faceMaterial->litColor[2] * model->ambB);
         tempColor.a = 0xFF;
         GXSetChanAmbColor(GX_COLOR0A0, tempColor);
         tempColor.r = faceMaterial->color[0];

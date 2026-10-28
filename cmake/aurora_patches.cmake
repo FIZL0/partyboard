@@ -3,6 +3,9 @@
 # and skipped when it is already in (applied before, or merged upstream after a submodule bump). A
 # patch that does neither stops the configure: rebase it onto the new aurora or drop it.
 #
+# - 0009-osfastcast-through-s32 (N91, listed first so its note doesn't collide with later ones): OSf32tou8 & co.
+#   convert through s32, so a value out of the small type's range wraps as on x86 on every platform (a direct
+#   cast is undefined; wasm clamped a fade alpha's negatives to 0).
 # - 0001-rmlui-code-input-type (N37): InputType::Code, a soft keyboard without autocorrect or
 #   auto-capitalization, for the Online menu's Code and Relay URL fields.
 # - 0002-gfx-depth-copy-formats (N54): GXCopyTex conversion pipelines for Z24X8, Z8, Z4, Z8M, Z8L and Z16L

@@ -1,0 +1,28 @@
+diff --git a/include/dolphin/os/OSFastCast.h b/include/dolphin/os/OSFastCast.h
+index 6c57394..2dd2cf8 100644
+--- a/include/dolphin/os/OSFastCast.h
++++ b/include/dolphin/os/OSFastCast.h
+@@ -9,16 +9,19 @@ extern "C" {
+ 
+ static inline void OSInitFastCast(void) {}
+ 
+-static inline s16 __OSf32tos16(f32 inF) { return (s16) inF; }
++/* Through s32: a value outside the small type's range (a fade's alpha past 0 or 255) is undefined behaviour as a
++   direct cast, and x86 wraps it where wasm's float -> unsigned clamps negatives to 0 (Party Board N91). */
++
++static inline s16 __OSf32tos16(f32 inF) { return (s16)(s32)inF; }
+ static inline void OSf32tos16(f32 *f, s16 *out) { *out = __OSf32tos16(*f); }
+ 
+-static inline u8 __OSf32tou8(f32 inF) { return (u8)inF; }
++static inline u8 __OSf32tou8(f32 inF) { return (u8)(s32)inF; }
+ static inline void OSf32tou8(f32 *f, u8 *out) { *out = __OSf32tou8(*f); }
+ 
+-static inline s8 __OSf32tos8(f32 inF) { return (s8) inF; }
++static inline s8 __OSf32tos8(f32 inF) { return (s8)(s32)inF; }
+ static inline void OSf32tos8(f32 *f, s8 *out) { *out = __OSf32tos8(*f); }
+ 
+-static inline u16 __OSf32tou16(f32 inF) { return (u16) inF; }
++static inline u16 __OSf32tou16(f32 inF) { return (u16)(s32)inF; }
+ static inline void OSf32tou16(f32 *f, u16 *out) { *out = __OSf32tou16(*f); }
+ 
+ static inline f32 __OSs8tof32(const s8* arg) { return (f32)*arg; }

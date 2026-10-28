@@ -283,6 +283,10 @@ if (PB_HAVE_NO_AGGRESSIVE_LOOP_OPT)
     endforeach ()
 endif ()
 include(cmake/netplay.cmake)
+include(cmake/pbmath.cmake)
+if (EMSCRIPTEN)
+    include(cmake/web.cmake)
+endif ()
 
 if (ANDROID)
     # SDLActivity loads SDL_main via dlsym on Android. Since aurora::main is a static

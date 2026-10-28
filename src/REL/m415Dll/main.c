@@ -1193,8 +1193,10 @@ void fn_1_4660(omObjData *object)
                     }
                 }
             }
-            temp_r28 = (((0.5f * (600.0f + temp_r31->unk2C.x)) - (150.0f * temp_r31->unk60s)) / 50.0f);
-            temp_r27 = (((0.5f * (600.0f + temp_r31->unk2C.x)) - (150.0f * temp_r31->unk62s)) / 50.0f);
+            // N91: these go negative (a stamp left of its target block); through s32 a negative wraps as on the GC and
+            // x86 (-1 -> 255, the loops below then skip), wasm's float -> u8 would clamp it to 0
+            temp_r28 = (s32)(((0.5f * (600.0f + temp_r31->unk2C.x)) - (150.0f * temp_r31->unk60s)) / 50.0f);
+            temp_r27 = (s32)(((0.5f * (600.0f + temp_r31->unk2C.x)) - (150.0f * temp_r31->unk62s)) / 50.0f);
             var_r25 = 0;
             for (var_r30 = temp_r28 - 1; var_r30 <= (temp_r28 + 1); var_r30++) {
                 if (var_r30 >= 0) {
