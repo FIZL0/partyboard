@@ -101,6 +101,13 @@ function(pb_web_link target)
         target_link_options(${target} PRIVATE
                 "-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_pbnet_lobby_host,_pbnet_lobby_join,_pbnet_lobby_answer,_pbnet_lobby_json,_pbnet_lobby_ready,_pbnet_lobby_start,_pbnet_lobby_leave,_pbnet_lobby_cpu,_pbnet_frame,_pbnet_waiting_on")
     endif ()
+    # The probe too (N90): with -g2 emcc links other builds of its ports (emdawnwebgpu), which inline otherwise, so
+    # the probe's functions are partyboard's only with the same flags.
+    if (PB_WEB_DEBUG)
+        target_link_options(${target} PRIVATE -sASSERTIONS=2 -sSTACK_OVERFLOW_CHECK=2 -g2)
+    else ()
+        target_link_options(${target} PRIVATE -sASSERTIONS=0)
+    endif ()
 endfunction()
 
 # Probe: partyboard linked without Asyncify and with its names, to list the functions that use wasm exceptions
@@ -110,42 +117,71 @@ target_compile_definitions(partyboard_eh_probe PRIVATE TARGET_PC NON_MATCHING VE
 target_include_directories(partyboard_eh_probe PRIVATE include ${CMAKE_BINARY_DIR})
 target_link_libraries(partyboard_eh_probe PRIVATE dol aurora::main)
 pb_web_link(partyboard_eh_probe)
-# -O1 as partyboard (same functions; wasm-dis cannot read an -O0 link).
-target_link_options(partyboard_eh_probe PRIVATE -O1 --profiling-funcs -sASYNCIFY=0)
+# -O1 as partyboard (same functions; wasm-dis cannot read an -O0 link). Emscripten's fiber runtime keeps
+# emscripten_stack_set_limits only with Asyncify: kept here too, so the functions wasm-dis numbers (a name that
+# repeats gets its index) are numbered as in partyboard. The link map tells tools/web_asyncify_list.py where each
+# function comes from.
+target_link_options(partyboard_eh_probe PRIVATE -O1 --profiling-funcs -sASYNCIFY=0
+        -sEXPORTED_FUNCTIONS=_main,_emscripten_stack_set_limits
+        -Wl,--Map=${CMAKE_BINARY_DIR}/partyboard_eh_probe.map)
 # Emscripten's own binaryen (next to emcc), not a system one of another version.
 get_filename_component(PB_EMSCRIPTEN_DIR ${CMAKE_C_COMPILER} DIRECTORY)
 find_program(PB_WASM_DIS wasm-dis PATHS ${PB_EMSCRIPTEN_DIR}/../bin NO_DEFAULT_PATH REQUIRED)
-# The list is too long for one argument (wasm-opt gets it as one), so emcc's response file names another file that
-# binaryen reads itself: emcc turns . # ? in it into space & , so its path can't have them.
+# The lists are too long for one argument (wasm-opt gets each as one), so emcc's response file names another file
+# that binaryen reads itself: emcc turns . # ? in it into space & , so its path can't have them.
 set(PB_WEB_EH_LIST ${CMAKE_BINARY_DIR}/web_asyncify_remove)
+set(PB_WEB_ONLY_LIST ${CMAKE_BINARY_DIR}/web_asyncify_only)
 if (PB_WEB_EH_LIST MATCHES "[.#?]")
     message(FATAL_ERROR "web: the build dir's path can't have . # or ? in it (${PB_WEB_EH_LIST}), see cmake/web.cmake")
 endif ()
-file(WRITE ${CMAKE_BINARY_DIR}/web_asyncify_remove.rsp "@${PB_WEB_EH_LIST}\n")
-add_custom_command(OUTPUT ${PB_WEB_EH_LIST}
-        COMMAND sh -c "set -o pipefail; '${PB_WASM_DIS}' '$<TARGET_FILE_DIR:partyboard_eh_probe>/partyboard_eh_probe.wasm' | '${Python3_EXECUTABLE}' '${CMAKE_SOURCE_DIR}/tools/web_eh_list.py' '${PB_WEB_EH_LIST}'"
-        DEPENDS partyboard_eh_probe ${CMAKE_SOURCE_DIR}/tools/web_eh_list.py
-        COMMENT "Listing the functions Asyncify must skip (web)"
+# N90: Asyncify instruments only what tools/web_asyncify_list.py finds can unwind (indirect calls by signature, and
+# only the game's C ones), not every function that can reach an indirect call: 2281 functions instead of 12567, the
+# -O1 wasm 17.0 MB instead of 32.6. OFF: N87's plain Asyncify, every function but those with exception handling
+# (ASYNCIFY_REMOVE).
+set(PB_WEB_ASYNCIFY_ONLY ON CACHE BOOL "Web build: Asyncify only the functions tools/web_asyncify_list.py lists")
+if (PB_WEB_ASYNCIFY_ONLY)
+    set(PB_WEB_ASYNCIFY_LIST ${PB_WEB_ONLY_LIST})
+    set(PB_WEB_ASYNCIFY_OPTION ASYNCIFY_ONLY)
+    set(PB_WEB_ASYNCIFY_TOOL ${CMAKE_SOURCE_DIR}/tools/web_asyncify_list.py)
+    set(PB_WEB_ASYNCIFY_ARGS "'${CMAKE_BINARY_DIR}/partyboard_eh_probe.map' '${PB_WEB_ONLY_LIST}' '${PB_WEB_ONLY_LIST}_report'")
+else ()
+    set(PB_WEB_ASYNCIFY_LIST ${PB_WEB_EH_LIST})
+    set(PB_WEB_ASYNCIFY_OPTION ASYNCIFY_REMOVE)
+    set(PB_WEB_ASYNCIFY_TOOL ${CMAKE_SOURCE_DIR}/tools/web_eh_list.py)
+    set(PB_WEB_ASYNCIFY_ARGS "'${PB_WEB_EH_LIST}'")
+endif ()
+file(WRITE ${CMAKE_BINARY_DIR}/web_asyncify_list.rsp "@${PB_WEB_ASYNCIFY_LIST}\n")
+add_custom_command(OUTPUT ${PB_WEB_ASYNCIFY_LIST}
+        COMMAND sh -c "set -o pipefail; '${PB_WASM_DIS}' '$<TARGET_FILE_DIR:partyboard_eh_probe>/partyboard_eh_probe.wasm' | '${Python3_EXECUTABLE}' '${PB_WEB_ASYNCIFY_TOOL}' ${PB_WEB_ASYNCIFY_ARGS}"
+        DEPENDS partyboard_eh_probe ${PB_WEB_ASYNCIFY_TOOL} ${CMAKE_SOURCE_DIR}/tools/web_eh_list.py
+        COMMENT "Listing the functions Asyncify instruments or skips (web)"
         VERBATIM)
-add_custom_target(web_asyncify_list DEPENDS ${PB_WEB_EH_LIST})
+add_custom_target(web_asyncify_list DEPENDS ${PB_WEB_ASYNCIFY_LIST})
 add_dependencies(partyboard web_asyncify_list)
 
 pb_web_link(partyboard)
-set_property(TARGET partyboard APPEND PROPERTY LINK_DEPENDS ${PB_WEB_EH_LIST})
+set_property(TARGET partyboard APPEND PROPERTY LINK_DEPENDS ${PB_WEB_ASYNCIFY_LIST})
 target_link_options(partyboard PRIVATE
         # Fibers (libco) and the per-frame yield to the browser unwind the wasm stack.
         -sASYNCIFY=1
         -sASYNCIFY_STACK_SIZE=1048576
-        "-sASYNCIFY_REMOVE=@${CMAKE_BINARY_DIR}/web_asyncify_remove.rsp"
+        "-s${PB_WEB_ASYNCIFY_OPTION}=@${CMAKE_BINARY_DIR}/web_asyncify_list.rsp"
         # wasm-opt -O2 and up inline before Asyncify runs, which could put a removed function's exception handling
-        # into one Asyncify instruments; tools/web.sh optimizes the result afterwards.
+        # into one Asyncify instruments, or a listed function into one it doesn't; tools/web.sh optimizes the result
+        # afterwards.
         -O1
         # Function names in the wasm: readable stacks in the browser's console and debugger.
         --profiling-funcs
-        # The game's resources (fonts, RmlUi documents); the disc is the player's, picked in the page.
-        --preload-file ${CMAKE_SOURCE_DIR}/res@/res)
-if (PB_WEB_DEBUG)
-    target_link_options(partyboard PRIVATE -sASSERTIONS=2 -sSTACK_OVERFLOW_CHECK=2 -g2)
-else ()
-    target_link_options(partyboard PRIVATE -sASSERTIONS=0)
+        # The game's resources (fonts, RmlUi documents); the disc is the player's, picked in the page. Not the
+        # prelaunch UI's 2 MB background (N90): the web build never shows that UI with a usable disc, and without
+        # one it is a dead end there anyway (no file dialog).
+        --preload-file ${CMAKE_SOURCE_DIR}/res@/res
+        "--exclude-file=*prelaunch-bg.png")
+if (PB_WEB_ASYNCIFY_ONLY)
+    # Every listed function is in partyboard and instrumented, nothing calls an async import or an instrumented
+    # function directly without being instrumented itself (the list came from another link), and every import the JS
+    # glue makes async was a seed of the list.
+    add_custom_command(TARGET partyboard POST_BUILD
+            COMMAND sh -c "set -o pipefail; '${PB_WASM_DIS}' '$<TARGET_FILE_DIR:partyboard>/partyboard.wasm' | '${Python3_EXECUTABLE}' '${CMAKE_SOURCE_DIR}/tools/web_asyncify_list.py' --check '${PB_WEB_ONLY_LIST}' '$<TARGET_FILE_DIR:partyboard>/partyboard.js'"
+            VERBATIM)
 endif ()
