@@ -396,7 +396,12 @@ s32 fn_1_D2C(void)
         }
     }
     if (var_r28 == 0) {
+#ifdef TARGET_PC
+        /* N82: var_r31 is 4 here; on GC lbl_1_bss_70[4] is lbl_1_bss_80 (the state, set to 5 by the caller next) */
+        lbl_1_bss_80 = -1;
+#else
         lbl_1_bss_70[var_r31] = -1;
+#endif
         return 0;
     }
     lbl_1_bss_14 = (var_r28 * REFRESH_RATE) / 5;

@@ -182,8 +182,15 @@ s32 lbl_1_data_23C[0xA] = {
 UnkBss64Struct lbl_1_bss_64[12];
 omObjData *lbl_1_bss_60;
 omObjData *lbl_1_bss_5C;
+#ifdef TARGET_PC
+/* N82: the two players' objects are indexed as (&lbl_1_bss_54)[0..1]; on GC lbl_1_bss_58 follows lbl_1_bss_54 */
+omObjData *lbl_1_bss_54_58[2];
+#define lbl_1_bss_54 lbl_1_bss_54_58[0]
+#define lbl_1_bss_58 lbl_1_bss_54_58[1]
+#else
 omObjData *lbl_1_bss_58;
 omObjData *lbl_1_bss_54;
+#endif
 omObjData *lbl_1_bss_50;
 s32 lbl_1_bss_4C;
 s32 lbl_1_bss_48;

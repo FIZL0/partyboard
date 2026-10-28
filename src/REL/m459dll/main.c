@@ -166,7 +166,12 @@ M459DllBss7CStruct lbl_1_bss_7C[5];
 M459DllBss70Struct lbl_1_bss_70;
 M459DllBss64Struct lbl_1_bss_64;
 M459DllBss4CStruct lbl_1_bss_4C;
+#ifdef TARGET_PC
+/* N82: fn_1_535C writes [1] too (a light); on GC that is the padding before lbl_1_bss_4C */
+s16 lbl_1_bss_48[2];
+#else
 s16 lbl_1_bss_48[1];
+#endif
 M459DllBss18Struct lbl_1_bss_18;
 s32 lbl_1_bss_14;
 s32 lbl_1_bss_10;
@@ -1336,9 +1341,22 @@ void fn_1_45EC(void)
         for (var_r31 = 0; var_r31 < 5; var_r31++) {
             lbl_1_bss_CC[var_r31].unk_04 = 0xD;
         }
+#ifdef TARGET_PC
+        /* N82: var_r31 is 5 here. On GC lbl_1_bss_CC[5].unk_04 is the bits of lbl_1_bss_61C.unk_00.y, never 13 in
+           practice, so this does not wait. On PC it read the padding after lbl_1_bss_CC (0x138-byte entries) */
+        {
+            union { s32 bits; float f; } gc_y;
+            gc_y.f = lbl_1_bss_61C.unk_00.y;
+            while (gc_y.bits == 0xD) {
+                HuPrcVSleep();
+                gc_y.f = lbl_1_bss_61C.unk_00.y;
+            }
+        }
+#else
         while (lbl_1_bss_CC[var_r31].unk_04 == 0xD) {
             HuPrcVSleep();
         }
+#endif
     }
     HuPrcSleep(0xD2);
     lbl_1_bss_698[0x12] = NULL;

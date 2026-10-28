@@ -175,7 +175,13 @@ static void ExecMGSetup(void) {
         activeMG[var_r31].unk_00 = -1;
         activeMG[var_r31].unk_04 = 0;
     }
+#ifdef TARGET_PC
+    /* N82: player_curr is -1 here. The GC reads GWPlayer[-1].space_curr, which is GWPlayerCfg[0].diff (the 0x28-byte
+       GWPlayerCfg sits right before GWPlayer); on PC the same address was GWPlayerCfg[2].group */
+    BoardPlayerMoveAwayStartCurr(GWPlayerCfg[0].diff, 1);
+#else
     BoardPlayerMoveAwayStartCurr(GWPlayer[GWSystem.player_curr].space_curr, 1);
+#endif
     BoardCameraMoveSet(0);
     BoardCameraTargetSpaceSet(BoardSpaceStarGetCurr());
     sp54.x = 0.0f;

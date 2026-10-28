@@ -46,14 +46,27 @@ typedef struct _M424DllBallStruct {
     Vec unk40;
     Vec unk4C;
     Vec unk58;
+#ifdef TARGET_PC
+    /* N82: never used as pointers, only cleared (memset 0x40 from each). With 8-byte void * the struct was 0x100
+       and unkE8/unkEC sat past the 0xF0 that fn_1_6078 allocates; u32 keeps the GC layout */
+    u32 unk64;
+    char unk68[0x3C];
+    u8 unkA4;
+    u32 unkA8;
+    char unkAC[0x3C];
+#else
     void *unk64; // sizeof 0x40
     char unk68[0x3C];
     u8 unkA4;
     void *unkA8; // sizeof 0x40
     char unkAC[0x3C];
+#endif
     s32 unkE8;
     s32 unkEC;
 } M424DllBallStruct; // sizeof 0xF0
+#ifdef TARGET_PC
+_Static_assert(sizeof(M424DllBallStruct) == 0xF0, "M424DllBallStruct must fit fn_1_6078(0xF0)");
+#endif
 
 typedef struct _M424DllBallStruct3 {
     u8 unk0;

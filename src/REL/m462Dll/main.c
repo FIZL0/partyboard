@@ -1373,7 +1373,12 @@ void fn_1_69C0(void)
     while (TRUE) {
         temp_r31->unk58 = temp_r31->unk4C.x;
         temp_r31->unk5C = temp_r31->unk4C.z;
+#ifdef TARGET_PC
+        /* N82: unk16[4] is unk1E (same offset on GC and PC), the stop flag set when time runs out (fn_1_7DA0) */
+        if (temp_r31->unk1E != 0) {
+#else
         if (temp_r31->unk16[4] != 0) {
+#endif
             break;
         }
         switch (temp_r31->unk2C) {
