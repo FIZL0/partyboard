@@ -420,6 +420,9 @@ BOOL msmSysCheckLoadGroupID(s32 grpId)
 
 void msmSysRegularProc(void)
 {
+#ifdef TARGET_PC
+    partyboard_audio_frame();
+#endif
 }
 
 s32 msmSysGetOutputMode(void)

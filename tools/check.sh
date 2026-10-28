@@ -9,6 +9,8 @@ if [ -f net/Cargo.toml ]; then
 fi
 # worktrees (slots, merge) start without submodules
 [ -f extern/aurora/CMakeLists.txt ] || git submodule update --init --recursive --quiet
+# N112: a merge can move extern/musyx (upstream's audio branch); check it out when it is not at the recorded commit
+[ "$(git -C extern/musyx rev-parse HEAD 2>/dev/null)" = "$(git rev-parse HEAD:extern/musyx)" ] || git submodule update --init --quiet extern/musyx
 # netplay lockstep gate and pad injection (C, fake pbnet; no game needed)
 [ ! -x tools/netplay/tick_gate_test.sh ] || tools/netplay/tick_gate_test.sh >/dev/null
 # netplay match start (C, stub game functions, real heap code; no game needed)
