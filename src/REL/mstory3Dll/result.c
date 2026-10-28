@@ -938,7 +938,9 @@ void fn_1_18668(omObjData* arg0, s32 arg1) {
     HuSprGrpDrawNoSet(arg0->work[3], 0x7F);
 }
 
-void fn_1_18CFC(omObjData* arg0) {
+// N91: called through StructBss1530.unk04 with two arguments (the second unused here): wasm traps on a call through
+// another function type
+void fn_1_18CFC(omObjData* arg0, StructBss1530* arg1) {
     float temp_f31;
     float var_f30;
     s32 var_r29;

@@ -29,6 +29,12 @@ void fn_1_1DED8(s32 arg0, Vec* arg1, Vec* arg2, s16 arg3);
 void fn_1_1E0F4(void);
 #endif
 
+#ifdef TARGET_PC
+// N91: StructBss1530.unk04 is (omObjData *, void *) on PC (result.c's handlers take two), but this file's handlers take
+// only the object: call them as that, wasm traps on a call through another function type
+#define RESULT_SEQ_CALL(func, obj) ((void (*)(omObjData *))(func))(obj)
+#endif
+
 typedef struct {
     /* 0x00 */ s32 unk00;
     /* 0x04 */ s32 unk04;
@@ -1199,7 +1205,7 @@ void fn_1_B788(void) {
     fn_1_8C18();
 }
 
-void fn_1_BE5C(void) {
+void fn_1_BE5C(omObjData* arg0) {
     float var_f31;
 
     var_f31 = fn_1_878(0.0f, 0.1f, lbl_1_bss_B8, 180.0f);
@@ -1210,7 +1216,7 @@ void fn_1_BE5C(void) {
     }
 }
 
-void fn_1_BF60(void) {
+void fn_1_BF60(omObjData* arg0) {
     float temp_f1;
 
     temp_f1 = fn_1_878(1.0f, 1.1f, lbl_1_bss_B8, 60.0f);
@@ -1418,7 +1424,7 @@ void fn_1_D48C(void) {
         fn_1_938();
         if (lbl_1_bss_1558.unk04 != NULL) {
 #ifdef TARGET_PC
-            lbl_1_bss_1558.unk04(temp_r3, NULL);
+            RESULT_SEQ_CALL(lbl_1_bss_1558.unk04, temp_r3);
 #else
             lbl_1_bss_1558.unk04(temp_r3);
 #endif
@@ -1775,7 +1781,7 @@ void fn_1_FE80(void) {
         fn_1_938();
         if (lbl_1_bss_1530.unk04 != NULL) {
 #ifdef TARGET_PC
-            lbl_1_bss_1530.unk04(temp_r31, NULL);
+            RESULT_SEQ_CALL(lbl_1_bss_1530.unk04, temp_r31);
 #else
             lbl_1_bss_1530.unk04(temp_r31);
 #endif
@@ -2483,7 +2489,7 @@ void fn_1_13908(void) {
         fn_1_938();
         if (lbl_1_bss_1490[temp_r31].unk04 != NULL) {
 #ifdef TARGET_PC
-            lbl_1_bss_1490[temp_r31].unk04(lbl_1_bss_1490[temp_r31].unk00, NULL);
+            RESULT_SEQ_CALL(lbl_1_bss_1490[temp_r31].unk04, lbl_1_bss_1490[temp_r31].unk00);
 #else
             lbl_1_bss_1490[temp_r31].unk04(lbl_1_bss_1490[temp_r31].unk00);
 #endif
@@ -2687,7 +2693,7 @@ void fn_1_140A0(void) {
         fn_1_938();
         if (lbl_1_bss_1468.unk04 != NULL) {
 #ifdef TARGET_PC
-            lbl_1_bss_1468.unk04(temp_r3, NULL);
+            RESULT_SEQ_CALL(lbl_1_bss_1468.unk04, temp_r3);
 #else
             lbl_1_bss_1468.unk04(temp_r3);
 #endif
