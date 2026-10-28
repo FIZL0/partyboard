@@ -1,0 +1,111 @@
+diff --git i/src/game/main.c w/src/game/main.c
+index 2f6f0f08..583a2d48 100644
+--- i/src/game/main.c
++++ w/src/game/main.c
+@@ -193,6 +193,7 @@ void main(void)
+         pfClsScr();
+ 
+         HuPrcCall(1);
++        { void n102_census(const char *tag); static unsigned n102_f; if (++n102_f % 600 == 0) n102_census("frame"); }
+         MGSeqMain();
+         HuPerfBegin(1);
+         Hu3DExec();
+diff --git i/src/game/objmain.c w/src/game/objmain.c
+index f85297a4..15a548f3 100644
+--- i/src/game/objmain.c
++++ w/src/game/objmain.c
+@@ -97,6 +97,7 @@ static void omWatchOverlayProc(void)
+                 HuMemHeapDump(HuMemHeapPtrGet(HEAP_DVD), -1);
+                 OSReport("objman>Used Memory Size:%08x\n", HuMemUsedMallocSizeGet(HEAP_SYSTEM));
+                 OSReport("objman>Used Memory Cnt:%d\n", HuMemUsedMallocBlockGet(HEAP_SYSTEM));
++                { void n102_census(const char *tag); n102_census("start"); }
+ #ifdef TARGET_PC
+                 if (netplay_active() || netplay_match_results()) {
+                     netplay_ovl_start(omnextovl);
+diff --git i/src/port/netplay_match.c w/src/port/netplay_match.c
+index 751ebdfb..b74d163a 100644
+--- i/src/port/netplay_match.c
++++ w/src/port/netplay_match.c
+@@ -56,6 +56,9 @@
+ #include "port/web_rel.h"
+ #endif
+ 
++#ifndef N102_MG
++#define N102_MG 14
++#endif
+ SHARED_SYM extern GameStat GWGameStatDefault;
+ SHARED_SYM extern s32 saveExecF;
+ void BoardMGSetupPlayClear(void);
+@@ -789,6 +792,10 @@ void netplay_ovl_start(s32 ovl)
+         return;
+     }
+     if (match.board && !match.scrub && ovl == DLL_instdll) {
++        if (_CheckFlag(FLAG_ID_MAKE(1, 2)) && !_CheckFlag(FLAG_ID_MAKE(1, 3)) && !_CheckFlag(FLAG_ID_MAKE(1, 4))) {
++            OSReport("n102: round minigame %d forced to %d\n", GWSystem.mg_next, N102_MG);
++            GWSystem.mg_next = N102_MG;
++        }
+         netplay_minigame_point();
+     }
+     if (!match.scrub || ovl != (match.minigame ? DLL_instdll : DLL_w01dll + match.m.board)) {
+@@ -1019,3 +1026,61 @@ BOOL netplay_match_parse_debug(const char *spec, NetplayMatch *m, u32 *at_frame)
+     *at_frame = (u32)at;
+     return TRUE;
+ }
++
++/* N102 instrument (not committed): every used block's caller placed by caller_module. */
++typedef struct N102Census {
++    const void *owners[16];
++    s32 counts[16];
++    s32 gone, marks, dol;
++} N102Census;
++
++static BOOL n102_count(uintptr_t retaddr, void *user)
++{
++    N102Census *c = user;
++    const void *m;
++    s32 i;
++    if (retaddr == 0 || retaddr == 0xCDCDCDCD || retaddr == 0xA5A5A5A5) {
++        c->marks++;
++        return FALSE;
++    }
++    m = caller_module(retaddr);
++    if (m == NULL) {
++        c->gone++;
++        return FALSE;
++    }
++    if (m == caller_module(HU_MEM_CALLER())) {
++        c->dol++;
++        return FALSE;
++    }
++    for (i = 0; i < 16 && c->owners[i] != NULL && c->owners[i] != m; i++) {
++    }
++    if (i < 16) {
++        c->owners[i] = m;
++        c->counts[i]++;
++    }
++    return FALSE;
++}
++
++void n102_census(const char *tag)
++{
++    N102Census c;
++    s32 heap, i;
++    char line[512];
++    int n;
++    memset(&c, 0, sizeof(c));
++    for (heap = 0; heap < HEAP_MAX; heap++) {
++        if (HuMemHeapPtrGet((HeapID)heap) != NULL) {
++            HuMemMemoryFreeIf(HuMemHeapPtrGet((HeapID)heap), n102_count, &c);
++        }
++    }
++    n = snprintf(line, sizeof(line), "n102 census %s ovl %d: dol %d, gone %d, marks %d", tag, (int)omcurovl, (int)c.dol,
++        (int)c.gone, (int)c.marks);
++    for (i = 0; i < 16 && c.owners[i] != NULL && n < (int)sizeof(line); i++) {
++#if defined(__EMSCRIPTEN__)
++        n += snprintf(line + n, sizeof(line) - n, ", %s %d", *(const char *const *)c.owners[i], (int)c.counts[i]);
++#else
++        n += snprintf(line + n, sizeof(line) - n, ", %p %d", c.owners[i], (int)c.counts[i]);
++#endif
++    }
++    OSReport("%s\n", line);
++}

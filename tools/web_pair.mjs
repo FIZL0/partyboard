@@ -22,7 +22,8 @@
 //   shots a-*.png / b-*.png, lobby-*.json, and pair.txt (the run's log: codes, frames, waits, verdict).
 // Env: WEB_ROOT (the build to serve, default build/web), WEB_PORT (8788: not web_check.mjs's, which other slots may be running), CHROME, CHROME_FLAGS, SHOT_EVERY (30), PAIR_CPUS ("2,3": seats the host gives
 //      the computer, default both free seats), PAIR_MASH (0: no fake gamepad presses), PAIR_ARGS (the game's command
-//      line in both tabs, e.g. '--hash-log /tmp/h.log'), DUMP_FILES ("/tmp/h.log": copied out of each tab's FS into
+//      line in both tabs, e.g. '--hash-log /tmp/h.log'), PAIR_ARGS_B (N102: tab b's instead, e.g. with a
+//      '--desync-at F'), DUMP_FILES ("/tmp/h.log": copied out of each tab's FS into
 //      OUT as a-h.log / b-h.log at the end), PAIR_KEEP_PROFILE (keep OUT/profile, removed otherwise), PAIR_SEED (the match seed, e.g. 0x18E2A0AF4FE4E301; default from the clock).
 //      N98: PAIR_TABS (2: tabs a, b, c, d: 127.0.0.1 and localhost on WEB_PORT, then on WEB_PORT+1), PAIR_MENU=1 (the
 //      lobby through the menu: host F1 > Online > Host Game, copies its invite link; guest b presses Ctrl+V, Join >
@@ -53,6 +54,8 @@ const stamp = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
 const nTabs = Math.min(Math.max(+(process.env.PAIR_TABS ?? 2), 2), 4);
 const names = ['a', 'b', 'c', 'd'].slice(0, nTabs);
 const menu = process.env.PAIR_MENU === '1';
+// N102: PAIR_ARGS_B is tab b's command line instead of PAIR_ARGS (e.g. its own --desync-at)
+const tabArgs = name => (name === 'b' ? process.env.PAIR_ARGS_B : undefined) ?? process.env.PAIR_ARGS;
 for (const f of ['pair.txt', ...names.map(n => `${n}.txt`)]) writeFileSync(join(out, f), '');
 const say = line => {
   appendFileSync(join(out, 'pair.txt'), `[${stamp()}] ${line}\n`);
@@ -184,7 +187,8 @@ async function tab(name, target, origin, url) {
   // async clipboard API needs a focused document; only one tab of a window would be)
   await send('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'], origin });
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
-  const args = process.env.PAIR_ARGS ? `?args=${encodeURIComponent(process.env.PAIR_ARGS)}` : '';
+  const line = tabArgs(name);
+  const args = line ? `?args=${encodeURIComponent(line)}` : '';
   await send('Page.navigate', { url: url ?? `${origin}/${args}` });
   await sleep(1500);
   const { root: doc } = (await send('DOM.getDocument')).result;

@@ -26,6 +26,9 @@ static unsigned char **images;
 static int *links;
 /* N99: each REL's code in the module's function index space, between its marks; NULL if the marks didn't hold. */
 static int (*ranges)[2];
+/* N102: and between its marks' code offsets (web_rel_caller_pc); NULL if they didn't hold. */
+static uintptr_t (*pc_ranges)[2];
+uintptr_t web_rel_mark_pc;
 static const char dol_owner = 0;
 
 /* A function pointer is an index into the wasm table; the JS API names a wasm function by its index in the module. */
@@ -36,9 +39,59 @@ EM_JS(int, web_rel_table_function_index, (int fn), {
     return Number.isInteger(i) ? i : -1;
 });
 
+/* N102: the code offset of the call in the wasm function `level` frames up from the one that calls this (0: itself),
+ * as emscripten_return_address reads it ("wasm-function[N]:0x<offset>" in the stack trace's frames), 0 if there is
+ * no such frame. JS frames (this one, import wrappers) are not counted, so a level means the same in every build. No
+ * regex: EM_JS's stringizing drops a regex literal's backslashes. */
+EM_JS(uintptr_t, web_rel_caller_pc, (int level), {
+    var frames = new Error().stack.split('\n');
+    for (var i = 0; i < frames.length; i++) {
+        var at = frames[i].indexOf('wasm-function[');
+        var pc = at < 0 ? -1 : frames[i].indexOf(']:0x', at);
+        if (pc >= 0 && level-- == 0) {
+            return parseInt(frames[i].substring(pc + 2), 16) >>> 0;
+        }
+    }
+    return 0;
+});
+
 static int web_rel_function_index(void (*fn)(void))
 {
     return web_rel_table_function_index((int)(uintptr_t)fn);
+}
+
+/* N102: the marks' code offsets; wasm-ld puts the functions' code in index order. */
+static void web_rel_pc_ranges(void)
+{
+    int i, j;
+    pc_ranges = calloc(web_rel_count, sizeof(*pc_ranges));
+    for (i = 0; i < web_rel_count; i++) {
+        const WebRel *rel = &web_rel_table[i];
+        web_rel_mark_pc = 0;
+        rel->first();
+        pc_ranges[i][0] = web_rel_mark_pc;
+        web_rel_mark_pc = 0;
+        rel->last();
+        pc_ranges[i][1] = web_rel_mark_pc;
+        if (pc_ranges[i][0] == 0 || pc_ranges[i][0] >= pc_ranges[i][1]) {
+            printf("web_rel: %s's marks' code offsets are 0x%lx and 0x%lx: blocks' RELs unknown\n", rel->name,
+                (unsigned long)pc_ranges[i][0], (unsigned long)pc_ranges[i][1]);
+            free(pc_ranges);
+            pc_ranges = NULL;
+            return;
+        }
+        for (j = 0; j < i; j++) {
+            if ((pc_ranges[i][0] < pc_ranges[j][0]) != (ranges[i][0] < ranges[j][0])
+                || (pc_ranges[i][0] <= pc_ranges[j][1] && pc_ranges[j][0] <= pc_ranges[i][1])) {
+                printf("web_rel: %s's code offsets don't follow its functions' order: blocks' RELs unknown\n",
+                    rel->name);
+                free(pc_ranges);
+                pc_ranges = NULL;
+                return;
+            }
+        }
+    }
+    printf("web_rel: every REL's code offsets are between its marks'\n");
 }
 
 static void web_rel_ranges(void)
@@ -67,6 +120,7 @@ static void web_rel_ranges(void)
         }
     }
     printf("web_rel: every REL's code is between its marks\n");
+    web_rel_pc_ranges();
 }
 
 const void *web_rel_function_owner(void (*fn)(void))
@@ -82,6 +136,20 @@ const void *web_rel_function_owner(void (*fn)(void))
     for (i = 0; i < web_rel_count; i++) {
         if (ranges[i][0] < index && index < ranges[i][1]) {
             return &web_rel_table[i];
+        }
+    }
+    return &dol_owner;
+}
+
+const void *web_rel_code_module(uintptr_t pc)
+{
+    int i;
+    if (pc == 0 || pc_ranges == NULL) {
+        return NULL;
+    }
+    for (i = 0; i < web_rel_count; i++) {
+        if (pc_ranges[i][0] < pc && pc < pc_ranges[i][1]) {
+            return links[i] > 0 ? &web_rel_table[i] : NULL;
         }
     }
     return &dol_owner;

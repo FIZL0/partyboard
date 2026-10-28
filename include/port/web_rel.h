@@ -3,6 +3,8 @@
 
 /* N87: the browser build links every REL statically (no dlopen); src/port/web/web_rel.c. */
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,6 +19,9 @@ void web_rel_unlink(void *rel);
  * pointer for code outside every REL (dol, libraries), NULL if `fn` is NULL or this can't be told (the RELs' marks
  * didn't hold in this link: see the boot log). As dladdr's dli_fbase on the desktop. */
 const void *web_rel_function_owner(void (*fn)(void));
+/* N102: as web_rel_function_owner, for `pc`, an offset in the module's code (HU_MEM_CALLER, web_rel_caller_pc), but
+ * NULL also for the code of a REL that is not linked now: as dladdr on the desktop, where it is unloaded. */
+const void *web_rel_code_module(uintptr_t pc);
 
 #ifdef __cplusplus
 }

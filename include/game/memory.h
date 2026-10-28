@@ -51,7 +51,12 @@ uintptr_t HuMemDirectNumGet(void *ptr);
 /* Whether ptr is the data of a used block of a heap. */
 BOOL HuMemDirectUsedCheck(void *ptr);
 /* The code that called the allocator, kept in the block (netplay: an overlay's blocks are told by their code). */
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__EMSCRIPTEN__)
+/* N102: there __builtin_return_address is emscripten_return_address, a code offset that nothing could place in a REL;
+ * this one is read from the same stack trace, and web_rel_code_module places it (src/port/web/web_rel.c). */
+uintptr_t web_rel_caller_pc(int level);
+#define HU_MEM_CALLER() web_rel_caller_pc(1)
+#elif defined(__GNUC__) || defined(__clang__)
 #define HU_MEM_CALLER() ((uintptr_t)__builtin_return_address(0))
 #else
 #define HU_MEM_CALLER() ((uintptr_t)0)
