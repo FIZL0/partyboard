@@ -1,0 +1,24 @@
+# N136: boot to Mini-Game mode (wander-mgmode.script's first 444 frames), B (quit window), stick up to Yes, A: mgmode exits.
+# mgmode.gdb makes GWGameStat differ from mgmode's backup so the exit saves (fn_1_6C18Quiet).
+seed 0x50424E54
+end 4000
+60 0 A
+64 0 none
+120 0 A
+124 0 none
+180 0 A
+184 0 none
+340 0 A
+344 0 none
+370 0 none 100 0 0 0 0 0
+374 0 none
+400 0 none 100 0 0 0 0 0
+404 0 none
+440 0 A
+444 0 none
+2000 0 B
+2005 0 none
+2100 0 none 0 100 0 0 0 0
+2106 0 none
+2160 0 A
+2165 0 none

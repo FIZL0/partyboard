@@ -641,11 +641,36 @@ s32 fn_1_17484(s32 arg0) {
     return 0;
 }
 
+#ifdef TARGET_PC
+/* N136: fn_1_1712C's party-end save, without its screen (black, the WIN 0x20 sprite, SLSave's "Slot A: Saving!"
+   window): SLSaveQuiet shows the port's saving icon. */
+static void fn_1_1712CQuiet(void) {
+    if (SLSaveFlagGet() == 0) {
+        saveExecF = 0;
+        return;
+    }
+    fn_1_159A4();
+    if (saveExecF == 1) {
+        GWGameStat.party_continue = 0;
+    }
+    SLCommonSet();
+    SLSaveQuiet();
+    saveExecF = 0;
+}
+#endif
+
 void fn_1_17570(void) {
     s32 var_r30;
     s32 i;
 
     var_r30 = 0;
+#ifdef TARGET_PC
+    /* N136: the party's end saves over the results, before the wipe-out, so a card error window is still seen. */
+    if (GWPartyGet() == 1) {
+        netplay_party_finish();
+        fn_1_1712CQuiet();
+    }
+#endif
     WipeColorSet(0, 0, 0);
     WipeCreate(WIPE_MODE_OUT, WIPE_TYPE_NORMAL, -1);
     do {
@@ -662,13 +687,14 @@ void fn_1_17570(void) {
     }
     if (GWPartyGet() == 1) {
 #ifdef TARGET_PC
-        netplay_party_finish();
-#endif
+        fn_1_958(30);
+#else
         HuPrcChildCreate(fn_1_1712C, 100, 0x2000, 0, HuPrcCurrentGet());
         do {
             fn_1_938();
         } while (lbl_1_bss_18D4 != 1);
         fn_1_958(30);
+#endif
         omOvlReturnEx(1, 1);
     } else {
         fn_1_159A4();
