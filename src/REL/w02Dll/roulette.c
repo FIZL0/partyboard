@@ -94,10 +94,10 @@ void fn_1_BCFC(void)
     }
 }
 
-s32 fn_1_BE74(void)
+// N91: a process destructor, called as void (*)(void): wasm traps on a call through another function type
+void fn_1_BE74(void)
 {
     lbl_1_bss_38C = 0;
-    // TODO PC
 }
 
 s32 fn_1_BE88(void)

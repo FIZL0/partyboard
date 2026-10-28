@@ -118,14 +118,24 @@ void fn_1_9AF0(void)
     BoardMGDoneFlagSet(0);
 }
 
+#ifdef TARGET_PC
+// N91: a post-turn hook, whose result BoardPlayerPostTurnHookExec reads (nonzero removes it). Declared void, it left
+// BoardModelAttrReset's result in r3 on the GC: return that (wasm traps on a call through another function type)
+s32 fn_1_9B74(void)
+#else
 void fn_1_9B74(void)
+#endif
 {
     HSFOBJECT *var_r31;
     omDelObjEx(boardObjMan, lbl_1_bss_C8);
     BoardModelKill(lbl_1_bss_FE);
     var_r31 = Hu3DModelObjPtrGet(BoardModelIDGet(lbl_1_bss_14[1]), lbl_1_data_464[lbl_1_bss_B8]);
     var_r31->type = lbl_1_bss_BC;
+#ifdef TARGET_PC
+    return BoardModelAttrReset(lbl_1_bss_14[1], 0x40000004);
+#else
     BoardModelAttrReset(lbl_1_bss_14[1], 0x40000004);
+#endif
 }
 
 void fn_1_9C24(omObjData *arg0)

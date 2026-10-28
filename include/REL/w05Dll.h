@@ -115,7 +115,11 @@ void fn_1_97AC(void);
 void fn_1_9A68(omObjData *);
 void fn_1_9AC0(void);
 void fn_1_9AF0(void);
+#ifdef TARGET_PC
+s32 fn_1_9B74(void);
+#else
 void fn_1_9B74(void);
+#endif
 void fn_1_9C24(omObjData *);
 void fn_1_9C98(dataCopy2 *);
 void fn_1_9D0C(omObjData *);
