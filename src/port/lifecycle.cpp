@@ -10,7 +10,9 @@
 #include <port/lifecycle.h>
 
 #include <aurora/aurora.h>
+#include <aurora/gfx.h>
 #include <aurora/lib/logging.hpp>
+#include <fmt/format.h>
 #include <port/config.hpp>
 #include <port/pbnet.h>
 
@@ -41,7 +43,9 @@ uint32_t s_heldLoops = 0;
 
 // PB_LIFECYCLE_TEST="bg@300,fg@420,hide@600,show@700,min@800,restore@900": at the loop count, do the action (bg/fg:
 // push the iOS/Android app events, hide/show/min/restore: the window, stall: the game thread sleeps 8 s, pause: bg,
-// 8 s asleep and fg in one go, as Android's onPause blocks the game thread inside SDL's event pump). Desktop checks of the hold (journal N110).
+// 8 s asleep and fg in one go, as Android's onPause blocks the game thread inside SDL's event pump, lose: the GPU device
+// is lost as in a driver reset, shot: the game frame to $PB_LIFECYCLE_SHOT/loopNNNNN.png, N118). Desktop checks of the
+// hold (journal N110).
 // aurora_update sleeps in SDL_WaitEvent while the window is paused (hidden): a timer wakes it 20 times a second while
 // steps are left, so the loop count goes on.
 struct TestStep {
@@ -90,6 +94,12 @@ void run_test_steps()
             SDL_Delay(8000);
             push_app_event(SDL_EVENT_WILL_ENTER_FOREGROUND);
             push_app_event(SDL_EVENT_DID_ENTER_FOREGROUND);
+        } else if (step.action == "lose") {
+            aurora_force_device_loss();
+        } else if (step.action == "shot") {
+            const char* dir = std::getenv("PB_LIFECYCLE_SHOT");
+            const std::string path = fmt::format("{}/loop{:05}.png", dir != nullptr ? dir : ".", s_loops);
+            aurora_capture_frame(path.c_str(), 0);
         } else {
             Log.warn("test: unknown action '{}'", step.action);
         }

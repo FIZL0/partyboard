@@ -1,0 +1,470 @@
+diff --git a/include/aurora/gfx.h b/include/aurora/gfx.h
+--- a/include/aurora/gfx.h
++++ b/include/aurora/gfx.h
+@@ -29,6 +29,9 @@
+ } AuroraStats;
+ 
+ const AuroraStats* aurora_get_stats();
++// Tests: lose the GPU device as a driver reset would (Dawn's ForceLoss; not in the browser). The next aurora_update
++// makes a new device and every GPU object again.
++void aurora_force_device_loss();
+ 
+ void aurora_enable_vsync(bool enabled);
+ 
+diff --git a/lib/aurora.cpp b/lib/aurora.cpp
+--- a/lib/aurora.cpp
++++ b/lib/aurora.cpp
+@@ -18,6 +18,7 @@
+ #include "window.hpp"
+ 
+ #include <SDL3/SDL_filesystem.h>
++#include <SDL3/SDL_timer.h>
+ #include <magic_enum.hpp>
+ 
+ #include "system_info.hpp"
+@@ -180,6 +181,37 @@
+   };
+ }
+ 
++#ifdef AURORA_ENABLE_GX
++// The device was lost (driver reset, GPU fault, aurora_force_device_loss): every GPU object goes and is made again on
++// a new device. Between frames, on the game thread (aurora_update). The game's state (the GX state it set, RmlUi's
++// documents) stays; what only the GPU held (EFB copies, the last frame) is gone, so a frame may miss a copy.
++void recover_device() noexcept {
++  static uint64_t s_windowStart = 0;
++  static uint32_t s_windowLosses = 0;
++  const uint64_t now = SDL_GetTicks();
++  if (s_windowLosses == 0 || now - s_windowStart > 10000) {
++    s_windowStart = now;
++    s_windowLosses = 0;
++  }
++  ASSERT(++s_windowLosses <= 3, "Device lost {} times in 10 s: giving up", s_windowLosses);
++  Log.warn("Recreating the GPU device after a device loss");
++  gfx::shutdown_for_device_loss();
++#ifdef AURORA_ENABLE_RMLUI
++  rmlui::release_device_objects();
++#endif
++  imgui::release_device_objects();
++  webgpu::release_device();
++  ASSERT(webgpu::initialize(g_config.desiredBackend, g_config.allowCpuAdapter),
++         "Failed to make a new GPU device after a device loss");
++  gfx::initialize();
++  imgui::create_device_objects();
++#ifdef AURORA_ENABLE_RMLUI
++  rmlui::create_device_objects();
++#endif
++  Log.info("GPU device recreated");
++}
++#endif
++
+ void shutdown() noexcept {
+ #ifdef AURORA_ENABLE_RMLUI
+   rmlui::shutdown();
+@@ -204,6 +236,19 @@
+     g_initialFrame = false;
+     input::initialize();
+   }
++#ifdef AURORA_ENABLE_GX
++  if (webgpu::device_lost()) {
++    bool presentable;
++    {
++      window::SurfaceLock surfaceLock;
++      presentable = window::is_presentable();
++    }
++    // not while backgrounded (iOS kills an app doing GPU work there): frames can't begin until then
++    if (presentable) {
++      recover_device();
++    }
++  }
++#endif
+   return window::poll_events();
+ }
+ 
+@@ -479,6 +524,11 @@
+   aurora::g_config.allowJoystickBackgroundEvents = value;
+   aurora::window::set_background_input(value);
+ }
++void aurora_force_device_loss() {
++#ifdef AURORA_ENABLE_GX
++  aurora::webgpu::force_device_loss();
++#endif
++}
+ void aurora_set_resampler(AuroraSampler sampler) {
+ #ifdef AURORA_ENABLE_GX
+   aurora::webgpu::set_resampler(sampler);
+diff --git a/lib/gfx/common.cpp b/lib/gfx/common.cpp
+--- a/lib/gfx/common.cpp
++++ b/lib/gfx/common.cpp
+@@ -253,6 +253,9 @@
+ static Viewport g_cachedViewport;
+ static ClipRect g_cachedScissor;
+ 
++// Bumped by shutdown: a map callback of a buffer from before it (a lost device's) leaves the new buffers' states alone.
++static std::atomic<uint32_t> s_stagingGeneration{0};
++
+ static void map_staging_buffer(size_t slot, bool releaseSlotOnCompletion = false) {
+   auto expected = BufferMapState::Unmapped;
+   if (!s_mappingStates[slot].compare_exchange_strong(expected, BufferMapState::Mapping, std::memory_order_acq_rel,
+@@ -269,8 +272,13 @@
+ 
+   g_stagingBuffers[slot].MapAsync(
+       wgpu::MapMode::Write, 0, StagingBufferSize, wgpu::CallbackMode::AllowSpontaneous,
+-      [slot, releaseSlotOnCompletion](wgpu::MapAsyncStatus status, wgpu::StringView message) {
+-        if (status == wgpu::MapAsyncStatus::CallbackCancelled || status == wgpu::MapAsyncStatus::Aborted) {
++      [slot, releaseSlotOnCompletion, generation = s_stagingGeneration.load(std::memory_order_acquire)](
++          wgpu::MapAsyncStatus status, wgpu::StringView message) {
++        if (generation != s_stagingGeneration.load(std::memory_order_acquire)) {
++          return;
++        }
++        if (status == wgpu::MapAsyncStatus::CallbackCancelled || status == wgpu::MapAsyncStatus::Aborted ||
++            webgpu::device_lost()) {
+           Log.warn("Buffer mapping {}: {}", magic_enum::enum_name(status), message);
+           s_mappingStates[slot].store(BufferMapState::Unmapped, std::memory_order_release);
+           if (releaseSlotOnCompletion) {
+@@ -964,15 +972,23 @@
+   initialize_pipeline_cache();
+ }
+ 
+-void shutdown() {
++// keepGameState: a device loss. The GX state the game set (loaded texture objects and TLUTs, registered replacements)
++// stays; only what holds GPU objects goes.
++static void shutdown(bool keepGameState) {
+   render_worker::synchronize();
+   render_worker::shutdown();
++  s_stagingGeneration.fetch_add(1, std::memory_order_acq_rel);
+   shutdown_pipeline_cache();
+   depth_peek::shutdown();
+   tex_copy_conv::shutdown();
+   tex_palette_conv::shutdown();
+-  texture_replacement::shutdown();
+-  gx::shutdown();
++  if (keepGameState) {
++    texture_replacement::release_gpu_objects();
++    gx::release_gpu_objects();
++  } else {
++    texture_replacement::shutdown();
++    gx::shutdown();
++  }
+ #ifdef AURORA_ENABLE_RMLUI
+   rmlui::shutdown_pipeline();
+ #endif
+@@ -1247,6 +1263,10 @@
+ 
+ uint32_t current_frame() noexcept { return g_frameIndex; }
+ 
++void shutdown() { shutdown(false); }
++
++void shutdown_for_device_loss() { shutdown(true); }
++
+ static void expire_cached_bind_groups() {
+   std::lock_guard lock{g_bindGroupCacheMutex};
+   if (g_cachedBindGroups.empty() || g_frameIndex == UINT32_MAX || g_frameIndex % BindGroupCacheSweepPeriod != 0) {
+diff --git a/lib/gfx/common.hpp b/lib/gfx/common.hpp
+--- a/lib/gfx/common.hpp
++++ b/lib/gfx/common.hpp
+@@ -269,6 +269,8 @@
+ bool is_offscreen() noexcept;
+ uint32_t get_sample_count() noexcept;
+ void clear_caches() noexcept;
++// gfx::shutdown for a device loss: every GPU object goes, the game's GX state stays (initialize makes them again).
++void shutdown_for_device_loss();
+ 
+ namespace tex_palette_conv {
+ struct ConvRequest;
+diff --git a/lib/gfx/texture_replacement.cpp b/lib/gfx/texture_replacement.cpp
+--- a/lib/gfx/texture_replacement.cpp
++++ b/lib/gfx/texture_replacement.cpp
+@@ -1004,6 +1004,13 @@
+   }
+ }
+ 
++void release_gpu_objects() noexcept {
++  std::lock_guard lk(s_registryMutex);
++  s_cacheByKey.clear();
++  s_replacementLru.clear();
++  s_replacementCacheBytes = 0;
++}
++
+ void register_tlut(const GXTlutObj* obj, const void* data, GXTlutFmt format, uint16_t entries) noexcept {
+   if (obj == nullptr || data == nullptr) {
+     return;
+diff --git a/lib/gfx/texture_replacement.hpp b/lib/gfx/texture_replacement.hpp
+--- a/lib/gfx/texture_replacement.hpp
++++ b/lib/gfx/texture_replacement.hpp
+@@ -6,6 +6,8 @@
+ namespace aurora::gfx::texture_replacement {
+ void initialize() noexcept;
+ void shutdown() noexcept;
++// The replacement textures made (a device loss); the registered replacements stay and load again when used.
++void release_gpu_objects() noexcept;
+ void register_tlut(const GXTlutObj* obj, const void* data, GXTlutFmt format, uint16_t entries) noexcept;
+ void load_tlut(const GXTlutObj* obj, uint32_t idx) noexcept;
+ std::optional<TextureHandle> find_replacement(const GXTexObj_& obj) noexcept;
+diff --git a/lib/gx/gx.cpp b/lib/gx/gx.cpp
+--- a/lib/gx/gx.cpp
++++ b/lib/gx/gx.cpp
+@@ -991,7 +991,7 @@
+   }
+ }
+ 
+-void shutdown() noexcept {
++void release_gpu_objects() noexcept {
+   // TODO we should probably store this all in g_state.gx instead
+   sSamplerBindGroupLayout = {};
+   sTextureBindGroupLayout = {};
+@@ -1001,13 +1001,18 @@
+     sTextureBindGroupLayouts.clear();
+   }
+   for (auto& item : g_gxState.textures) {
+-    item.ref.reset();
++    // the whole bind: resolve_sampled_textures keeps one whose texObj matches the loaded one
++    item = {};
+   }
+   s_textureObjectCaches.clear();
+   s_tlutObjectCaches.clear();
++  clear_copy_texture_cache();
++}
++
++void shutdown() noexcept {
++  release_gpu_objects();
+   g_gxState.loadedTextures.fill({});
+   g_gxState.loadedTluts.fill({});
+-  clear_copy_texture_cache();
+ }
+ } // namespace aurora::gx
+ 
+diff --git a/lib/gx/gx.hpp b/lib/gx/gx.hpp
+--- a/lib/gx/gx.hpp
++++ b/lib/gx/gx.hpp
+@@ -394,6 +394,8 @@
+ 
+ void initialize() noexcept;
+ void shutdown() noexcept;
++// shutdown's GPU half (a device loss): the loaded texture objects and TLUTs stay, every texture made from them goes.
++void release_gpu_objects() noexcept;
+ void clear_static_texture_cache() noexcept;
+ void clear_copy_texture_cache() noexcept;
+ void evict_copy_texture(const void* dest) noexcept;
+diff --git a/lib/imgui.cpp b/lib/imgui.cpp
+--- a/lib/imgui.cpp
++++ b/lib/imgui.cpp
+@@ -24,6 +24,7 @@
+ #include "tracy/Tracy.hpp"
+ 
+ namespace aurora::imgui {
++static Module Log("aurora::imgui");
+ static float g_scale;
+ static std::string g_imguiSettings{};
+ static std::string g_imguiLog{};
+@@ -78,6 +79,28 @@
+   g_wgpuTextures.clear();
+ }
+ 
++void release_device_objects() noexcept {
++  if (g_useSdlRenderer) {
++    return;
++  }
++  ImGui_ImplWGPU_Shutdown();
++  if (!g_wgpuTextures.empty()) {
++    // their ImTextureIDs were views of the old device's textures: whoever added them would have to add them again
++    Log.warn("{} imgui textures are gone with the lost device", g_wgpuTextures.size());
++  }
++  g_wgpuTextures.clear();
++}
++
++void create_device_objects() noexcept {
++  if (g_useSdlRenderer) {
++    return;
++  }
++  ImGui_ImplWGPU_InitInfo info;
++  info.Device = webgpu::g_device.Get();
++  info.RenderTargetFormat = static_cast<WGPUTextureFormat>(webgpu::g_graphicsConfig.surfaceConfiguration.format);
++  ImGui_ImplWGPU_Init(&info);
++}
++
+ void process_event(const SDL_Event& event) noexcept {
+   auto renderEvent = event;
+   if (g_useSdlRenderer) {
+diff --git a/lib/imgui.hpp b/lib/imgui.hpp
+--- a/lib/imgui.hpp
++++ b/lib/imgui.hpp
+@@ -30,6 +30,9 @@
+ void create_context() noexcept;
+ void initialize() noexcept;
+ void shutdown() noexcept;
++// A device loss: the wgpu backend's objects go with the old device and are made on the new one (the context stays).
++void release_device_objects() noexcept;
++void create_device_objects() noexcept;
+ 
+ void process_event(const SDL_Event& event) noexcept;
+ bool wants_capture_event(const SDL_Event& event) noexcept;
+diff --git a/lib/rmlui.cpp b/lib/rmlui.cpp
+--- a/lib/rmlui.cpp
++++ b/lib/rmlui.cpp
+@@ -438,6 +438,26 @@
+   return s_renderTargetCopyBindGroup;
+ }
+ 
++void release_device_objects() noexcept {
++  if (g_context == nullptr) {
++    return;
++  }
++  // file and callback (font) textures: Rml makes them again when a document is next rendered
++  Rml::ReleaseTextures();
++  get_render_interface()->ReleaseDeviceObjects();
++  s_renderTarget = {};
++  s_renderTargetCopyBindGroup = {};
++}
++
++void create_device_objects() noexcept {
++  if (g_context == nullptr) {
++    return;
++  }
++  auto* renderInterface = get_render_interface();
++  renderInterface->SetRenderTargetFormat(webgpu::g_graphicsConfig.surfaceConfiguration.format);
++  renderInterface->CreateDeviceObjects();
++}
++
+ void shutdown() noexcept {
+   if (g_context == nullptr) {
+     return;
+diff --git a/lib/rmlui.hpp b/lib/rmlui.hpp
+--- a/lib/rmlui.hpp
++++ b/lib/rmlui.hpp
+@@ -13,5 +13,9 @@
+ void handle_event(SDL_Event& event) noexcept;
+ wgpu::BindGroup record_frame(const webgpu::Viewport& presentViewport) noexcept;
+ void shutdown() noexcept;
++// A device loss: every texture RmlUi made (its own and the render interface's) is released and made again on the new
++// device as it is drawn. The context and its documents stay.
++void release_device_objects() noexcept;
++void create_device_objects() noexcept;
+ 
+ } // namespace aurora::rmlui
+diff --git a/lib/rmlui/WebGPURenderInterface.cpp b/lib/rmlui/WebGPURenderInterface.cpp
+--- a/lib/rmlui/WebGPURenderInterface.cpp
++++ b/lib/rmlui/WebGPURenderInterface.cpp
+@@ -1367,6 +1367,20 @@
+   CreateNullTexture();
+ }
+ 
++void WebGPURenderInterface::ReleaseDeviceObjects() {
++  if (m_nullTexture != 0) {
++    ReleaseTexture(m_nullTexture);
++    m_nullTexture = 0;
++  }
++  m_frameSeedView = {};
++  m_clipMaskStencilTexture = {};
++  m_clipMaskStencilView = {};
++  m_clipMaskStencilSize = {};
++  m_layers.clear();
++  m_postprocessTargets = {};
++  m_blendMaskTarget = {};
++}
++
+ gfx::Range WebGPURenderInterface::SetupRenderState(const Rml::Vector2f& translation) {
+   const float L = 0.f;
+   const float R = static_cast<float>(std::max(m_windowSize.x, 1));
+diff --git a/lib/rmlui/WebGPURenderInterface.hpp b/lib/rmlui/WebGPURenderInterface.hpp
+--- a/lib/rmlui/WebGPURenderInterface.hpp
++++ b/lib/rmlui/WebGPURenderInterface.hpp
+@@ -206,6 +206,9 @@
+   wgpu::TextureView GetClipMaskStencilView(const wgpu::Extent3D& size);
+ 
+   void CreateDeviceObjects();
++  // The textures and render targets made on the device (a device loss); CreateDeviceObjects makes the null texture
++  // again, the rest is made as frames need it.
++  void ReleaseDeviceObjects();
+ 
+   void NewFrame();
+ };
+diff --git a/lib/webgpu/gpu.cpp b/lib/webgpu/gpu.cpp
+--- a/lib/webgpu/gpu.cpp
++++ b/lib/webgpu/gpu.cpp
+@@ -62,6 +62,8 @@
+ bool g_astcTexturesSupported = false;
+ bool g_textureComponentSwizzleSupported = false;
+ static std::atomic_bool g_shuttingDown = false;
++// Set by the device lost callback (any thread), cleared once a new device is up.
++static std::atomic_bool g_deviceLost = false;
+ 
+ namespace {
+ 
+@@ -886,9 +888,14 @@
+     deviceDescriptor.SetDeviceLostCallback(
+         wgpu::CallbackMode::AllowSpontaneous,
+         [](const wgpu::Device& device, wgpu::DeviceLostReason reason, wgpu::StringView message) {
+-          if (!g_shuttingDown) {
+-            FATAL("Device lost: {}", message);
++          if (g_shuttingDown || reason == wgpu::DeviceLostReason::Destroyed ||
++              reason == wgpu::DeviceLostReason::FailedCreation ||
++              reason == wgpu::DeviceLostReason::CallbackCancelled) {
++            return;
+           }
++          // Not here (any thread, maybe inside a Dawn call): the next aurora_begin_frame makes a new device.
++          Log.warn("Device lost ({}): {}", magic_enum::enum_name(reason), message);
++          g_deviceLost = true;
+         });
+     const auto future =
+         g_adapter.RequestDevice(&deviceDescriptor, wgpu::CallbackMode::WaitAnyOnly,
+@@ -972,9 +979,22 @@
+   return true;
+ }
+ 
+-void shutdown() {
+-  g_shuttingDown = true;
++bool device_lost() noexcept { return g_deviceLost; }
++
++void force_device_loss() noexcept {
++#if defined(WEBGPU_DAWN) && !defined(__EMSCRIPTEN__)
++  if (g_device) {
++    g_device.ForceLoss(wgpu::DeviceLostReason::Unknown, "aurora_force_device_loss");
++  }
++#else
++  Log.warn("force_device_loss: not supported here");
++#endif
++}
++
++void release_device() {
+   gfx::gpu_synchronize();
++  // the new device's callback marks its own loss
++  g_deviceLost = false;
+   g_CopyBindGroupLayout = {};
+   g_CopyPipeline = {};
+   g_CopyBindGroup = {};
+@@ -986,9 +1006,19 @@
+   g_frameBufferResolved = {};
+   g_depthBuffer = {};
+   g_queue = {};
++  if (g_surface) {
++    g_surface.Unconfigure();
++  }
+   g_surface = {};
+   g_device = {};
+   g_adapter = {};
++  g_adapterInfo = {};
++  g_surfaceCapabilities = {};
++}
++
++void shutdown() {
++  g_shuttingDown = true;
++  release_device();
+   g_instance = {};
+ 
+   cache_shutdown();
+diff --git a/lib/webgpu/gpu.hpp b/lib/webgpu/gpu.hpp
+--- a/lib/webgpu/gpu.hpp
++++ b/lib/webgpu/gpu.hpp
+@@ -56,6 +56,12 @@
+ 
+ bool initialize(AuroraBackend backend, bool allowCpu);
+ void shutdown();
++// Device loss (the driver reset the GPU, or force_device_loss): the lost callback only marks it; aurora's begin_frame
++// releases every device object (release_device keeps the instance and the pipeline cache's store) and initializes
++// again.
++bool device_lost() noexcept;
++void force_device_loss() noexcept;
++void release_device();
+ void release_surface() noexcept;
+ bool refresh_surface(bool recreate = true);
+ void resize_swapchain(uint32_t width, uint32_t height, uint32_t native_width, uint32_t native_height,

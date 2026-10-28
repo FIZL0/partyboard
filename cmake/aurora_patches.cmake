@@ -40,6 +40,13 @@
 #   conversions are submitted but its vertex/uniform/index/storage copies, render passes and EFB copies aren't encoded
 #   and nothing is presented. All in gfx/common.cpp (begin_frame/end_frame of aurora.cpp are 0003's and 0010's hunks). partyboard's
 #   --turbo shows ~30 frames a second with it.
+# - 0012-device-loss-recovery (N118): a lost Dawn device (driver reset, GPU fault) no longer FATALs. The lost callback
+#   marks it and the next aurora_update makes a new device and every GPU object again: gfx::shutdown_for_device_loss
+#   (gx keeps the loaded texture objects/TLUTs, texture_replacement its registrations), webgpu::release_device (keeps
+#   the instance and the pipeline cache's store; shutdown is release_device + g_shuttingDown + the rest), imgui's wgpu
+#   backend, RmlUi's textures (Rml::ReleaseTextures) and render interface targets, then initialize again. More than 3
+#   losses in 10 s still FATAL. aurora_force_device_loss() (aurora/gfx.h, Dawn's ForceLoss) for tests. Its hunks keep
+#   clear of the other patches' context (the recovery check sits between 0004's and 0010's hunks in update()).
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
