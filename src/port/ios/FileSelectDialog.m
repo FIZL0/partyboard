@@ -72,6 +72,90 @@ static NSURL *InitialDirectoryURL(const char *default_location)
     return [url URLByDeletingLastPathComponent];
 }
 
+static NSString *BookmarkKey(NSString *path)
+{
+    return [@"partyboard.bookmark." stringByAppendingString:path];
+}
+
+static void SaveBookmark(NSURL *url)
+{
+    NSError *error = nil;
+    NSData *bookmark = [url bookmarkDataWithOptions:0
+                     includingResourceValuesForKeys:nil
+                                      relativeToURL:nil
+                                              error:&error];
+    if (bookmark == nil) {
+        NSLog(@"[ShowFileSelect] no bookmark for %@: %@", url.path, error);
+        return;
+    }
+    [[NSUserDefaults standardUserDefaults] setObject:bookmark forKey:BookmarkKey(url.path)];
+}
+
+// The app container's path has a per-install UUID that changes on updates and reinstalls: move a saved path under
+// .../Data/Application/<UUID>/ onto the current home directory.
+static NSString *RebaseContainerPath(NSString *path)
+{
+    NSString *marker = @"/Data/Application/";
+    NSRange at = [path rangeOfString:marker];
+    if (at.location == NSNotFound) {
+        return nil;
+    }
+    NSUInteger uuid_start = at.location + at.length;
+    NSRange slash = [path rangeOfString:@"/" options:0 range:NSMakeRange(uuid_start, path.length - uuid_start)];
+    if (slash.location == NSNotFound) {
+        return nil;
+    }
+    return [NSHomeDirectory() stringByAppendingString:[path substringFromIndex:slash.location]];
+}
+
+static bool CopyOut(NSString *path, char *out, size_t out_size)
+{
+    const char *utf8 = path.fileSystemRepresentation;
+    if (out == NULL || out_size == 0 || strlen(utf8) >= out_size) {
+        return false;
+    }
+    memcpy(out, utf8, strlen(utf8) + 1);
+    return true;
+}
+
+bool PartyBoard_iOS_RestoreFileAccess(const char *path, char *out, size_t out_size)
+{
+    if (path == NULL || *path == '\0') {
+        return false;
+    }
+    @autoreleasepool {
+        NSString *saved = [NSString stringWithUTF8String:path];
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        NSData *bookmark = [defaults dataForKey:BookmarkKey(saved)];
+        if (bookmark != nil) {
+            BOOL stale = NO;
+            NSError *error = nil;
+            NSURL *url = [NSURL URLByResolvingBookmarkData:bookmark
+                                                   options:0
+                                             relativeToURL:nil
+                                       bookmarkDataIsStale:&stale
+                                                     error:&error];
+            if (url != nil) {
+                [url startAccessingSecurityScopedResource];
+                if (stale || ![url.path isEqualToString:saved]) {
+                    [defaults removeObjectForKey:BookmarkKey(saved)];
+                    SaveBookmark(url);
+                }
+                return CopyOut(url.path, out, out_size);
+            }
+            NSLog(@"[RestoreFileAccess] bookmark for %@ did not resolve: %@", saved, error);
+        }
+        if ([[NSFileManager defaultManager] isReadableFileAtPath:saved]) {
+            return CopyOut(saved, out, out_size);
+        }
+        NSString *rebased = RebaseContainerPath(saved);
+        if (rebased != nil && [[NSFileManager defaultManager] isReadableFileAtPath:rebased]) {
+            return CopyOut(rebased, out, out_size);
+        }
+        return false;
+    }
+}
+
 @interface DocumentPickerDelegate : NSObject <UIDocumentPickerDelegate>
 
 @property(nonatomic, assign) IOSFileCallback callback;
@@ -96,6 +180,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
         return;
     }
 
+    // Opened in place (asCopy:NO, N100): keep the security scope for the whole run, as the disc stays open, and
+    // bookmark it so the next launch can reopen the same file.
+    [url startAccessingSecurityScopedResource];
+    SaveBookmark(url);
     [self finishWithPath:url.path.UTF8String error:NULL];
     (void)controller;
 }
@@ -127,7 +215,7 @@ void PartyBoard_iOS_ShowFileSelect(IOSFileCallback callback, void *userdata,
             UIDocumentPickerViewController *picker =
                 [[UIDocumentPickerViewController alloc]
                     initForOpeningContentTypes:@[ UTTypeItem ]
-                                         asCopy:YES];
+                                         asCopy:NO];
             picker.allowsMultipleSelection = allow_many ? YES : NO;
             picker.shouldShowFileExtensions = YES;
 

@@ -37,6 +37,12 @@
 #include <game/card.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+#include "ios/FileSelectDialog.h"
+#endif
+#endif
 
 extern "C" int game_main();
 
@@ -495,6 +501,16 @@ extern "C" int port_main(int argc, char* argv[]) {
     if (const char* disc = getenv("PB_DISC"); disc && *disc) {
         partyboard::getSettings().backend.isoPath.setValue(disc);
     }
+#if defined(__APPLE__) && TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+    // N100: the picker opens the ISO in place; get its security scope back, or follow the container to this install.
+    if (const std::string saved = partyboard::getSettings().backend.isoPath; !saved.empty()) {
+        char restored[4096];
+        if (PartyBoard_iOS_RestoreFileAccess(saved.c_str(), restored, sizeof restored) && saved != restored) {
+            PartyBoardMainLog.info("Saved DVD image path moved: {} -> {}", saved, restored);
+            partyboard::getSettings().backend.isoPath.setValue(restored);
+        }
+    }
+#endif
     const std::string p = partyboard::getSettings().backend.isoPath;
     partyboard::iso::DiscInfo discInfo{};
     if (!p.empty() &&
