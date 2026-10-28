@@ -36,3 +36,6 @@ compile_commands.json
 *.exe
 .runner/
 net/target/
+
+# Per-task test user dirs (XDG_DATA_HOME/HOME for game runs: card images, caches, logs)
+.n[0-9]*/

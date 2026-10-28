@@ -17,7 +17,9 @@ We are adding online play. Design and hook points: `plan/NET.md`. Netcode refere
   A 3-4 peer run is the only exception, and nothing else of the slot runs beside it.
 - Targets: Linux, Windows, Android, iOS, browser. macOS and tvOS are not targets: don't build, test or fix
   for them (leave upstream's files for them alone).
-- Never commit disc files, extracted assets or anything under `orig/*/`.
+- Never commit disc files, extracted assets or anything under `orig/*/`. Extracted assets include what a run
+  writes: memory card images (`MemoryCardA.USA.raw` holds the disc's banner art), dawn/pipeline caches, logs.
+  Put run user dirs under `.n<id>*/` (e.g. `.n135-runs/`, gitignored) and check `git status` before committing.
 - Offline play must be unchanged: netplay hooks in `src/game` and `src/REL` are `if (netplay_active())`
   guards, kept small.
 - Rust in `net/`: stable toolchain, no `unsafe` beyond the C ABI layer, every `extern "C"` fn documents
