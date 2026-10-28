@@ -1165,6 +1165,9 @@ void fn_1_52DC(void)
 }
 
 void fn_1_6C18(void);
+#ifdef TARGET_PC
+static void fn_1_6C18Quiet(void);
+#endif
 
 void fn_1_54F4(void)
 {
@@ -1177,6 +1180,13 @@ void fn_1_54F4(void)
         }
         HuPrcVSleep();
     }
+#ifdef TARGET_PC
+    /* N136: no saving screen (black, the WIN 0x20 sprite and SLSave's "Slot A: Saving!" window): the save runs over
+       the menu with the saving icon, before the wipe-out, so a card error window is still seen. */
+    if (memcmp(&mgGameStatBackup, &GWGameStat, sizeof(GWGameStat))) {
+        fn_1_6C18Quiet();
+    }
+#endif
     WipeColorSet(255, 255, 255);
     WipeCreate(WIPE_MODE_OUT, WIPE_TYPE_NORMAL, 60);
     HuAudSeqAllFadeOut(1000);
@@ -1184,9 +1194,11 @@ void fn_1_54F4(void)
         HuPrcVSleep();
     }
     HuDataDirClose(DATADIR_INSTPIC);
+#ifndef TARGET_PC
     if (memcmp(&mgGameStatBackup, &GWGameStat, sizeof(GWGameStat))) {
         fn_1_6C18();
     }
+#endif
     BoardStatusKill();
     omOvlReturnEx(1, 1);
     HuPrcEnd();
@@ -1379,3 +1391,17 @@ void fn_1_6C18(void)
         HuPrcVSleep();
     }
 }
+
+#ifdef TARGET_PC
+/* N136: fn_1_6C18's save, without its screen (SLSaveQuiet shows the port's saving icon). */
+static void fn_1_6C18Quiet(void)
+{
+    if (!SLSaveFlagGet()) {
+        return;
+    }
+    SLCommonSet();
+    if (!SLSaveQuiet()) {
+        GWSaveModeSet(1);
+    }
+}
+#endif
