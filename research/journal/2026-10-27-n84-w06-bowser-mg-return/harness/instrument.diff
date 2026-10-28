@@ -1,0 +1,209 @@
+diff --git i/extern/aurora w/extern/aurora
+--- i/extern/aurora
++++ w/extern/aurora
+@@ -1 +1 @@
+-Subproject commit 514339438178ef2bed1b14e5149d90ece0c6e0cc
++Subproject commit 514339438178ef2bed1b14e5149d90ece0c6e0cc-dirty
+diff --git i/src/REL/w06Dll/bowser.c w/src/REL/w06Dll/bowser.c
+index 72c447db..7da17731 100755
+--- i/src/REL/w06Dll/bowser.c
++++ w/src/REL/w06Dll/bowser.c
+@@ -185,9 +185,46 @@ void fn_1_9294(s32 arg0, s32 arg1) {
+     fn_1_92D8(arg0, arg1);
+ }
+ 
++#ifdef TARGET_PC
++#include <stdio.h>
++#include <stdlib.h>
++extern unsigned int netplay_frame(void);
++/* N84 scratch: the first human player who passes a space in turn PB_N84 (default 1) gets Bowser's minigame event, as a
++ * mega player (itemPrev PB_N84_ITEMPREV, default 1 = a Mega Mushroom). The marker is board_data[16], in the blob. */
++static s32 n84_force(s32 arg0)
++{
++    const char *on = getenv("PB_N84");
++    const char *ip = getenv("PB_N84_ITEMPREV");
++    if (on != NULL && _CheckFlag(FLAG_ID_MAKE(1, 6)) && GWSystem.board_data[16] == 1) {
++        /* the board's return from the minigame: the forced space stands for Bowser's */
++        GWSystem.board_data[16] = 2;
++        fprintf(stderr, "n84: f%u return for player %d (space %d)\n", netplay_frame(), arg0, GWPlayer[arg0].space_curr);
++        if (getenv("PB_N84_SCRAMBLE")) {
++            BoardItemPrevSet(atoi(getenv("PB_N84_SCRAMBLE")));
++            fprintf(stderr, "n84: f%u itemPrev scrambled to %d on this peer\n", netplay_frame(), BoardItemPrevGet());
++        }
++        return 1;
++    }
++    if (on == NULL || _CheckFlag(FLAG_ID_MAKE(1, 6)) || GWSystem.board_data[16] != 0 || GWPlayer[arg0].com
++        || GWSystem.turn != (*on ? atoi(on) : 1)) {
++        return 0;
++    }
++    GWSystem.board_data[16] = 1;
++    BoardPlayerSizeSet(arg0, 2);
++    BoardItemPrevSet(ip ? atoi(ip) : 1);
++    fprintf(stderr, "n84: f%u forced Bowser's minigame event: player %d at space %d, itemPrev %d\n", netplay_frame(),
++        arg0, GWPlayer[arg0].space_curr, BoardItemPrevGet());
++    return 1;
++}
++#endif
++
+ s32 fn_1_92D8(s32 arg0, s32 arg1) {
+     lbl_1_bss_F0 = 0;
++#ifdef TARGET_PC
++    if (fn_1_CA8C(arg0, arg1) == 0 && !n84_force(arg0)) {
++#else
+     if (fn_1_CA8C(arg0, arg1) == 0) {
++#endif
+         return lbl_1_bss_F0;
+     }
+     lbl_1_bss_F4 = arg0;
+@@ -566,14 +603,23 @@ static void fn_1_A408(s32 arg0) {
+     while (WipeStatGet() != 0) {
+         HuPrcVSleep();
+     }
++#ifdef TARGET_PC
++    /* The port plays no sound effects, and its HuAudFXStatusGet reports every one as playing (12) for ever: this
++     * wait for the jump sound never ended, so a mega player at Bowser hung the board before m457/m458 (N84). */
++    (void)temp_r28;
++#else
+     if (temp_r28 >= 0) {
+         while (HuAudFXStatusGet(temp_r28) != 0) {
+             HuPrcVSleep();
+         }
+     }
++#endif
+     HuAudFXAllStop();
+     BoardAudSeqFadeOutAll();
+     lbl_1_bss_0->unk06 = BoardItemPrevGet() + 1;
++#ifdef TARGET_PC
++    fprintf(stderr, "n84: f%u saved itemPrev %d as unk06 %d\n", netplay_frame(), BoardItemPrevGet(), lbl_1_bss_0->unk06);
++#endif
+     if (BoardRandMod(100) < 50) {
+         var_r29 = DLL_m457dll;
+         GWMGAvailSet(0x1C9);
+@@ -631,6 +677,10 @@ static void fn_1_A408(s32 arg0) {
+         BoardCameraMotionWait();
+         BoardRollCreate(arg0, 0);
+     } else {
++#ifdef TARGET_PC
++        fprintf(stderr, "n84: f%u Bowser minigame ovl %d (mg_next %d) for player %d\n", netplay_frame(), var_r29,
++            GWSystem.mg_next, arg0);
++#endif
+         BoardNextOvlSet(var_r29);
+     }
+ }
+@@ -660,6 +710,13 @@ static void fn_1_AB4C(s32 arg0, s32 arg1) {
+     }
+     BoardStatusItemSet(1);
+     BoardMusStart(1, 6, 0x7F, 0);
++#ifdef TARGET_PC
++    fprintf(stderr, "n84: f%u restore: itemPrev %d -> %d (unk06 %d), player %d com %d\n", netplay_frame(),
++        BoardItemPrevGet(), lbl_1_bss_0->unk06 - 1, lbl_1_bss_0->unk06, arg0, GWPlayer[arg0].com);
++#endif
++#ifdef TARGET_PC
++    if (!getenv("PB_N84_NORESTORE"))
++#endif
+     BoardItemPrevSet(lbl_1_bss_0->unk06 - 1);
+     lbl_1_bss_0->unk06 = 0;
+     BoardSpacePosGet(0, arg1, &sp3C);
+diff --git i/src/game/board/player.c w/src/game/board/player.c
+index b0363317..ee589410 100644
+--- i/src/game/board/player.c
++++ w/src/game/board/player.c
+@@ -1,4 +1,8 @@
+ #include "types.h"
++#ifdef TARGET_PC
++#include <stdio.h>
++#include <stdlib.h>
++#endif
+ #include "game/board/player.h"
+ 
+ #include "ext_math.h"
+@@ -968,6 +972,12 @@ void BoardPlayerTurnMoveExec(s32 arg0)
+     if (_CheckFlag(FLAG_ID_MAKE(1, 11)) != 0) {
+         BoardTutorialHookExec(7, 0);
+     }
++#ifdef TARGET_PC
++    if (getenv("PB_N84")) {
++        extern unsigned int netplay_frame(void);
++        fprintf(stderr, "n84: f%u TurnMoveExec end: player %d itemPrev %d\n", netplay_frame(), arg0, BoardItemPrevGet());
++    }
++#endif
+     if (BoardItemPrevGet() != -1) {
+         BoardItemPlayerRestore(arg0, BoardItemPrevGet());
+         while (BoardItemDoneCheck() == 0) {
+@@ -2566,6 +2576,13 @@ static s32 DoSparkSpace(s32 player, s32 pause_cam)
+         HuPrcVSleep();
+     }
+     temp_r17 = BoardItemPrevGet();
++#ifdef TARGET_PC
++    if (getenv("PB_N84")) {
++        extern unsigned int netplay_frame(void);
++        fprintf(stderr, "n84: f%u move end: player %d itemPrev %d flag16 %d\n", netplay_frame(), player, temp_r17,
++            _CheckFlag(FLAG_ID_MAKE(1, 6)));
++    }
++#endif
+     if (temp_r17 == 0 || temp_r17 == 1 || temp_r17 == 2 || temp_r17 == 3 || temp_r17 == 10) {
+         BoardCameraTargetPlayerSet(player);
+         BoardPlayerIdleSet(player);
+diff --git i/src/port/netplay.c w/src/port/netplay.c
+index fa790184..c60465ff 100644
+--- i/src/port/netplay.c
++++ w/src/port/netplay.c
+@@ -788,6 +788,24 @@ BOOL netplay_lockstep(void)
+     return pbnet_lockstep_active() != 0;
+ }
+ 
++/* N84 scratch: this machine's seat mashes A (START in instDll and the party results). */
++static void n38_pads(PADStatus *local, u32 at)
++{
++    static int last_ovl = -1;
++    static u32 since;
++    if (getenv("PB_N38") == NULL) {
++        return;
++    }
++    if ((int)omcurovl != last_ovl) {
++        last_ovl = (int)omcurovl;
++        since = at;
++    }
++    memset(local, 0, 4 * sizeof(*local));
++    if (at % 24 < 4 && !(omcurovl == 3 && at - since < 120)) {
++        local[0].button = (omcurovl == 3 || omcurovl == 78) ? PAD_BUTTON_START : PAD_BUTTON_A;
++    }
++}
++
+ BOOL netplay_tick_begin(void)
+ {
+     PADStatus local[4];
+@@ -841,6 +859,7 @@ BOOL netplay_tick_begin(void)
+             local[i].err = PAD_ERR_NONE;
+         }
+     }
++    n38_pads(local, next);
+     /* pbnet takes the local pads at the first call for a frame only. */
+     if (!step_taken_set || step_taken_frame != next) {
+         for (i = 0; i < 4; i++) {
+diff --git i/src/port/ui/online.cpp w/src/port/ui/online.cpp
+index 2023fae1..711067d1 100644
+--- i/src/port/ui/online.cpp
++++ w/src/port/ui/online.cpp
+@@ -13,6 +13,10 @@
+ #include "ui.hpp"
+ 
+ #include <SDL3/SDL_clipboard.h>
++#include <RmlUi/Core.h>
++#include <cstdio>
++#include <fstream>
++#include <sys/time.h>
+ #include <fmt/chrono.h>
+ #include <fmt/format.h>
+ #include <nlohmann/json.hpp>
+@@ -752,8 +756,10 @@ std::string OnlineWindow::lan_status() const
+     return "Press a game to join it.";
+ }
+ 
++#include "/home/ryha/repos/partyboard-slots/s2/build/n84/n56_harness.inc"
+ void update_online_match()
+ {
++    n38_harness();
+     static std::shared_ptr<bool> alive = std::make_shared<bool>(false);
+     static HoldModal *shown = nullptr;
+     static std::string shownKey;

@@ -566,11 +566,17 @@ static void fn_1_A408(s32 arg0) {
     while (WipeStatGet() != 0) {
         HuPrcVSleep();
     }
+#ifdef TARGET_PC
+    /* The port plays no sound effects, and its HuAudFXStatusGet reports every one as playing (12) for ever: this
+     * wait for the jump sound never ended, so a mega player at Bowser hung the board before m457/m458 (N84). */
+    (void)temp_r28;
+#else
     if (temp_r28 >= 0) {
         while (HuAudFXStatusGet(temp_r28) != 0) {
             HuPrcVSleep();
         }
     }
+#endif
     HuAudFXAllStop();
     BoardAudSeqFadeOutAll();
     lbl_1_bss_0->unk06 = BoardItemPrevGet() + 1;
