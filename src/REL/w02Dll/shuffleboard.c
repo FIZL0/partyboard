@@ -559,7 +559,15 @@ void fn_1_B8A8(s8 *arg0)
 		}
 	}
 	if(temp_r29 >= 0) {
+#ifdef TARGET_PC
+		/* N82: temp_r31 is 15 here. On GC lbl_1_bss_298[15].z is the bits of lbl_1_bss_34C[4] (high half) and
+		   lbl_1_bss_34C[5], two board model ids (1..BOARD_MODEL_MAX), so a tiny positive float. On PC it was padding */
+		union { u32 bits; float f; } gc_z;
+		gc_z.bits = ((u32)(u16)lbl_1_bss_34C[4] << 16) | (u16)lbl_1_bss_34C[5];
+		if(spC.z > gc_z.f) {
+#else
 		if(spC.z > lbl_1_bss_298[temp_r31].z) {
+#endif
 			*arg0 = -70;
 		} else {
 			*arg0 = 70;

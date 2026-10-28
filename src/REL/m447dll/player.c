@@ -763,8 +763,14 @@ void fn_1_671C(UnkM447Struct_04 *arg0)
             /* fallthrough */
         case 1:
             var_f25 = 8.0f;
+#ifdef TARGET_PC
+            /* N82: [unk00][12] and [14] of the [][6] table are row unk00 + 2 (unk00 is 0 or 1), x and z */
+            arg0->unk44 = (lbl_1_rodata_408[arg0->unk00 + 2][0] - arg0->unk28.x) / var_f25;
+            arg0->unk4C = (lbl_1_rodata_408[arg0->unk00 + 2][2] - 25.0f - arg0->unk28.z) / var_f25;
+#else
             arg0->unk44 = (lbl_1_rodata_408[arg0->unk00][12] - arg0->unk28.x) / var_f25;
             arg0->unk4C = (lbl_1_rodata_408[arg0->unk00][14] - 25.0f - arg0->unk28.z) / var_f25;
+#endif
             arg0->unk48 = 0.0f;
             fn_1_4C84(arg0);
             if (!(arg0->unk44 > -0.1f && arg0->unk44 < 0.1f && arg0->unk4C > -0.1f && arg0->unk4C < 0.1f)) {
@@ -774,8 +780,13 @@ void fn_1_671C(UnkM447Struct_04 *arg0)
             /* fallthrough */
         case 2:
             var_f25 = 8.0f;
+#ifdef TARGET_PC
+            arg0->unk44 = (lbl_1_rodata_408[arg0->unk00 + 2][0] - arg0->unk28.x) / var_f25;
+            arg0->unk4C = (lbl_1_rodata_408[arg0->unk00 + 2][2] - arg0->unk28.z) / var_f25;
+#else
             arg0->unk44 = (lbl_1_rodata_408[arg0->unk00][12] - arg0->unk28.x) / var_f25;
             arg0->unk4C = (lbl_1_rodata_408[arg0->unk00][14] - arg0->unk28.z) / var_f25;
+#endif
             arg0->unk48 = 0.0f;
             fn_1_4C84(arg0);
             if (!(arg0->unk44 > -0.1f && arg0->unk44 < 0.1f && arg0->unk4C > -0.1f && arg0->unk4C < 0.1f)) {
