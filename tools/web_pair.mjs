@@ -6,8 +6,9 @@
 // The lobby is driven through the game's own C ABI (exported by cmake/web.cmake: pbnet_lobby_host / _join /
 // _answer / _ready / _start / _json), which is what the Online menu calls; the match then starts as from the menu
 // (netplay_lobby_poll). Each tab gets a fake standard gamepad (navigator.getGamepads) that taps A once the match
-// runs, so both human seats play their turns, and one START 300 frames after a minigame's instructions start (the
-// console's "resync point ... minigame", N52's instDll point), another at 700 frames if they still show.
+// runs, so both human seats play their turns (N104: and moves its stick in the board lottery's stick games and m444's
+// plunger), and one START 300 frames after a minigame's instructions start (the console's "resync point ...
+// minigame", N52's instDll point), another at 700 frames if they still show.
 // N113: START at every instDll start ("Start New OVL 3"), not only at a minigame point: a battle/Bowser minigame
 // (mid-turn) and an instDll resumed after a reload print no point, and stood at their instructions for ever (N102's
 // d1/d2/m1). A --desync-at flip inside instDll shows only once the minigame runs (N64: instDll is not hash-checked);
@@ -135,13 +136,63 @@ const PAD = `(() => {
     const now = Date.now(), starts = window.__pbStarts ?? [];
     const start = starts.some(t => now >= t && now < t + 100);
     const rest = starts.some(t => now >= t - 1000 && now < t + 6000);
+    // N104: A held back while m444's plunger pulls
+    const pull = !!window.__pbMash && plungerPull();
     const down = !!window.__pbMash && now % 500 < 80;
-    for (const [b, on] of [[0, down && !rest], [9, start]]) {
+    for (const [b, on] of [[0, down && !rest && !pull], [9, start]]) {
       if (pad.buttons[b].pressed !== on) {
         pad.buttons[b].pressed = on; pad.buttons[b].value = on ? 1 : 0; pad.timestamp++;
       }
     }
+    // N104: the board lottery's stick games (ball spin, ticket scratch) and m444's plunger read only the stick
+    const [x, y] = pull ? [0, 120 / 127] : window.__pbMash ? lotteryStick() : [0, 0];
+    if (pad.axes[0] !== x || pad.axes[1] !== y) pad.axes[0] = x, pad.axes[1] = y, pad.timestamp++;
   }, 8);
+  // N104: while a human current player is in a lottery stick game (pb_web_lottery_stick), the stick for its game
+  // frame t (pbnet_frame since the game began; the pad is read once a frame, so this is per frame at any frame rate):
+  // netplay.c's lottery_stick_at (--script's lottery-stick on), as standard gamepad axes (x right, y down; 120/127).
+  // Ball: 20 degrees a frame clockwise (only rising steps under 30 count). Scratch: wait out the hand's 64-frame
+  // descent, left 30, up 15, then 13 rows across (26 frames) and one frame down, over again until it counts.
+  const SPIN = [[0, 120], [41, 113], [77, 92], [104, 60], [118, 21], [118, -21], [104, -60], [77, -92], [41, -113],
+    [0, -120], [-41, -113], [-77, -92], [-104, -60], [-118, -21], [-118, 21], [-104, 60], [-77, 92], [-41, 113]];
+  const lot = { game: 0, from: 0 };
+  window.__pbStick = [];
+  const lotteryStick = () => {
+    const m = window.pbModule;
+    if (!m?._pb_web_lottery_stick || !m._pbnet_frame) return [0, 0];
+    const game = m._pb_web_lottery_stick(), frame = m._pbnet_frame();
+    // a new game, or the frame count started over (a resync reload)
+    if (game !== lot.game || frame < lot.from) {
+      lot.game = game, lot.from = frame;
+      if (game) window.__pbStick.push(\`\${game === 1 ? 'ball game' : 'scratch'} at frame \${frame}\`);
+    }
+    if (!game) return [0, 0];
+    const t = frame - lot.from;
+    let sx = 0, sy = 0;
+    if (game === 1) {
+      [sx, sy] = SPIN[t % 18];
+    } else if (t >= 64) {
+      let c = (t - 64) % (30 + 15 + 13 * 27);
+      if (c < 30) sx = -120;
+      else if (c < 45) sy = 120;
+      else if ((c -= 45) % 27 === 26) sy = -120;
+      else sx = Math.floor(c / 27) % 2 === 0 ? 120 : -120;
+    }
+    return [sx / 127, -sy / 127];
+  };
+  // N104: m444's plunger (pb_web_plunger_pad: it waits on a pad): stick down and no A for its first 90 frames (a full
+  // pull: a short one can leave the ball bouncing in the lane for ever), then A shoots. As --script's plunger-stick on.
+  const plunger = { pad: -1, from: 0 };
+  const plungerPull = () => {
+    const m = window.pbModule;
+    if (!m?._pb_web_plunger_pad || !m._pbnet_frame) return false;
+    const pad = m._pb_web_plunger_pad(), frame = m._pbnet_frame();
+    if (pad !== plunger.pad || frame < plunger.from) {
+      plunger.pad = pad, plunger.from = frame;
+      if (pad >= 0) window.__pbStick.push(\`plunger (pad \${pad}) at frame \${frame}\`);
+    }
+    return pad >= 0 && frame - plunger.from < 90;
+  };
   // N98: the page's peer connections (PAIR_DROP closes them; their descriptions say which candidates were gathered)
   const RTC = window.RTCPeerConnection;
   window.__pbPcs = [];
@@ -167,7 +218,8 @@ async function tab(name, target, origin, url) {
     if (line) {
       const js = expression => ws.send(JSON.stringify({ id: 999990, method: 'Runtime.evaluate', params: { expression } }));
       // the minigame's instructions: START once they show (the main loop times it in game frames). Any instDll start
-      // (N113: battle/Bowser minigames and a resumed instDll print no minigame point); a minigame point, printed just
+      // (N113: battle/Bowser minigames and a resumed instDll print no minigame point; N104: a board event's mid-turn
+      // minigame, e.g. N104 run 2's "Paths of Peril" at turn 3); a minigame point, printed just
       // after it, gives the exact frame
       if (line.includes('Start New OVL 3 ')) mg.at = -2, mg.stage = 0;
       const point = line.match(/netplay: resync point at frame (\d+): minigame/);
@@ -496,6 +548,12 @@ try {
       const wait = [];
       for (const t of peers) wait.push(await t.evaluate('pbModule._pbnet_waiting_on()'));
       say(`lockstep frames ${peers.map((t, i) => `${t.name}=${frames[i]}`).join(' ')} (waiting on ${peers.map((t, i) => `${t.name}=${wait[i]}`).join(' ')})`);
+      // N104: the stick games the pads began since (lottery, plunger)
+      for (const t of peers) {
+        const games = (await t.evaluate('window.__pbStick').catch(() => null)) ?? [];
+        for (const g of games.slice(t.sticks ?? 0)) say(`${t.name}: stick game: ${g}`);
+        t.sticks = games.length;
+      }
     }
     if (s % every === 0) for (const t of peers) await t.shot(`match-${String(s).padStart(3, '0')}`);
     if (dropAt && menu && s === dropAt) {
@@ -522,6 +580,11 @@ try {
       for (const l of logs ?? []) await t.dump(`${dir}${l}`).catch(e => say(String(e)));
     }
   }
+  // N104: the stick games each tab's pad played (lottery, plunger)
+  for (const t of peers) {
+    const games = await t.evaluate('window.__pbStick').catch(() => null);
+    if (games?.length) say(`${t.name}: stick games: ${games.join(', ')}`);
+  }
   const desyncs = peers.map(t => t.lines.filter(l => /desync|out of sync|mismatch/i.test(l)).length);
   const startedLines = peers.map(t => t.lines.some(l => l.includes('netplay: lobby started')));
   const redialOk = backAt === 0 || (backAt > 0 && afterBack >= 300);
@@ -533,7 +596,7 @@ try {
     // minigame overlays: m300Dll (4) to m463Dll (69) in include/ovl_table.h
     const games = t.lines.map(l => l.match(/Start New OVL (\d+) /)).filter(m => m && +m[1] >= 4 && +m[1] <= 69).length;
     const killed = t.lines.filter(l => l.includes('menu processes')).map(l => l.match(/killed (\d+)/)?.[1]).join(',');
-    // a match that stopped moving on (e.g. a human seat in the board lottery's stick games: this pad has no stick)
+    // a match that stopped moving on (as a human seat in the board lottery's stick games did before N104)
     const last = points.length ? `, last turn/minigame point at frame ${points[points.length - 1][1]}` : '';
     return `${t.name}: turn ${turns.length ? Math.max(...turns) : 0}, ${games} minigames started${last}, menu processes killed ${killed || '-'}`;
   });

@@ -19,6 +19,8 @@ target_sources(dol PRIVATE ${CMAKE_SOURCE_DIR}/src/port/web/libco_emscripten.c)
 target_sources(dol PRIVATE ${CMAKE_SOURCE_DIR}/src/port/web/web_clipboard.c)
 # N98: the menu's focus for page scripts that press its buttons (tools/web_pair.mjs).
 target_sources(dol PRIVATE ${CMAKE_SOURCE_DIR}/src/port/web/web_ui_probe.cpp)
+# N104: the board lottery's stick games and m444's plunger, for the same scripts' fake gamepad.
+target_sources(dol PRIVATE ${CMAKE_SOURCE_DIR}/src/port/web/web_stick_probe.c)
 
 # The C/C++ is built without exception handling (Asyncify can't unwind through a function that has any), but these
 # catch what libc++/nlohmann throw (a config file that isn't there yet, ...). None of their functions is on the
@@ -120,7 +122,7 @@ function(pb_web_link target)
         set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/port/web/pbnet_rtc.js)
         # The lobby's C ABI for the page's scripts (tools/web_pair.mjs drives two tabs' lobbies with it).
         target_link_options(${target} PRIVATE
-                "-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_pbnet_lobby_host,_pbnet_lobby_join,_pbnet_lobby_answer,_pbnet_lobby_json,_pbnet_lobby_ready,_pbnet_lobby_start,_pbnet_lobby_leave,_pbnet_lobby_cpu,_pbnet_frame,_pbnet_waiting_on,_pbnet_recover_json,_pb_web_ui_focus")
+                "-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_pbnet_lobby_host,_pbnet_lobby_join,_pbnet_lobby_answer,_pbnet_lobby_json,_pbnet_lobby_ready,_pbnet_lobby_start,_pbnet_lobby_leave,_pbnet_lobby_cpu,_pbnet_frame,_pbnet_waiting_on,_pbnet_recover_json,_pb_web_ui_focus,_pb_web_lottery_stick,_pb_web_plunger_pad")
     endif ()
     # The probe too (N90): with -g2 emcc links other builds of its ports (emdawnwebgpu), which inline otherwise, so
     # the probe's functions are partyboard's only with the same flags.
