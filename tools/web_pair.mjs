@@ -9,6 +9,8 @@
 // runs, so both human seats play their turns (N104: and moves its stick in the board lottery's stick games and m444's
 // plunger), and one START 300 frames after a minigame's instructions start (the console's "resync point ...
 // minigame", N52's instDll point), another at 700 frames if they still show.
+// N126: in a minigame that has run 2400 frames the pad sweeps B/X/Y, the triggers and the stick too (PAIR_SWEEP), and
+// the summary lists minigames that ran over 4 minutes (m427 and m432 run to their 5-minute cap unplayed).
 // N113: START at every instDll start ("Start New OVL 3"), not only at a minigame point: a battle/Bowser minigame
 // (mid-turn) and an instDll resumed after a reload print no point, and stood at their instructions for ever (N102's
 // d1/d2/m1). A --desync-at flip inside instDll shows only once the minigame runs (N64: instDll is not hash-checked);
@@ -30,6 +32,7 @@
 //      line in both tabs, e.g. '--hash-log /tmp/h.log'), PAIR_ARGS_B (N102: tab b's instead, e.g. with a
 //      '--desync-at F'), DUMP_FILES ("/tmp/h.log": copied out of each tab's FS into
 //      OUT as a-h.log / b-h.log at the end), PAIR_KEEP_PROFILE (keep OUT/profile, removed otherwise), PAIR_SEED (the match seed, e.g. 0x18E2A0AF4FE4E301; default from the clock).
+//      N126: PAIR_SWEEP (game frames a minigame runs before the fake pad's sweep, default 2400; 0: no sweep).
 //      N98: PAIR_TABS (2: tabs a, b, c, d: 127.0.0.1 and localhost on WEB_PORT, then on WEB_PORT+1), PAIR_MENU=1 (the
 //      lobby through the menu: host F1 > Online > Host Game, copies its invite link; guest b presses Ctrl+V, Join >
 //      Paste Code > Join Game; guest c opens the link (on its own origin) and picks its disc there, as a friend's first
@@ -81,7 +84,8 @@ const serve = (req, res) => {
 const servers = [webPort, webPort + 1].slice(0, nTabs > 2 ? 2 : 1).map(port => {
   const server = createServer(serve).listen(port, '127.0.0.1');
   // a port in use (another run) must stop this one, not let it talk to someone else's page
-  server.on('error', e => { console.error(`web_pair: ${e.message}`); process.exit(1); });
+  // (N126: through finish, which also kills the Chromium spawned by then: process.exit alone left it running)
+  server.on('error', e => { console.error(`web_pair: ${e.message}`); finish(); });
   return server;
 });
 const origins = [`http://127.0.0.1:${webPort}`, `http://localhost:${webPort}`, `http://127.0.0.1:${webPort + 1}`, `http://localhost:${webPort + 1}`];
@@ -139,13 +143,17 @@ const PAD = `(() => {
     // N104: A held back while m444's plunger pulls
     const pull = !!window.__pbMash && plungerPull();
     const down = !!window.__pbMash && now % 500 < 80;
-    for (const [b, on] of [[0, down && !rest && !pull], [9, start]]) {
+    // N126: a minigame still running long after it began: every button, both triggers and the stick in turn
+    const sweep = !!window.__pbMash && !pull && !rest ? minigameSweep() : null;
+    const buttons = sweep ? [[0, sweep.a], [1, sweep.b], [2, sweep.x], [3, sweep.y], [6, sweep.l], [7, sweep.r], [9, start]]
+      : [[0, down && !rest && !pull], [1, false], [2, false], [3, false], [6, false], [7, false], [9, start]];
+    for (const [b, on] of buttons) {
       if (pad.buttons[b].pressed !== on) {
         pad.buttons[b].pressed = on; pad.buttons[b].value = on ? 1 : 0; pad.timestamp++;
       }
     }
     // N104: the board lottery's stick games (ball spin, ticket scratch) and m444's plunger read only the stick
-    const [x, y] = pull ? [0, 120 / 127] : window.__pbMash ? lotteryStick() : [0, 0];
+    const [x, y] = pull ? [0, 120 / 127] : sweep ? sweep.stick : window.__pbMash ? lotteryStick() : [0, 0];
     if (pad.axes[0] !== x || pad.axes[1] !== y) pad.axes[0] = x, pad.axes[1] = y, pad.timestamp++;
   }, 8);
   // N104: while a human current player is in a lottery stick game (pb_web_lottery_stick), the stick for its game
@@ -193,6 +201,40 @@ const PAD = `(() => {
     }
     return pad >= 0 && frame - plunger.from < 90;
   };
+  // N126: minigames A taps can't play stood a human seat still until their own 5-minute cap (N104 run 3: m432,
+  // both climbers at the bottom; run 4: m427's 2v2 boat race, a boat standing at the start). The harness calls
+  // __pbMinigame(overlay) at every overlay start (0: not a minigame). Once one has run 2400 game frames (a timed
+  // minigame's clock and intro are mostly over by then), the pad plays what such minigames wait on, by game frame, in
+  // three 480-frame phases, over again (PAIR_SWEEP: another wait, 0: no sweep):
+  //   forward: stick up, A and B take turns, a press every 4 frames (m427's oars: A left, B right; A also jumps);
+  //   no jump: stick up, B, X and Y take turns, a press every 4 frames, no A (m432's B/X/Y holds count presses only on the
+  //            ground and drop a player who doesn't press for 20 frames);
+  //   around:  the stick round the 8 directions, 60 frames each, A, B, X and Y taking turns the same way.
+  // L and R take turns all along, 20 frames each (m432's crank counts an R pull followed by an L one). A frame count
+  // that starts over (a resync reload) starts the wait over.
+  // (GC axes, y up: 120 straight, 85 each on a diagonal)
+  const STICK8 = [[0, 120], [85, 85], [120, 0], [85, -85], [0, -120], [-85, -85], [-120, 0], [-85, 85]];
+  const mgame = { ovl: 0, from: -1, swept: false };
+  window.__pbMinigame = ovl => { mgame.ovl = ovl, mgame.from = -1, mgame.swept = false; };
+  const minigameSweep = () => {
+    const m = window.pbModule;
+    const after = window.__pbSweepAfter ?? 2400;
+    if (!mgame.ovl || !after || !m?._pbnet_frame) return null;
+    const frame = m._pbnet_frame();
+    if (mgame.from < 0 || frame < mgame.from) mgame.from = frame, mgame.swept = false;
+    const t = frame - mgame.from - after;
+    if (t < 0) return null;
+    if (!mgame.swept) mgame.swept = true, window.__pbStick.push(\`minigame sweep (overlay \${mgame.ovl}) at frame \${frame}\`);
+    const phase = Math.floor(t / 480) % 3;
+    // which button of a set is down this frame: each held 3 frames, then a frame up
+    const turn = (n, period) => (t % period) % 4 < 3 ? Math.floor((t % period) / 4) % n : -1;
+    const k = phase === 0 ? turn(2, 8) : phase === 1 ? turn(3, 12) : turn(4, 16);
+    const set = phase === 0 ? ['a', 'b'] : phase === 1 ? ['b', 'x', 'y'] : ['a', 'b', 'x', 'y'];
+    const [sx, sy] = phase === 2 ? STICK8[Math.floor(t / 60) % 8] : [0, 120];
+    const pad = { a: false, b: false, x: false, y: false, l: t % 40 < 20, r: t % 40 >= 20, stick: [sx / 127, -sy / 127] };
+    if (k >= 0) pad[set[k]] = true;
+    return pad;
+  };
   // N98: the page's peer connections (PAIR_DROP closes them; their descriptions say which candidates were gathered)
   const RTC = window.RTCPeerConnection;
   window.__pbPcs = [];
@@ -208,6 +250,8 @@ async function tab(name, target, origin, url) {
   // the frame instDll started at (-1: none pending; -2: started, the main loop reads the frame) and how many STARTs it
   // got
   const mg = { at: -1, stage: 0 };
+  // N126: every overlay start (number, wall-clock ms), for the summary's long minigames
+  const ovls = [];
   ws.onmessage = ({ data }) => {
     const m = JSON.parse(data);
     if (m.id && waiting.has(m.id)) waiting.get(m.id)(m), waiting.delete(m.id);
@@ -226,6 +270,9 @@ async function tab(name, target, origin, url) {
       if (point) mg.at = +point[1], mg.stage = 0;
       // the minigame started: no more START
       if (line.includes('Start New OVL') && !line.includes('Start New OVL 3 ')) mg.at = -1, js('window.__pbStarts = []');
+      // N126: the overlay that runs, for the pad's sweep in minigames (m300Dll (4) to m463Dll (69), include/ovl_table.h)
+      const ovl = line.match(/Start New OVL (\d+) /);
+      if (ovl) js(`window.__pbMinigame?.(${+ovl[1] >= 4 && +ovl[1] <= 69 ? +ovl[1] : 0})`), ovls.push([+ovl[1], Date.now()]);
       lines.push(line);
       appendFileSync(join(out, `${name}.txt`), `[${stamp()}] ${line}\n`);
     }
@@ -315,7 +362,7 @@ async function tab(name, target, origin, url) {
     await key('Enter');
   };
   const clipboard = () => evaluate('navigator.clipboard.readText()');
-  return { name, origin, send, evaluate, lines, shot, dump, mg, key, focus, find, press, clipboard };
+  return { name, origin, send, evaluate, lines, shot, dump, mg, ovls, key, focus, find, press, clipboard };
 }
 
 const until = async (what, secs, f) => {
@@ -532,6 +579,7 @@ try {
     say(`${t.name}: ${sdps.length} peer connections, candidates: ${kinds.join(', ')}`);
   }
   if (process.env.PAIR_MASH !== '0') for (const t of peers) await t.evaluate('window.__pbMash = true');
+  if (process.env.PAIR_SWEEP) for (const t of peers) await t.evaluate(`window.__pbSweepAfter = ${+process.env.PAIR_SWEEP}, true`);
   const every = +(process.env.SHOT_EVERY ?? 30);
   const dropAt = +(process.env.PAIR_DROP ?? 0);
   let frames = peers.map(() => 0);
@@ -610,6 +658,14 @@ try {
     return `${t.name}: flip at ${flip[1]}, ${seen ? `desync at frame ${seen[1][1]} (${seen[0]})` : 'NO DESYNC after it'}`;
   }).filter(Boolean);
   if (flips.length) say(`desync-at: ${flips.join('; ')}`);
+  // N126: minigames that ran over 4 minutes (m427 and m432 stop at their 5-minute cap when nobody plays them), and the
+  // one still running at the end
+  const long = peers.map(t => {
+    const runs = t.ovls.map(([o, at], i) => [o, ((t.ovls[i + 1]?.[1] ?? Date.now()) - at) / 1000, !t.ovls[i + 1]]);
+    const slow = runs.filter(([o, s]) => o >= 4 && o <= 69 && s > 240).map(([o, s, open]) => `o${o} ${Math.round(s)} s${open ? ' (still running)' : ''}`);
+    return slow.length ? `${t.name}: ${slow.join(', ')}` : null;
+  }).filter(Boolean);
+  if (long.length) say(`minigames over 4 minutes: ${long.join('; ')}`);
   say(`reached: ${reached.join('; ')}${menuEnds.some(n => n) ? `; LEFT FOR THE MENU: ${peers.map((t, i) => `${t.name}=${menuEnds[i]}`).join(' ')}` : ''}`);
   say(`started: ${peers.map((t, i) => `${t.name}=${startedLines[i]}`).join(' ')}; desync lines: ${peers.map((t, i) => `${t.name}=${desyncs[i]}`).join(' ')}; ` +
     `frames ${peers.map((t, i) => `${t.name}=${frames[i]}`).join(' ')}${dropAt ? `; redial ${redialOk ? 'ok' : 'FAILED'} (${afterBack} frames after it)` : ''}`);
