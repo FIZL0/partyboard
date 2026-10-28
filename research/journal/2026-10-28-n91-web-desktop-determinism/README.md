@@ -81,6 +81,18 @@ the board in turn 9 (player 1), in `Hu3DDrawPost`: a model hook (`HU3DMODELHOOK`
 -> its definition's parameter count) found two: the board Boo house's `BallRenderHook` (src/game/board/boo.c) and
 w03's statue `fn_1_2B44`. Both now take `(HU3DMODEL *model, Mtx matrix)`, unused (the same code, the GC included).
 
+A grep for other function casts (`(void *)fn`, `(SomeFunc)fn`) found more of the kind outside this party, fixed
+without a run that reaches them:
+- w02 roulette `fn_1_BE74` and shuffleboard `fn_1_94AC`: `s32 (void)` without a return, installed as
+  `void (*)(void)` process destructors: now `void`.
+- w05 mg_coin `fn_1_9B74`: `void (void)` installed as a post-turn hook `s32 (*)()` whose result
+  `BoardPlayerPostTurnHookExec` reads (nonzero removes the hook). On the GC it returned `BoardModelAttrReset`'s r3,
+  and the old desktop build did too (GCC tail-called it: `jmp BoardModelAttrReset@plt`, checked in the old
+  w05Dll.so). On PC it now returns that value explicitly (`#ifdef TARGET_PC`, the GC build keeps `void`).
+- mentDll `fn_1_81A8(obj, a, b)` installed as `MentDllUnkFunc` (two arguments): the unused third parameter dropped.
+The rest (mentDll/ztardll handlers with typed pointer parameters: same wasm type, fine; others not audited) is
+follow-up **N102**.
+
 ## Also fixed: the web build's CMake hooks
 
 The N86 merge (a86810a5) dropped N87's lines from CMakeLists.txt: `PB_DOL_LIBRARY_TYPE`/`PB_REL_LIBRARY_TYPE` and the
