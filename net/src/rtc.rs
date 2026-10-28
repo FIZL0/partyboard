@@ -324,7 +324,11 @@ mod js {
             pub fn pbnet_js_rtc_close(id: i32);
         }
     }
-    #[cfg(not(target_os = "emscripten"))]
+    // N96: natively, str0m on this machine's sockets (desktop and phone builds); the host's browser-build tests fake
+    // the page
+    #[cfg(all(not(target_os = "emscripten"), feature = "iroh"))]
+    use super::native as imp;
+    #[cfg(all(not(target_os = "emscripten"), not(feature = "iroh")))]
     use super::fake as imp;
     use std::ffi::{c_char, CString};
 
@@ -420,7 +424,7 @@ mod js {
 
 /// The page's peer connections faked in-process for the host's `cargo test` (two "browsers" in one process): an
 /// answer accepted by an offer's side connects the two at once.
-#[cfg(not(target_os = "emscripten"))]
+#[cfg(all(not(target_os = "emscripten"), not(feature = "iroh")))]
 #[allow(clippy::missing_safety_doc)]
 mod fake {
     use std::collections::{BTreeMap, VecDeque};
@@ -561,6 +565,10 @@ mod fake {
         }
     }
 }
+
+/// N96: the page's peer connections natively (str0m), for desktop lobbies that meet browsers.
+#[cfg(all(not(target_os = "emscripten"), feature = "iroh"))]
+mod native;
 
 // ---------------------------------------------------------------- a connection
 
@@ -928,6 +936,21 @@ impl Transport {
         Ok(Peer::new(conn, PeerId(offer.id), Some(self.spare.clone())))
     }
 
+    /// N96: as the desktop's `link.rs` picks a lobby's transport (in the browser always this one).
+    pub async fn bind_for(relay: &Relay, _rtc: bool, _code: &str) -> Result<Transport, String> {
+        Transport::bind(relay).await
+    }
+
+    /// N96: a WebRTC lobby (the desktop's `link.rs` has iroh's too).
+    pub fn is_rtc(&self) -> bool {
+        true
+    }
+
+    /// N96: how often the host's lobby asks for its code ([`codes::REPUBLISH`]).
+    pub fn republish(&self) -> Duration {
+        codes::REPUBLISH
+    }
+
     /// Closes the offers and the connections still connecting.
     pub async fn close(&self) {
         let mut h = locked(&self.hosting);
@@ -1051,6 +1074,20 @@ mod tests {
             let tx = Mutex::new(tx);
             (Arc::new(move |c, w| drop(tx.lock().unwrap().send((c, w)))), rx)
         }
+        // N96: on the desktop build the lobby's transport is `link.rs`'s, and the connections are real (str0m on
+        // loopback, `rtc/native.rs`)
+        #[cfg(feature = "iroh")]
+        fn bind() -> impl std::future::Future<Output = Result<crate::link::Transport, String>> + Send + 'static {
+            async { crate::link::Transport::bind_rtc(&crate::transport::Relay::Off).await }
+        }
+        #[cfg(not(feature = "iroh"))]
+        fn bind() -> impl std::future::Future<Output = Result<Transport, String>> + Send + 'static {
+            Transport::bind(&Relay::Off)
+        }
+        #[cfg(feature = "iroh")]
+        use native::cut_open;
+        #[cfg(not(feature = "iroh"))]
+        use fake::cut_open;
         async fn until(what: &str, mut f: impl FnMut() -> bool) {
             for _ in 0..1000 {
                 if f() {
@@ -1066,11 +1103,11 @@ mod tests {
             let h = tokio::runtime::Handle::current();
             let (hs, hr) = catch();
             let (gs, gr) = catch();
-            let host = Lobby::host(&h, Transport::bind(&Relay::Off), setup("h"), hs);
+            let host = Lobby::host(&h, bind(), setup("h"), hs);
             until("the host's code", || !host.snapshot().short.is_empty()).await;
             let code = host.snapshot().short;
             assert!(code.starts_with(OFFER));
-            let guest = Lobby::join(&h, Transport::bind(&Relay::Off), setup("g"), &code, gs);
+            let guest = Lobby::join(&h, bind(), setup("g"), &code, gs);
             until("the guest's answer", || !guest.snapshot().answer.is_empty()).await;
             let answer = guest.snapshot().answer;
             assert!(take_answer("rtcaAAAA").is_err());
@@ -1082,7 +1119,7 @@ mod tests {
             assert_eq!(host.snapshot().error, "");
             // a second guest that leaves while it waits for the host takes its answer down
             let (ls, _lr) = catch();
-            let late = Lobby::join(&h, Transport::bind(&Relay::Off), setup("l"), &host.snapshot().short, ls);
+            let late = Lobby::join(&h, bind(), setup("l"), &host.snapshot().short, ls);
             until("the second answer", || !late.snapshot().answer.is_empty()).await;
             late.leave();
             until("the answer gone", || answer_code().is_empty()).await;
@@ -1104,7 +1141,7 @@ mod tests {
             assert_eq!(got, (Some((0, b"to guest".to_vec())), Some((1, b"to host".to_vec()))));
 
             // N98: the connection drops mid-match (the only open one in this process: `late` left, spares never open)
-            fake::cut_open();
+            cut_open();
             until("reconnecting", || guest.status().reconnecting).await;
             until("the redial's answer", || !guest.snapshot().answer.is_empty()).await;
             let redial = guest.snapshot().answer;

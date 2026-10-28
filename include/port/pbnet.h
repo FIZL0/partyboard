@@ -85,7 +85,9 @@ uint32_t pbnet_delay_for(uint32_t rtt_ms);
  *   {"build": "<version and commit>", "disc": "GMPE01-00", "players": [{"name": "...", "key": "<stable id>"}, ...],
  *    "relay": "n0" | "own" | "off", "relay_url": "https://..." (own only),
  *    "id": "<match id>" (host, optional), "short": true (host: put a short code online, default true),
- *    "resume": "<online save path>" (host, optional: continue that save, N9)}
+ *    "resume": "<online save path>" (host, optional: continue that save, N9),
+ *    "webrtc": true (N96, desktop host, optional: host for browsers, WebRTC offer codes and answers)}
+ *  A join whose code is a browser's offer (rtco...) runs on WebRTC by itself.
  * players: this machine's 1..4 local players, in the order they take seats.
  */
 
@@ -120,7 +122,9 @@ uint32_t pbnet_lobby_gen(void);
  *    "code": "<host: ticket>", "short": "<host: short code, once online>", "error": "<why closed / no short code>",
  *    "seats": [this machine's seat indices], "room": null | Room (net/src/lobby.rs: id, seats[4] of null |
  *    {peer, name, key, character, cpu, difficulty, team}, board, turns, bonus, teams, handicaps[4], seed,
- *    ready [peer names], ver, started, delay), "gen": n}
+ *    ready [peer names], ver, started, delay), "gen": n,
+ *    "answer": "<WebRTC guest while it connects: its answer>" (when set), "webrtc": true (N96: a WebRTC lobby; left
+ *    out otherwise)}
  */
 int pbnet_lobby_json(char *buf, int cap);
 /* This machine's picks for its seats in seat order (n of them). 1 if sent (open lobby only). */
@@ -190,8 +194,9 @@ void pbnet_lan_stop(void);
  * N92, the browser build (net/src/rtc.rs): WebRTC needs a code each way. The host's code is an offer; a guest that
  * joins with it gets an answer (the lobby JSON's "answer", while it connects) to send back, and the host passes it
  * here: 1 if taken (the guest connects and is seated; if it can't, the lobby's "error" says so), else 0 and why
- * snprintf'd into why/cap (why may be NULL). The host's code then changes (a fresh offer for the next guest). Always
- * 0 on the desktop, whose guests need no answer.
+ * snprintf'd into why/cap (why may be NULL). The host's code then changes (a fresh offer for the next guest).
+ * N96: the desktop speaks it too, in a lobby hosted for browsers (setup "webrtc": true) or joined with a browser's
+ * offer code (the lobby JSON says "webrtc": true); 0 in its own (iroh) lobbies, whose guests need no answer.
  */
 int pbnet_lobby_answer(const char *answer, char *why, int cap);
 

@@ -86,6 +86,9 @@ struct View {
     std::string error;
     // N92, a browser guest while it connects: its answer for the host (empty otherwise).
     std::string answer;
+    // N96: a WebRTC lobby (always in the browser; on the desktop hosted for browsers or joined with a browser's code):
+    // its code is an offer and a joining guest's answer goes back to the host.
+    bool webrtc = false;
     // This device's seat indices, in the order of Profile::players.
     std::vector<int> mySeats;
     bool hasRoom = false;

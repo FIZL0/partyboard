@@ -1,0 +1,16 @@
+++++++++++++++++++++ Start New OVL 1 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+n96: join 1
+n96: answer 146 chars, webrtc 1: rtcaEG9sY2RyQW1CZWlKTnh0dkgWbHpRUnpYdVRvWHNiMHBxYVVERktWWQRtTzJrXvsBfncarAX-ve53LWGBkXbmh3V-sVeLPzNhoXr9HC8SzXfH5wzH7wRkWsxOov4ErBEAAYOfBMCoAHbXgg
+n96: seated, ready 1
+netplay: lobby started (epoch 0): seed 18E2B3F442716B01, this machine plays seats 2P
+++++++++++++++++++++ Start New OVL 89 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+netplay: resync point at frame 2663: turn 1/20, player 0
+netplay: resync point at frame 3174: turn 1/20, player 1
+netplay: resync point at frame 4342: turn 1/20, player 2
+netplay: resync point at frame 4727: turn 1/20, player 3
+++++++++++++++++++++ Start New OVL 3 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+netplay: resync point at frame 6284: minigame 55, turn 1/20, groups 0000
+++++++++++++++++++++ Start New OVL 62 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+++++++++++++++++++++ Start New OVL 84 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+++++++++++++++++++++ Start New OVL 89 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+netplay: resync point at frame 8427: turn 2/20, player 0

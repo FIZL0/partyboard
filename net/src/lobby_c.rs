@@ -42,7 +42,8 @@ use crate::lobby::{Event, Guest, Host, Ident, Msg, Pick, Player, Room, To, CPU, 
 use crate::lockstep::{self, delay_for, Config, NO_PEER};
 use crate::lockstep_c;
 use crate::recover::{self, Book, Outcome, Rejoin, Status};
-use crate::transport::{datagram, undatagram, Incoming, LanHost, Peer, Relay, Transport};
+// N96: on the desktop iroh or WebRTC per lobby (`link.rs`); in the browser WebRTC (`rtc.rs`)
+use crate::link::{datagram, undatagram, Incoming, LanHost, Peer, Relay, Transport};
 
 /// No lobby.
 pub const PBNET_LOBBY_NONE: i32 = 0;
@@ -145,6 +146,8 @@ enum Role {
 struct Shared {
     phase: Phase,
     host: bool,
+    /// N96: the lobby runs on WebRTC (always in the browser; on the desktop when it hosts for browsers or joined one).
+    webrtc: bool,
     role: Option<Role>,
     me: String,
     ticket: String,
@@ -210,6 +213,7 @@ impl Shared {
         Shared {
             phase: Phase::Connecting,
             host,
+            webrtc: cfg!(not(feature = "iroh")),
             role: None,
             me: String::new(),
             ticket: String::new(),
@@ -661,7 +665,8 @@ impl Shared {
             seats,
             room,
             gen: self.gen,
-            answer: crate::transport::answer_code(),
+            answer: crate::link::answer_code(),
+            webrtc: self.webrtc,
         }
     }
 }
@@ -695,6 +700,9 @@ pub struct Snapshot {
     /// N92, a browser guest while it connects: its answer for the host to paste (`pbnet_lobby_answer`).
     #[serde(skip_serializing_if = "String::is_empty")]
     pub answer: String,
+    /// N96: the lobby runs on WebRTC: its codes are offers and a joining guest's answer goes back to the host.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub webrtc: bool,
 }
 
 /// What hosting or joining needs, as the menu passes it (`pbnet_lobby_host` / `pbnet_lobby_join` JSON).
@@ -717,6 +725,9 @@ pub struct Setup {
     /// Host: continue the online save at this path (`pbnet_save_list`'s `path`): its room and checkpoint (N9).
     #[serde(default)]
     pub resume: Option<String>,
+    /// N96, desktop host: the lobby is for browsers (WebRTC offer codes, guests' answers pasted back) instead of iroh.
+    #[serde(default)]
+    pub webrtc: bool,
 }
 
 fn yes() -> bool {
@@ -755,13 +766,20 @@ impl Lobby {
     {
         let shared: Sh = Arc::new(Mutex::new(Shared::new(false, start)));
         let (quit, q) = oneshot::channel();
-        let code = codes::code_in(code).unwrap_or_else(|| code.trim().to_string());
+        // N96: or a browser host's offer (a desktop joins it over WebRTC)
+        let code = codes::code_in(code).or_else(|| crate::rtc::codes::code_in(code)).unwrap_or_else(|| code.trim().to_string());
         rt.spawn(run_guest(bind, shared.clone(), setup, code, q));
         Lobby { shared, quit: Some(quit) }
     }
 
     pub fn snapshot(&self) -> Snapshot {
         lock(&self.shared).snapshot()
+    }
+
+    /// N96: says the lobby is a WebRTC one before its transport is bound (the menu lays itself out by it).
+    fn webrtc(self, on: bool) -> Lobby {
+        lock(&self.shared).webrtc |= on;
+        self
     }
 
     /// Characters and teams for this machine's seats, in seat order. False if not open.
@@ -902,6 +920,7 @@ async fn run_host<B: Future<Output = Result<Transport, String>>>(bind: B, sh: Sh
         Ok(t) => Arc::new(t),
         Err(e) => return lock(&sh).close(&format!("Couldn't go online: {e}")),
     };
+    lock(&sh).webrtc = t.is_rtc();
     t.ready().await;
     let id = setup.id.clone().unwrap_or_else(|| {
         let secs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
@@ -976,21 +995,18 @@ async fn keep_code(t: Arc<Transport>, sh: std::sync::Weak<Mutex<Shared>>) {
                     }
                     code = Some(c);
                 }
+                // N92: no offer could be made (no WebRTC, no network)
+                Err(e) if t.is_rtc() => {
+                    s.error = e;
+                    s.bump();
+                }
                 // the ticket still joins; the next round tries again
-                #[cfg(feature = "iroh")]
                 Err(e) => {
                     s.error = format!("The short code isn't online ({e}); share the long code instead.");
                     s.bump();
                 }
-                // N92: no offer could be made (no WebRTC, no network)
-                #[cfg(not(feature = "iroh"))]
-                Err(e) => {
-                    s.error = e;
-                    s.bump();
-                }
             }
             // N92: a pasted answer that didn't connect (the code shown is the next guest's), or "" once one did
-            #[cfg(not(feature = "iroh"))]
             if let Some(e) = t.take_error() {
                 if s.error != e {
                     s.error = e;
@@ -998,7 +1014,7 @@ async fn keep_code(t: Arc<Transport>, sh: std::sync::Weak<Mutex<Shared>>) {
                 }
             }
         }
-        tokio::time::sleep(if code.is_some() { codes::REPUBLISH } else { Duration::from_secs(10) }).await;
+        tokio::time::sleep(if code.is_some() { t.republish() } else { Duration::from_secs(10) }).await;
     }
 }
 
@@ -1075,6 +1091,7 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
         Ok(t) => t,
         Err(e) => return lock(&sh).close(&format!("Couldn't go online: {e}")),
     };
+    lock(&sh).webrtc = t.is_rtc();
     let me = t.id().to_string();
     {
         let mut s = lock(&sh);
@@ -1503,7 +1520,9 @@ pub(crate) fn rejoin_global((s, relay): (Setup, Relay), r: Rejoin) -> bool {
         }
         old.leave();
     }
-    let l = Lobby::rejoin(rt().handle(), async move { Transport::bind(&relay).await }, s, r, global_starter());
+    let code = r.code.clone();
+    let rtc = crate::rtc::codes::code_in(&code).is_some();
+    let l = Lobby::rejoin(rt().handle(), async move { Transport::bind_for(&relay, false, &code).await }, s, r, global_starter()).webrtc(rtc);
     *global() = Some(hooked(l));
     true
 }
@@ -1530,7 +1549,8 @@ pub unsafe extern "C" fn pbnet_lobby_host(setup_json: *const c_char) -> i32 {
     let Some((s, relay)) = (unsafe { arg(setup_json) }).and_then(setup) else { return 0 };
     // a host doesn't browse: its own endpoint is the one listed
     browse().take();
-    let l = Lobby::host(rt().handle(), async move { Transport::bind(&relay).await }, s, global_starter());
+    let rtc = s.webrtc;
+    let l = Lobby::host(rt().handle(), async move { Transport::bind_for(&relay, rtc, "").await }, s, global_starter()).webrtc(rtc);
     *global() = Some(hooked(l));
     1
 }
@@ -1546,8 +1566,14 @@ pub unsafe extern "C" fn pbnet_lobby_join(setup_json: *const c_char, code: *cons
     // SAFETY: the caller's contract on both strings.
     let (s, code) = unsafe { (arg(setup_json), arg(code)) };
     let (Some((s, relay)), Some(code)) = (s.and_then(setup), code.filter(|c| !c.trim().is_empty())) else { return 0 };
-    let bind = Browse::or_bind(browse().take(), relay);
-    let l = Lobby::join(rt().handle(), bind, s, code, global_starter());
+    // N96: a browser host's offer is joined over WebRTC (the browse's endpoint is iroh's)
+    let l = if crate::rtc::codes::code_in(code).is_some() {
+        browse().take();
+        let c = code.to_string();
+        Lobby::join(rt().handle(), async move { Transport::bind_for(&relay, true, &c).await }, s, code, global_starter()).webrtc(true)
+    } else {
+        Lobby::join(rt().handle(), Browse::or_bind(browse().take(), relay), s, code, global_starter())
+    };
     *global() = Some(hooked(l));
     1
 }
@@ -1764,7 +1790,7 @@ pub unsafe extern "C" fn pbnet_lan_browse(setup_json: *const c_char, buf: *mut c
 pub unsafe extern "C" fn pbnet_lobby_answer(answer: *const c_char, why: *mut c_char, cap: i32) -> i32 {
     // SAFETY: the caller's contract on `answer`.
     let r = match unsafe { arg(answer) } {
-        Some(a) => crate::transport::take_answer(a),
+        Some(a) => crate::link::take_answer(a),
         None => Err("no answer".into()),
     };
     match r {
@@ -1798,6 +1824,7 @@ mod tests {
             id: Some("m1".into()),
             short: false,
             resume: None,
+            webrtc: false,
         }
     }
 
@@ -2452,6 +2479,7 @@ mod tests {
             room: Some(h.room().clone()),
             gen: 9,
             answer: String::new(),
+            webrtc: false,
         };
         let json = serde_json::to_string(&snap).unwrap();
         assert_eq!(json, include_str!("../../tools/netplay/lobby_started.json").trim_end(), "regenerate the fixture: {json}");

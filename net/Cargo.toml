@@ -15,7 +15,7 @@ crate-type = ["staticlib", "rlib"]
 # on a current-thread runtime the game pumps.
 default = ["iroh"]
 iroh = ["dep:iroh", "dep:iroh-tickets", "dep:iroh-mainline-address-lookup", "dep:iroh-mdns-address-lookup",
-        "dep:n0-mainline", "dep:n0-future", "dep:reqwest", "dep:rustls", "tokio/rt-multi-thread"]
+        "dep:n0-mainline", "dep:n0-future", "dep:reqwest", "dep:rustls", "tokio/rt-multi-thread", "dep:str0m", "dep:netdev"]
 
 [dependencies]
 # Transport (`transport.rs`, `codes.rs`), as opentennis's `hst-base/src/net.rs`: iroh QUIC with tickets for codes,
@@ -30,6 +30,12 @@ n0-future = { version = "0.3", optional = true }
 tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"], optional = true }
 rustls = { version = "0.23", default-features = false, features = ["ring"], optional = true }
+# N96: the browser's WebRTC (`rtc.rs`) on the desktop too, so a desktop lobby can host or join browsers: str0m, a
+# sans-IO stack driven on our own UDP sockets (`rtc/native.rs`, as opentennis's hst-base `net/rtc/native.rs`), its
+# crypto pure Rust so it builds for every native target; netdev (iroh's netwatch already builds it) for the host
+# candidates.
+str0m = { version = "0.24", default-features = false, features = ["rust-crypto"], optional = true }
+netdev = { version = "0.46", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

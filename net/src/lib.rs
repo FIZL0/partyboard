@@ -13,14 +13,19 @@ pub mod lobby_c;
 pub mod lockstep;
 pub mod lockstep_c;
 pub mod recover;
-#[cfg(not(feature = "iroh"))]
+// N96: on every build: the browser's transport, and the desktop's way to meet browsers (`rtc/native.rs`).
 pub mod rtc;
 pub mod save;
 #[cfg(feature = "iroh")]
 pub mod transport;
+// N96: a desktop lobby's transport, iroh or WebRTC (`link.rs`); the lobby uses it as `crate::link`.
+#[cfg(feature = "iroh")]
+pub mod link;
 // N92: without iroh (the browser) the lobby runs on WebRTC under the same names.
 #[cfg(not(feature = "iroh"))]
 pub use rtc as transport;
+#[cfg(not(feature = "iroh"))]
+pub use rtc as link;
 #[cfg(not(feature = "iroh"))]
 pub use rtc::codes;
 

@@ -27,6 +27,8 @@ public:
 private:
     void save();
     void host();
+    // N96, desktop: hosts a WebRTC lobby browsers can join (net/src/link.rs).
+    void host_browsers();
     void join();
     void rejoin();
     void open_lobby();
@@ -63,10 +65,8 @@ protected:
 
 private:
     void refresh();
-#ifdef __EMSCRIPTEN__
-    // N92: the host takes a browser guest's answer from the clipboard.
+    // N92: the host takes a browser guest's answer from the clipboard (N96: a desktop's WebRTC lobby too).
     void paste_answer();
-#endif
     void show_right(Pane &pane, std::function<void(Pane &)> builder);
     void confirm_leave();
     void leave_to_menu();

@@ -1,0 +1,25 @@
+[1.8s] b: http://127.0.0.1:8796 picked /home/ryha/repos/partyboard/orig/GMPE01_01/GMPE01_01.ciso
+[28.1s] desktop: hosting, code 140 chars: rtcoEGdSYjNTRVVJck15NGp6Y3kWaTBPM1BlNEt5dGxBU3AwSWg2YTlFWQBO8mwoYlM9fEzkrgWIkfu61LW0svEfqLcEI1s1TvFpL0pMTLw_LFL-BGRazE7nbASsEQABrt8EwKgAdpJY
+[28.4s] b: answer 146 chars: rtcaBElHcFkYaWhUVlhTVk5sQitiYmpsZDBESTBERlNVEGdSYjNTRVVJck15NGp6Y3libds-sZTXRCR5nYYW968SAAP4bNIPrGtKlWNeEc7uXQAQYvpDByHgbQxq99UlSkamgtAeViEmRC3BgQ
+[28.6s] b: seated in the desktop's room
+[29.4s] desktop: started
+[29.4s] b: 1 peer connections, candidates: host 1, srflx 0, relay 0
+[39.4s] lockstep frames b=604 (waiting on b=0)
+[49.4s] lockstep frames b=1205 (waiting on b=0)
+[59.4s] lockstep frames b=1805 (waiting on b=0)
+[69.6s] lockstep frames b=2417 (waiting on b=0)
+[79.6s] lockstep frames b=3018 (waiting on b=0)
+[89.6s] lockstep frames b=3618 (waiting on b=0)
+[99.8s] lockstep frames b=4230 (waiting on b=0)
+[109.9s] lockstep frames b=4830 (waiting on b=0)
+[119.9s] lockstep frames b=5431 (waiting on b=0)
+[130.1s] lockstep frames b=6047 (waiting on b=0)
+[140.2s] lockstep frames b=6648 (waiting on b=0)
+[150.2s] lockstep frames b=7247 (waiting on b=0)
+[160.3s] lockstep frames b=7852 (waiting on b=0)
+[170.3s] lockstep frames b=8452 (waiting on b=0)
+[180.3s] lockstep frames b=9052 (waiting on b=0)
+[180.8s] b: /tmp/h.log 2915650 bytes
+[180.8s] reached: b: turn 1, 1 minigames started, last turn/minigame point at frame 7132, menu processes killed 1
+[180.8s] started: b=true; desync lines: b=0; frames b=9052
+[180.8s] PASS
