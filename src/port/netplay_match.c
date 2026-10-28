@@ -86,6 +86,7 @@ void BoardWarpNetplayReset(void);
 void BoardWinNetplayReset(void);
 s32 BoardItemNetplayKill(void);
 void CharEffectNetplayReset(void);
+s32 Hu3DModelNetplayReset(void);
 s32 HuDataNetplayCloseAll(void);
 SHARED_SYM extern u32 GlobalCounter;
 SHARED_SYM extern s32 SystemInitF;
@@ -634,17 +635,22 @@ static BOOL dead_code_block(uintptr_t retaddr, void *user)
 
 /*
  * N57: what a peer that was mid-board or mid-minigame keeps over a reload and a fresh peer has not: chrman's particle
- * work (SYSTEM), the old board's directory reads (DVD: DestroyBoard closes them, but a killed board never runs it), its
- * data in ARAM (the board between minigames; read back into DVD) and the blocks of a minigame left mid-play. Done here,
- * where nothing of the old overlay runs any more (MatchStartProc runs before its processes' teardown) and the new one
- * is not loaded yet, so every peer allocates them again alike.
+ * work (SYSTEM), the model slots' link tags (N74), the old board's directory reads (DVD: DestroyBoard closes them, but a
+ * killed board never runs it), its data in ARAM (the board between minigames; read back into DVD) and the blocks of a
+ * minigame left mid-play. Done here, where nothing of the old overlay runs any more (MatchStartProc runs before its
+ * processes' teardown) and the new one is not loaded yet, so every peer allocates them again alike.
  */
 static void leftovers_free(void)
 {
+    s32 links;
     s32 busy;
     s32 heap;
 
     CharEffectNetplayReset();
+    links = Hu3DModelNetplayReset();
+    if (links != 0) {
+        OSReport("netplay: forgot %d model slots' link tags\n", (int)links);
+    }
     busy = HuDataNetplayCloseAll();
     if (busy != 0) {
         OSReport("netplay: %d directory reads still running at the overlay start\n", (int)busy);
