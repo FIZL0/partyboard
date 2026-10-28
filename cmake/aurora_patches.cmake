@@ -14,6 +14,10 @@
 #   canvas, no render/pipeline threads and no pipeline cache, aurora_update() yields to the browser once per frame
 #   (Asyncify), imgui's wgpu backend built in Dawn mode. Everything is under EMSCRIPTEN / __EMSCRIPTEN__ but two
 #   size_t casts wasm32 needs.
+# - 0005-gx-firefox-wgsl (N93): GX shaders Firefox's WGSL compiler (naga) accepts. array_start is
+#   array<vec4u, 3> (a uniform array's stride must be a multiple of 16; same 48 bytes, every platform), and on
+#   Emscripten the vbuf/abuf helpers that take a ptr<storage> parameter (no unrestricted_pointer_parameters in
+#   naga) are specialized per buffer before the module is created.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)

@@ -529,6 +529,31 @@ extern "C" int port_main(int argc, char* argv[]) {
     // N87: the browser build's page picks the disc (PB_DISC), and the prelaunch UI's picker and checks need a
     // file dialog and threads it doesn't have.
     skipPreLaunch = !forcePreLaunchUI;
+    // N93: a browser always has a keyboard and often no pad, and aurora's keys start unbound: until the player
+    // binds port 1 in Settings (keyboard_bindings.dat, read on the first PADRead, replaces this), the keyboard
+    // plays it. Arrows: stick, X/Z/C/S: A/B/X/Y, Enter: Start, Q/W/E: L/R/Z, I/K/J/L: D-pad. Not in scripted runs,
+    // which leave keyboard_bindings.dat alone on the desktop too.
+    if (!netplay_debug_scripted() && !std::filesystem::exists(PartyBoard_ConfigPath / "keyboard_bindings.dat")) {
+        PADInit(); // it resets the key mappings (once): before setting them, not after
+        PADKeyButtonBinding keys[] = {
+            { SDL_SCANCODE_X, PAD_BUTTON_A }, { SDL_SCANCODE_Z, PAD_BUTTON_B }, { SDL_SCANCODE_C, PAD_BUTTON_X },
+            { SDL_SCANCODE_S, PAD_BUTTON_Y }, { SDL_SCANCODE_RETURN, PAD_BUTTON_START },
+            { SDL_SCANCODE_Q, PAD_TRIGGER_L }, { SDL_SCANCODE_W, PAD_TRIGGER_R }, { SDL_SCANCODE_E, PAD_TRIGGER_Z },
+            { SDL_SCANCODE_I, PAD_BUTTON_UP }, { SDL_SCANCODE_K, PAD_BUTTON_DOWN },
+            { SDL_SCANCODE_J, PAD_BUTTON_LEFT }, { SDL_SCANCODE_L, PAD_BUTTON_RIGHT },
+        };
+        for (const auto &key : keys) {
+            PADSetKeyButtonBinding(PAD_CHAN0, key);
+        }
+        PADKeyAxisBinding axes[] = {
+            { SDL_SCANCODE_RIGHT, PAD_AXIS_LEFT_X_POS, 0 }, { SDL_SCANCODE_LEFT, PAD_AXIS_LEFT_X_NEG, 0 },
+            { SDL_SCANCODE_UP, PAD_AXIS_LEFT_Y_POS, 0 }, { SDL_SCANCODE_DOWN, PAD_AXIS_LEFT_Y_NEG, 0 },
+        };
+        for (const auto &axis : axes) {
+            PADSetKeyAxisBinding(PAD_CHAN0, axis);
+        }
+        PADSetKeyboardActive(PAD_CHAN0, TRUE);
+    }
 #endif
     if (!partyboard::getSettings().backend.skipPreLaunchUI && !skipPreLaunch) {
         partyboard::ui::push_document(std::make_unique<partyboard::ui::Prelaunch>(), true);
