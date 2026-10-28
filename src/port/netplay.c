@@ -279,6 +279,7 @@ static struct {
     s16 alt_event[4];
     u16 alt_buttons[4];
     BOOL mg_explain_off;
+    BOOL fast_menus;
     BOOL lottery_stick;
     /* lottery_stick: the stick game last seen (BoardLotteryNetplayStickGame) and the frames it has run. */
     s32 lottery_game;
@@ -413,6 +414,10 @@ static BOOL script_parse_line(char *line, const char *path, int lineno)
     }
     if (strcmp(tok[0], "mg-explain") == 0 && n == 2 && strcmp(tok[1], "off") == 0) {
         script.mg_explain_off = TRUE;
+        return TRUE;
+    }
+    if (strcmp(tok[0], "fast-menus") == 0 && n == 2 && strcmp(tok[1], "on") == 0) {
+        script.fast_menus = TRUE;
         return TRUE;
     }
     if (strcmp(tok[0], "lottery-stick") == 0 && n == 2 && strcmp(tok[1], "on") == 0) {
@@ -699,6 +704,11 @@ BOOL netplay_debug_scripted(void)
 BOOL netplay_debug_mg_explain_off(void)
 {
     return script.loaded && script.mg_explain_off;
+}
+
+BOOL netplay_debug_fast_menus(void)
+{
+    return script.loaded && script.fast_menus;
 }
 
 BOOL netplay_debug_turbo_arg(int argc, char *argv[])

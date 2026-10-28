@@ -370,6 +370,19 @@ body.animate-in .intro-item {
     transition: opacity transform 0.3s 0.7s cubic-in-out;
 }
 
+/* N131: Settings > Gameplay > Fast Menus: short fades, the entrance without its stagger */
+body.fast {
+    transition: filter 0.25s linear-in-out;
+}
+
+body.fast .background {
+    transition: opacity 0.25s linear-in-out;
+}
+
+body.fast .intro-item {
+    transition: opacity transform 0.15s 0s cubic-in-out;
+}
+
 /* Mobile layout */
 @media (max-height: 640dp) {
     .gradient {

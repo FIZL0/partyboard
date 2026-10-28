@@ -872,6 +872,10 @@ void Prelaunch::update()
         launch_online();
     }
 
+    // N131: Fast Menus shortens the menu's fades and its entrance (prelaunch.rcss body.fast)
+    if (mDocument != nullptr) {
+        mDocument->SetClass("fast", getSettings().game.fastMenus.getValue());
+    }
     if (!mEntranceAnimationStarted && mDocument != nullptr) {
         mDocument->SetClass("animate-in", true);
         mEntranceAnimationStarted = true;

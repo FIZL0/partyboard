@@ -102,6 +102,8 @@ BOOL netplay_debug_init(int argc, char *argv[]);
 BOOL netplay_debug_scripted(void);
 /* True if the --script has `mg-explain off`: a --match party then starts with the minigame explanations off. */
 BOOL netplay_debug_mg_explain_off(void);
+/* True if the --script has `fast-menus on` (N131): only then does a --script run get Fast Menus (port/fast_menus.h). */
+BOOL netplay_debug_fast_menus(void);
 /*
  * m444's plunger loop (fn_1_9418), while netplay_active(): called every frame it waits for its human player to pull the
  * plunger (stick down) and press A, with the pad it reads. --script's `plunger-stick on` (N114) then pulls that pad's

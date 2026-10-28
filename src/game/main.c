@@ -25,6 +25,7 @@
 #include "port/main.h"
 #include "port/netplay.h"
 #include "port/dolassets.h"
+#include "port/fast_menus.h"
 #include "port/ui.h"
 #include "aurora/dvd.h"
 #include <aurora/aurora.h>
@@ -88,6 +89,7 @@ void main(void)
     s32 retrace;
 #ifdef TARGET_PC
     bool framed;
+    bool fastMenuFrame = false;
 #endif
 #if VERSION_PAL
     s16 temp = 0;
@@ -186,6 +188,8 @@ void main(void)
 #ifdef TARGET_PC
         /* N120: --turbo draws ~30 of its frames a second, the GPU stays near idle (false: every frame, no-op) */
         frame_present_throttle(netplay_debug_turbo());
+        /* N131: Fast Menus runs some menu frames unshown (port/fast_menus.h), without the frame limiter's wait */
+        fastMenuFrame = !netplay_debug_turbo() && port_fast_menus_frame();
         /* N110: a frame that can't be shown (backgrounded since the hold check) is recorded and dropped */
         if (!aurora_begin_frame_always(&framed)) {
             /* no frame at all (the GPU device is lost): no tick */
@@ -235,7 +239,7 @@ void main(void)
         }
         ui_update();
         aurora_end_frame();
-        if ((!disableFrameLimiter && !netplay_debug_turbo()) || netplay_lockstep()) {
+        if ((!disableFrameLimiter && !netplay_debug_turbo() && !fastMenuFrame) || netplay_lockstep()) {
             frame_limiter();
         }
 #endif

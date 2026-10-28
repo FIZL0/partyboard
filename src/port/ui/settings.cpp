@@ -651,7 +651,13 @@ SettingsWindow::SettingsWindow(bool prelaunch)
                 });
         };
 
-        // leftPane.add_section("General");
+        leftPane.add_section("General");
+        // N131
+        addOption("Fast Menus", getSettings().game.fastMenus,
+            "Speeds up the game's menus: the boot logos are skipped, and the title, file select, mode select and "
+            "party setup run their animations, fades and text twice as fast. Hold A or START to fast-forward "
+            "further. Menus run at normal speed while a direction is held. Boards and minigames always play at "
+            "normal speed. Turn off for the original timing.");
         // leftPane.add_section("Difficulty");
         // leftPane.add_section("Quality of Life");
         leftPane.add_section("Speedrunning");

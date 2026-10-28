@@ -79,6 +79,7 @@ struct UserSettings {
 
         // QoL
         ConfigVar<bool> enableQuickTransform;
+        ConfigVar<bool> fastMenus; // N131: menu overlays run faster (port/fast_menus.h)
 
         // Preferences
         ConfigVar<bool> pauseOnFocusLost;
@@ -144,6 +145,7 @@ bool partyboard_settings_enableTurboKeybind(void);
 bool partyboard_settings_skipBootSequence(void);
 bool partyboard_settings_unlock_all_minigames(void);
 bool partyboard_settings_unlock_bowsers_gnarly_party(void);
+bool partyboard_settings_fastMenus(void);
 
 #ifdef __cplusplus
 }
