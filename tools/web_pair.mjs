@@ -18,7 +18,7 @@
 // Usage: node tools/web_pair.mjs DISC OUT [SECS]
 //   SECS: how long the match runs after the start (default 120). OUT gets a.txt / b.txt (each tab's console),
 //   shots a-*.png / b-*.png, lobby-*.json, and pair.txt (the run's log: codes, frames, waits, verdict).
-// Env: WEB_PORT (8788: not web_check.mjs's, which other slots may be running), CHROME, CHROME_FLAGS, SHOT_EVERY (30), PAIR_CPUS ("2,3": seats the host gives
+// Env: WEB_ROOT (the build to serve, default build/web), WEB_PORT (8788: not web_check.mjs's, which other slots may be running), CHROME, CHROME_FLAGS, SHOT_EVERY (30), PAIR_CPUS ("2,3": seats the host gives
 //      the computer, default both free seats), PAIR_MASH (0: no fake gamepad presses), PAIR_ARGS (the game's command
 //      line in both tabs, e.g. '--hash-log /tmp/h.log'), DUMP_FILES ("/tmp/h.log": copied out of each tab's FS into
 //      OUT as a-h.log / b-h.log at the end), PAIR_KEEP_PROFILE (keep OUT/profile, removed otherwise), PAIR_SEED (the match seed, e.g. 0x18E2A0AF4FE4E301; default from the clock).
@@ -42,7 +42,7 @@ if (!disc || !out) {
   process.exit(2);
 }
 mkdirSync(out, { recursive: true });
-const root = resolve(new URL('..', import.meta.url).pathname, 'build/web');
+const root = resolve(new URL('..', import.meta.url).pathname, process.env.WEB_ROOT ?? 'build/web');
 const webPort = +(process.env.WEB_PORT ?? 8788);
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.png': 'image/png' };
 const sleep = ms => new Promise(r => setTimeout(r, ms));

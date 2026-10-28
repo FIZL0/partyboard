@@ -13,6 +13,10 @@ void *web_rel_link(const char *name);
 /* Runs the REL's ObjectSetup. */
 void web_rel_object_setup(void *rel);
 void web_rel_unlink(void *rel);
+/* N99: what holds the code at `fn`: its REL (an opaque pointer, the same for all of a REL's functions), one other
+ * pointer for code outside every REL (dol, libraries), NULL if `fn` is NULL or this can't be told (the RELs' marks
+ * didn't hold in this link: see the boot log). As dladdr's dli_fbase on the desktop. */
+const void *web_rel_function_owner(void (*fn)(void));
 
 #ifdef __cplusplus
 }

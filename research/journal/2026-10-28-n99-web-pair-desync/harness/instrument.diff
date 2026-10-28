@@ -1,0 +1,31 @@
+diff --git i/src/game/memory.c w/src/game/memory.c
+index 7d839cad..6b2aec5a 100644
+--- i/src/game/memory.c
++++ w/src/game/memory.c
+@@ -28,6 +28,7 @@ struct  memory_block {
+ };
+ 
+ static void *HuMemMemoryAlloc2(void *heap_ptr, size_t size, uintptr_t num, uintptr_t retaddr);
++extern void n99_mem(int kind, void *data, s32 size, uintptr_t num); /* N99 TEMP */
+ 
+ void *HuMemHeapInit(void *ptr, size_t size)
+ {
+@@ -81,6 +82,7 @@ static void *HuMemMemoryAlloc2(void *heap_ptr, size_t size, uintptr_t num, uintp
+             block->magic = 165;
+             block->num = num;
+             block->retaddr = retaddr;
++            n99_mem(1, BLOCK_GET_DATA(block), block->size, num);
+             return BLOCK_GET_DATA(block);
+         }
+         block = block->next;
+@@ -120,8 +122,10 @@ void HuMemMemoryFree(void *ptr, uintptr_t retaddr)
+     block = DATA_GET_BLOCK(ptr);
+     if (block->magic != 165) {
+         OSReport("HuMem>memory free error. %08x( call %08x)\n", ptr, retaddr);
++        n99_mem(3, ptr, 0, 0);
+         return;
+     }
++    n99_mem(2, ptr, block->size, block->num);
+     if (block->prev < block && !block->prev->flag) {
+         block->flag = 0;
+         block->magic = 205;

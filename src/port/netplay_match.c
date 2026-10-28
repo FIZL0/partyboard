@@ -52,6 +52,8 @@
 #include <windows.h>
 #elif defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
+#elif defined(__EMSCRIPTEN__)
+#include "port/web_rel.h"
 #endif
 
 SHARED_SYM extern GameStat GWGameStatDefault;
@@ -387,11 +389,27 @@ static const void *code_module(void (*fn)(void))
 #endif
 }
 
+/*
+ * The module holding the function `fn` (a process's func or dtor), NULL if unknown. N99: the browser build links the
+ * RELs statically and has no dladdr: code_module knew no process there, so the match start killed none, and bootDll's
+ * BootExec went on under the board on each peer from wherever its title loop was (its wipes and windows a few frames
+ * apart on two peers: the heaps' layout and then the board state split). web_rel_function_owner tells the RELs apart.
+ * Return addresses (dead_code_block) are not function pointers there and stay with code_module.
+ */
+static const void *function_module(void (*fn)(void))
+{
+#if defined(__EMSCRIPTEN__)
+    return web_rel_function_owner(fn);
+#else
+    return code_module(fn);
+#endif
+}
+
 /* A process running (or destroyed by) code outside libdol: the menu overlay's own. */
 static BOOL overlay_process(const Process *process, void *dol)
 {
-    const void *f = code_module(process->func);
-    const void *d = code_module(process->dtor);
+    const void *f = function_module(process->func);
+    const void *d = function_module(process->dtor);
     return (f != NULL && f != dol) || (d != NULL && d != dol);
 }
 
@@ -427,7 +445,7 @@ static void MatchStartProc(void)
      * ObjectSetup, e.g. bootDll's BootExec) end themselves after their own omOvlCallEx; called from here they
      * would run on in an unloaded DLL. Killed processes end later in this frame's HuPrcCall, before omwatchproc
      * (priority 0) unloads the DLL, so their destructors still find their code. */
-    killed = HuPrcKillIf(overlay_process, (void *)code_module((void (*)(void))netplay_match_tick));
+    killed = HuPrcKillIf(overlay_process, (void *)function_module((void (*)(void))netplay_match_tick));
     OSReport("netplay: match start: killed %d menu processes\n", (int)killed);
     /* N62: a reload while the board runs. The board's processes (dol code, under boardObjMan) are only killed by
      * omOvlKill, after it has freed the 3D models, windows and sprites, and their destructors then ran on freed models
@@ -825,7 +843,7 @@ static void MatchLeaveProc(void)
     s32 killed;
 
     match_pause_lift();
-    killed = HuPrcKillIf(overlay_process, (void *)code_module((void (*)(void))netplay_match_tick));
+    killed = HuPrcKillIf(overlay_process, (void *)function_module((void (*)(void))netplay_match_tick));
     OSReport("netplay: match left: overlay %d, killed %d of its processes\n", (int)omcurovl, (int)killed);
     wipe_reset();
     HuAudFXAllStop();

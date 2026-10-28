@@ -5,9 +5,9 @@ statically next to every other REL.
 On the desktop each REL is a .so whose only export is ObjectSetup (rel.map); the RELs share many names
 (lbl_1_data_0, ...), and dlopen gives each load fresh .data/.bss. In the browser there is no dlopen, so:
 
-- every symbol the object defines becomes local, except KEEP (the REL's ObjectSetup_<name>, renamed by a -D),
-  so the RELs no longer clash;
-- every function it defines but KEEP is named <rel>.<name> (N90), the REL's name taken from KEEP: the RELs'
+- every symbol the object defines becomes local, except KEEP (the REL's ObjectSetup_<name>, renamed by a -D) and
+  the MARKs (N99: pbrel_first_<rel>/pbrel_last_<rel>, src/port/web/web_rel_mark.c), so the RELs no longer clash;
+- every function it defines but KEEP and the MARKs is named <rel>.<name> (N90), the REL's name taken from KEEP: the RELs'
   local functions (BoardCreate, fn_1_1548, ...) would repeat in the module, and wasm-dis tells repeated names apart
   only by their function index, which another link (WEB_DEBUG's) doesn't keep. tools/web_asyncify_list.py lists
   functions by name, and the browser's stacks say which REL a function is from;
@@ -15,7 +15,7 @@ On the desktop each REL is a .so whose only export is ObjectSetup (rel.map); the
   segment with __start_SEGMENT/__stop_SEGMENT, which src/port/web_rel.c snapshots at boot and copies back each
   time the REL is linked again (a dlopen's fresh data).
 
-Usage: web_rel_localize.py IN.o OUT.o SEGMENT KEEP
+Usage: web_rel_localize.py IN.o OUT.o SEGMENT KEEP [MARK...]
 """
 import sys
 
@@ -79,10 +79,10 @@ def rewrite_symtab(p, keep, prefix, fn_names):
         else:
             sys.exit(f"web_rel_localize: unknown symbol kind {kind}")
         body = p[body_start:i]
-        if kind in (FUNCTION, DATA) and not flags & UNDEFINED and not flags & BINDING_LOCAL and sym != keep:
+        if kind in (FUNCTION, DATA) and not flags & UNDEFINED and not flags & BINDING_LOCAL and sym not in keep:
             flags = (flags & ~BINDING_WEAK) | BINDING_LOCAL
             changed += 1
-        if kind == FUNCTION and not flags & UNDEFINED and sym is not None and sym != keep:
+        if kind == FUNCTION and not flags & UNDEFINED and sym is not None and sym not in keep:
             index, j = leb(p, body_start)
             body = uleb(index) + enc_name(prefix + sym)
             fn_names[sym] = prefix + sym
@@ -128,6 +128,7 @@ def rewrite_segments(p, segment):
 
 def main():
     src, dst, segment, keep = sys.argv[1:5]
+    marks = sys.argv[5:]
     b = open(src, "rb").read()
     if b[:4] != b"\0asm":
         sys.exit(f"web_rel_localize: {src} is not a wasm object")
@@ -152,7 +153,7 @@ def main():
                     data = payload[k:k + n]
                     k += n
                     if sub == SYMTAB:
-                        data, changed = rewrite_symtab(data, keep, keep.removeprefix("ObjectSetup_") + ".", fn_names)
+                        data, changed = rewrite_symtab(data, {keep, *marks}, keep.removeprefix("ObjectSetup_") + ".", fn_names)
                     elif sub == SEGMENT_INFO:
                         data, renamed = rewrite_segments(data, segment)
                     body += bytes([sub]) + uleb(len(data)) + data
