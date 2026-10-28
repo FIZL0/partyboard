@@ -4,8 +4,13 @@
 # https elsewhere (OPFS, where the page keeps the disc, needs a secure context); no COOP/COEP needed (no threads).
 #
 # Needs emsdk (EMSDK, default ~/emsdk; `./emsdk install latest && ./emsdk activate latest`) and rustup's
-# wasm32-unknown-emscripten target (aurora's nod). WEB_FAST=1 skips the final wasm-opt. WEB_DEBUG=1 builds with
-# Emscripten's runtime assertions and names (build/web-cmake is reconfigured either way).
+# wasm32-unknown-emscripten target (aurora's nod). WEB_FAST=1 skips the final wasm-opt and the compression. WEB_DEBUG=1
+# builds with Emscripten's runtime assertions and names (build/web-cmake is reconfigured either way).
+#
+# N90: a release build also writes partyboard.{wasm,data,js}.br and .gz (brotli -q 11, gzip -9; brotli only if the
+# tool is there) for a server that serves precompressed files (nginx gzip_static/brotli_static, Caddy's
+# `file_server { precompressed br gzip }`), with Content-Encoding and the original Content-Type. tools/web_check.mjs
+# serves them so.
 set -e
 cd "$(dirname "$0")/.."
 EMSDK=${EMSDK:-$HOME/emsdk}
@@ -36,6 +41,15 @@ else
         build/web-cmake/partyboard.wasm -o "$out/partyboard.wasm"
 fi
 cp platforms/web/index.html platforms/web/pb.js "$out/"
+if [ -z "$WEB_FAST" ] && [ -z "$WEB_DEBUG" ]; then
+    for f in partyboard.wasm partyboard.data partyboard.js; do
+        gzip -9 -k -n "$out/$f" &
+        if command -v brotli >/dev/null 2>&1; then
+            brotli -q 11 -k "$out/$f" &
+        fi
+    done
+    wait
+fi
 cp res/icon.png res/logo.png "$out/"
 git rev-parse --short=7 HEAD 2>/dev/null > "$out/version.txt" || date +%s > "$out/version.txt"
 ls -l "$out"

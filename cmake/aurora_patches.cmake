@@ -21,6 +21,10 @@
 # - 0006-ostime-dst-offset (N94): OSGetTime's UTC offset is the local calendar fields read as UTC minus the real
 #   time (timegm by hand: Windows has none, chrono's sys_days everywhere). mktime(gmtime) read the UTC fields as
 #   standard time and was an hour short during daylight saving time.
+# - 0007-web-staging-writebuffer (N90): in the browser a frame is written to one buffer in the wasm heap and only the
+#   bytes it used go to the staging buffer (queue.WriteBuffer), instead of mapping the whole ~61 MB staging buffer,
+#   which emdawnwebgpu copies through the heap at every map and unmap (28 of 38 ms a frame in Chromium). Only under
+#   __EMSCRIPTEN__.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
