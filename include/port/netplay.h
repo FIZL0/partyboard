@@ -192,6 +192,11 @@ void netplay_match_leave_poll(void);
 BOOL netplay_match_leaving(void);
 /* The menu bar's Quit, offline: back to modeseldll by netplay_match_leave's path (nothing from the title or the menu). */
 void netplay_match_quit_to_menu(void);
+/* N133: the menu bar's Quit on a prelaunch menu: the match (if any) is left as netplay_match_leave's, then the game
+ * boots again from bootDll (the prelaunch menu shows on top, as at launch). Online, leave the lobby too (pbnet).
+ * netplay_match_rebooting: TRUE until bootDll runs. */
+void netplay_match_quit_to_launcher(void);
+BOOL netplay_match_rebooting(void);
 /* TRUE once after an online match ended and its lobby went back to open (or closed meanwhile): show the lobby. Not
  * while the match's results still run here (netplay_match_results). */
 BOOL netplay_lobby_returned(void);

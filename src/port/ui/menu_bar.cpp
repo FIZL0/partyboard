@@ -12,12 +12,21 @@
 #include "imgui.h"
 #include "modal.hpp"
 #include "online.hpp"
+#include "prelaunch.hpp"
 #include "settings.hpp"
 #include "ui.hpp"
 #include "window.hpp"
 
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+extern "C" {
+#include "game/object.h"
+#include "game/objsub.h"
+}
 
 namespace partyboard::ui {
 namespace {
@@ -34,6 +43,89 @@ namespace {
 </rml>
 )RML";
 
+}
+
+void quit_to_launcher() noexcept
+{
+    // N133: back to the prelaunch menu, the game booting again under it as at launch. Online, the lobby is left
+    // first (as the hold modal's Leave Match).
+    if (pbnet_lobby_state() != PBNET_LOBBY_NONE) {
+        pbnet_lobby_leave();
+    }
+    netplay_match_quit_to_launcher();
+    push_document(std::make_unique<Prelaunch>(true));
+}
+
+namespace {
+
+    // N133 test: PB_RELAUNCH_TEST="quit@89+1500,play@+200,quit@mg+300,play@+200": each step in turn, once the
+    // overlay (its number, "mg" for any minigame, none for any overlay) has run that many UI updates in a row.
+    struct RelaunchStep {
+        std::string action;
+        int ovl; // -1: any, -2: a minigame
+        int updates;
+    };
+
+    std::vector<RelaunchStep> sRelaunchSteps;
+    size_t sRelaunchNext = 0;
+    int sRelaunchCount = 0;
+    bool sRelaunchParsed = false;
+
+    void parse_relaunch_test()
+    {
+        sRelaunchParsed = true;
+        const char *spec = std::getenv("PB_RELAUNCH_TEST");
+        if (spec == nullptr) {
+            return;
+        }
+        std::string rest = spec;
+        while (!rest.empty()) {
+            const auto comma = rest.find(',');
+            const std::string item = rest.substr(0, comma);
+            rest = comma == std::string::npos ? std::string() : rest.substr(comma + 1);
+            const auto at = item.find('@');
+            const auto plus = item.find('+');
+            if (at == std::string::npos || plus == std::string::npos || plus < at) {
+                continue;
+            }
+            const std::string ovl = item.substr(at + 1, plus - at - 1);
+            sRelaunchSteps.push_back({
+                item.substr(0, at),
+                ovl.empty() ? -1 : ovl == "mg" ? -2 : std::atoi(ovl.c_str()),
+                std::atoi(item.c_str() + plus + 1),
+            });
+        }
+        OSReport("relaunch test: %d steps\n", static_cast<int>(sRelaunchSteps.size()));
+    }
+
+} // namespace
+
+void relaunch_test_poll() noexcept
+{
+    if (!sRelaunchParsed) {
+        parse_relaunch_test();
+    }
+    if (sRelaunchNext >= sRelaunchSteps.size()) {
+        return;
+    }
+    const auto &step = sRelaunchSteps[sRelaunchNext];
+    const bool here = step.ovl == -1 || (step.ovl == -2 ? omcurovl >= 0 && omMgIndexGet(omcurovl) >= 0 : omcurovl == step.ovl);
+    sRelaunchCount = here ? sRelaunchCount + 1 : 0;
+    if (sRelaunchCount < step.updates) {
+        return;
+    }
+    OSReport("relaunch test: step %d %s in overlay %d\n", static_cast<int>(sRelaunchNext), step.action.c_str(),
+        static_cast<int>(omcurovl));
+    if (step.action == "quit") {
+        quit_to_launcher();
+    } else if (step.action == "play") {
+        auto *prelaunch = dynamic_cast<Prelaunch *>(top_document());
+        if (prelaunch == nullptr || !prelaunch->press_play()) {
+            OSReport("relaunch test: no prelaunch menu to play from\n");
+        }
+    }
+    sRelaunchNext++;
+    sRelaunchCount = 0;
 }
 
 MenuBar::MenuBar()
@@ -111,14 +203,20 @@ MenuBar::MenuBar()
                     ModalAction{
                         .label = "Quit",
                         .onPressed =
-                            [dismiss](Modal& modal) {
+                            [this, dismiss](Modal& modal) {
                                 // mDoAud_seStartMenu(kSoundClick); // TODO PC
                                 dismiss(modal);
+#ifdef __EMSCRIPTEN__
+                                // The browser has no prelaunch menu (N87): back to the game's own menu.
                                 if (netplay_active()) {
                                     pbnet_lobby_leave();  // as the hold modal's Leave Match
                                 } else {
                                     netplay_match_quit_to_menu();
                                 }
+#else
+                                hide(false);
+                                quit_to_launcher();
+#endif
                             },
                     },
                 },

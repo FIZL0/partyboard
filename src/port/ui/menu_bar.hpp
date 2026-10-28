@@ -10,6 +10,11 @@
 
 namespace partyboard::ui {
 
+// N133: the menu bar's Quit: the prelaunch menu opens and the game boots again under it.
+void quit_to_launcher() noexcept;
+// N133 test: PB_RELAUNCH_TEST's steps (menu_bar.cpp), once per UI update.
+void relaunch_test_poll() noexcept;
+
 class MenuBar : public Document {
 public:
     MenuBar();
