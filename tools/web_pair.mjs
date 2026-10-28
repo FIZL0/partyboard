@@ -7,8 +7,10 @@
 // _answer / _ready / _start / _json), which is what the Online menu calls; the match then starts as from the menu
 // (netplay_lobby_poll). Each tab gets a fake standard gamepad (navigator.getGamepads) that taps A once the match
 // runs, so both human seats play their turns, and one START 300 frames after a minigame's instructions start (the
-// console's "resync point ... minigame", N52's instDll point), another at 700 frames if they still show (START in
-// instDll's intro, or a second one in its wipe, goes back to the menu: runs 5-8 of the N92 journal).
+// console's "resync point ... minigame", N52's instDll point), another at 700 frames if they still show.
+// N97: the START that sent N92's matches to the menu from instDll was not instDll's: the title's BootExec (bootDll)
+// ran on under the match (N99), and its "press START" called modeseldll. A run whose match ends at the menu without
+// the party's results now fails, and the summary says how far the match got (turn, minigames started).
 //
 // N98: up to four tabs (PAIR_TABS; the host relays guest to guest), the lobby through the Online menu instead
 // (PAIR_MENU=1: real key presses over CDP, the codes through the page's clipboard bridge: Ctrl+V -> pb.js ->
@@ -29,8 +31,8 @@
 //      relay setting the profile's default, n0 = Google STUN), PAIR_DROP=S (S seconds into the match guest b's
 //      peer connections close; its hold screen's Copy Answer, the host's Ctrl+V and Paste Answer on its waiting screen
 //      bring it back: needs PAIR_MENU), PAIR_SEED ignored with PAIR_MENU (the menu starts with seed 0: the clock).
-// Exit status: 0 if every peer started the match, advanced past frame 600 and saw no desync (and with PAIR_DROP, the
-// guest came back and the match went on 300 frames); else 1.
+// Exit status: 0 if every peer started the match, advanced past frame 600, saw no desync and did not leave the match
+// for the menu (N97; and with PAIR_DROP, the guest came back and the match went on 300 frames); else 1.
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { appendFileSync, createReadStream, existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -120,9 +122,8 @@ const PAD = `(() => {
     axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) };
   navigator.getGamepads = () => [pad, null, null, null];
   window.__pbConnect = () => { const e = new Event('gamepadconnected'); e.gamepad = pad; dispatchEvent(e); };
-  // A taps, and single START taps at the times in __pbStarts (the minigame instructions, instDll, leave on START only;
-  // a second START reaches the system pause, whose quit goes back to the menu). A rests from 1 s before each START to
-  // 6 s after it.
+  // A taps, and single START taps at the times in __pbStarts (the minigame instructions, instDll, leave on START only).
+  // A rests from 1 s before each START to 6 s after it.
   setInterval(() => {
     const now = Date.now(), starts = window.__pbStarts ?? [];
     const start = starts.some(t => now >= t && now < t + 100);
@@ -489,8 +490,7 @@ try {
       backAt = await dropAndRedial(host, peers[1]).catch(e => (say(`drop: ${e.message}`), -1));
       frames[0] = backAt > 0 ? backAt : frames[0];
     }
-    // START 300 frames into instDll (its intro is over: an earlier START, or a second one in its wipe, sent the
-    // party back to the menu), again 700 frames in if it still shows; whatever the frame rate
+    // START 300 frames into instDll (its intro is over), again 700 frames in if it still shows; whatever the frame rate
     for (const [i, t] of peers.entries()) {
       if (t.mg.at < 0 || frames[i] < t.mg.at) continue;
       if ((t.mg.stage === 0 && frames[i] >= t.mg.at + 300) || (t.mg.stage === 1 && frames[i] >= t.mg.at + 700)) {
@@ -512,9 +512,22 @@ try {
   const desyncs = peers.map(t => t.lines.filter(l => /desync|out of sync|mismatch/i.test(l)).length);
   const startedLines = peers.map(t => t.lines.some(l => l.includes('netplay: lobby started')));
   const redialOk = backAt === 0 || (backAt > 0 && afterBack >= 300);
+  // N97: the match left for the menu (modeseldll, mentDll, bootDll) without the party's results
+  const menuEnds = peers.map(t => t.lines.filter(l => /netplay: match over: overlay \d+ starts/.test(l)).length);
+  const reached = peers.map(t => {
+    const points = t.lines.map(l => l.match(/netplay: resync point at frame (\d+): .*turn (\d+)\//)).filter(Boolean);
+    const turns = points.map(m => +m[2]);
+    // minigame overlays: m300Dll (4) to m463Dll (69) in include/ovl_table.h
+    const games = t.lines.map(l => l.match(/Start New OVL (\d+) /)).filter(m => m && +m[1] >= 4 && +m[1] <= 69).length;
+    const killed = t.lines.filter(l => l.includes('menu processes')).map(l => l.match(/killed (\d+)/)?.[1]).join(',');
+    // a match that stopped moving on (e.g. a human seat in the board lottery's stick games: this pad has no stick)
+    const last = points.length ? `, last turn/minigame point at frame ${points[points.length - 1][1]}` : '';
+    return `${t.name}: turn ${turns.length ? Math.max(...turns) : 0}, ${games} minigames started${last}, menu processes killed ${killed || '-'}`;
+  });
+  say(`reached: ${reached.join('; ')}${menuEnds.some(n => n) ? `; LEFT FOR THE MENU: ${peers.map((t, i) => `${t.name}=${menuEnds[i]}`).join(' ')}` : ''}`);
   say(`started: ${peers.map((t, i) => `${t.name}=${startedLines[i]}`).join(' ')}; desync lines: ${peers.map((t, i) => `${t.name}=${desyncs[i]}`).join(' ')}; ` +
     `frames ${peers.map((t, i) => `${t.name}=${frames[i]}`).join(' ')}${dropAt ? `; redial ${redialOk ? 'ok' : 'FAILED'} (${afterBack} frames after it)` : ''}`);
-  verdict = startedLines.every(Boolean) && frames.every(f => f > 600) && desyncs.every(n => n === 0) && redialOk ? 0 : 1;
+  verdict = startedLines.every(Boolean) && frames.every(f => f > 600) && desyncs.every(n => n === 0) && menuEnds.every(n => n === 0) && redialOk ? 0 : 1;
   say(verdict === 0 ? 'PASS' : 'FAIL');
 } catch (e) {
   say(`error: ${e.stack ?? e}`);
