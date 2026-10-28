@@ -11,7 +11,8 @@
 //      at those seconds), STOP_ON (a console substring that ends the run early, after one more screenshot),
 //      PAUSE_AT ("20,40": pause the page's JS/wasm at those seconds and log its stack, e.g. to see where it spins),
 //      PAUSE_EVAL (an expression evaluated in the paused top frame, logged), WEB_PRELOAD (JS run before the page's
-//      scripts, e.g. to wrap a browser API and console.trace its callers), WEB_PATH (the page to open, default /).
+//      scripts, e.g. to wrap a browser API and console.trace its callers), WEB_PATH (the page to open, default /),
+//      DUMP_FILES ("/tmp/hash.log ...": files copied out of the game's FS into OUT at the end).
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { appendFileSync, createReadStream, existsSync, mkdirSync, openSync, statSync, writeFileSync } from 'node:fs';
@@ -123,7 +124,7 @@ for (let s = 1; s <= +secs && !stopped; s++) {
     if (at !== s) continue;
     for (const type of ['keyDown', 'keyUp']) {
       await send('Input.dispatchKeyEvent', { type, key, code: key.length === 1 ? `Key${key.toUpperCase()}` : key,
-        windowsVirtualKeyCode: { Enter: 13, ArrowDown: 40, ArrowUp: 38, ArrowLeft: 37, ArrowRight: 39, Escape: 27 }[key] ?? key.toUpperCase().charCodeAt(0) });
+        windowsVirtualKeyCode: { Enter: 13, ArrowDown: 40, ArrowUp: 38, ArrowLeft: 37, ArrowRight: 39, Escape: 27, F1: 112, Tab: 9 }[key] ?? key.toUpperCase().charCodeAt(0) });
       await sleep(80);
     }
     log.push(`[${stamp()}] web_check: key ${key}`);
@@ -131,6 +132,18 @@ for (let s = 1; s <= +secs && !stopped; s++) {
   if (s % every === 0) await shot(`shot-${String(s).padStart(3, '0')}`);
 }
 await shot('shot-last');
+for (const path of (process.env.DUMP_FILES ?? '').split(' ').filter(Boolean)) {
+  // in 256 KB pieces: one CDP message per piece
+  const size = (await send('Runtime.evaluate', { expression: `(() => { try { return pbModule.FS.stat(${JSON.stringify(path)}).size; } catch (e) { return -1; } })()`, returnByValue: true })).result?.result?.value ?? -1;
+  log.push(`[${stamp()}] web_check: ${path} ${size < 0 ? 'not found' : `${size} bytes -> ${basename(path)}`}`);
+  if (size < 0) continue;
+  const parts = [];
+  for (let at = 0; at < size; at += 262144) {
+    const r = await send('Runtime.evaluate', { expression: `(() => { const b = pbModule.FS.readFile(${JSON.stringify(path)}).subarray(${at}, ${at + 262144}); let s = ''; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode(...b.subarray(i, i + 8192)); return btoa(s); })()`, returnByValue: true });
+    parts.push(Buffer.from(r.result?.result?.value ?? '', 'base64'));
+  }
+  writeFileSync(join(out, basename(path)), Buffer.concat(parts));
+}
 const errors = await send('Runtime.evaluate', { expression: "document.getElementById('error').textContent", returnByValue: true });
 log.push(`[${stamp()}] web_check: page errors: ${JSON.stringify(errors.result?.result?.value ?? '')}`);
 finish(0);

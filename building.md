@@ -100,3 +100,17 @@ Alternate presets available:
 - `windows-msvc-debug`: MSVC, Debug
 - `windows-clang-relwithdebinfo`: Clang-cl, RelWithDebInfo
 - `windows-clang-debug`: Clang-cl, Debug
+
+**Web (browser, wasm32)**
+
+Needs [emsdk](https://emscripten.org/docs/getting_started/downloads.html) (`EMSDK`, default `~/emsdk`) and
+`rustup target add wasm32-unknown-emscripten`. On Linux:
+
+```sh
+tools/web.sh
+```
+
+writes `build/web/` (the page, `partyboard.js`/`.wasm`/`.data`; no game data: the player picks their disc image in
+the page). Serve it over http on localhost, or https elsewhere (the page keeps the disc in OPFS). It needs a browser
+with WebGPU and has no online play yet. `node tools/web_check.mjs <disc> <out-dir>` runs it in headless Chromium.
+Details: `research/journal/2026-10-28-n87-web-build`.
