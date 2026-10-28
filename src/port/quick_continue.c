@@ -193,12 +193,18 @@ void quick_continue_request(s32 kind, s32 box)
     pending.box = box;
 }
 
-/* PB_CONTINUE=party|story[:box] (test runs, no launcher): as if picked in the launcher. */
+/* PB_CONTINUE=party|story[:box] (test runs, no launcher): as if picked in the launcher. Once per process: N134, a
+ * reboot to the launcher (N133) boots at event 0 again and must not continue by itself. */
 static void request_from_env(void)
 {
+    static BOOL read;
     const char *env = getenv("PB_CONTINUE");
     const char *colon;
 
+    if (read) {
+        return;
+    }
+    read = TRUE;
     if (env == NULL || env[0] == '\0') {
         return;
     }

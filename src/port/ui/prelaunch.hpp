@@ -5,6 +5,7 @@
 #include "button.hpp"
 #include "document.hpp"
 #include "../iso_validate.hpp"
+#include "port/quick_continue.h"
 
 #include <memory>
 #include <string>
@@ -24,6 +25,8 @@ public:
     bool visible() const override;
     // The Play button, once a disc is loaded (the N133 relaunch test); false without one.
     bool press_play();
+    // N134: the first Continue button (the relaunch test); false without one.
+    bool press_continue();
 
 protected:
     bool handle_nav_command(Rml::Event &event, NavCommand cmd) override;
@@ -31,6 +34,7 @@ protected:
 private:
     void launch_game();
     void launch_online();
+    void continue_game(const QuickContinueEntry &entry);
 
     bool mEntranceAnimationStarted = false;
     bool mOnlineAfterDisc = false;
@@ -39,6 +43,7 @@ private:
     bool mRelaunch = false;
     int mRelaunchCardFileType = 0;
     std::vector<std::unique_ptr<Button>> mMenuButtons;
+    std::vector<QuickContinueEntry> mContinueEntries;
     Rml::Element *mRoot = nullptr;
     Rml::Element *mDiscStatus = nullptr;
     Rml::Element *mDiscDetail = nullptr;

@@ -663,6 +663,7 @@ Prelaunch::Prelaunch(bool relaunch)
                 entries.resize(3);
             }
             quick_continue_offer(!entries.empty());
+            mContinueEntries = entries;
             for (const auto &entry : entries) {
                 mMenuButtons.push_back(std::make_unique<Button>(menuList, "Continue"));
                 auto *root = mMenuButtons.back()->root();
@@ -673,13 +674,7 @@ Prelaunch::Prelaunch(bool relaunch)
                 }
                 root->SetInnerRML(fmt::format("{}<span class=\"continue-detail\">{}</span>",
                     entry.kind == QUICK_CONTINUE_STORY ? "Continue Story" : "Continue", detail));
-                mMenuButtons.back()->on_pressed([this, entry] {
-                    PrelaunchLog.info("Continue: {} in card file {}",
-                        entry.kind == QUICK_CONTINUE_STORY ? "story" : "party", entry.box);
-                    quick_continue_request(entry.kind, entry.box);
-                    mOnlineAfterDisc = false;
-                    launch_game();
-                });
+                mMenuButtons.back()->on_pressed([this, entry] { continue_game(entry); });
                 apply_intro_animation(root, "delay-1");
             }
         }
@@ -781,6 +776,24 @@ bool Prelaunch::press_play()
     }
     mOnlineAfterDisc = false;
     launch_game();
+    return true;
+}
+
+void Prelaunch::continue_game(const QuickContinueEntry &entry)
+{
+    PrelaunchLog.info("Continue: {} in card file {}", entry.kind == QUICK_CONTINUE_STORY ? "story" : "party",
+        entry.box);
+    quick_continue_request(entry.kind, entry.box);
+    mOnlineAfterDisc = false;
+    launch_game();
+}
+
+bool Prelaunch::press_continue()
+{
+    if (mContinueEntries.empty()) {
+        return false;
+    }
+    continue_game(mContinueEntries.front());
     return true;
 }
 

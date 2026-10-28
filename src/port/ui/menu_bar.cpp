@@ -61,7 +61,8 @@ void quit_to_launcher() noexcept
 
 namespace {
 
-    // N133 test: PB_RELAUNCH_TEST="quit@89+1500,play@+200,quit@mg+300,play@+200": each step in turn, once the
+    // N133 test: PB_RELAUNCH_TEST="quit@89+1500,play@+200,quit@mg+300,play@+200" (N134: continue = the first
+    // Continue button): each step in turn, once the
     // overlay (its number, "mg" for any minigame, none for any overlay) has run that many UI updates in a row.
     struct RelaunchStep {
         std::string action;
@@ -132,6 +133,12 @@ void relaunch_test_poll() noexcept
         auto *prelaunch = dynamic_cast<Prelaunch *>(top_document());
         if (prelaunch == nullptr || !prelaunch->press_play()) {
             OSReport("relaunch test: no prelaunch menu to play from\n");
+        }
+    } else if (step.action == "continue") {
+        // N134: the re-opened menu's first Continue button.
+        auto *prelaunch = dynamic_cast<Prelaunch *>(top_document());
+        if (prelaunch == nullptr || !prelaunch->press_continue()) {
+            OSReport("relaunch test: no Continue button to press\n");
         }
     }
     sRelaunchNext++;
