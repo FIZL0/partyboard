@@ -794,7 +794,8 @@ static void SetTevStageNoTex(HU3DDRAWOBJ *drawObj, HSFMATERIAL *matP) {
         alphaSrc = GX_CA_KONST;
         alphaLightF = FALSE;
     }
-    color.a = 255.0f * (1.0f - matP->invAlpha);
+    // N106: through s32: invAlpha can be far below 0 (32640), out of a u8's range is undefined as a direct conversion
+    color.a = (s32)(255.0f * (1.0f - matP->invAlpha));
     if (modelP->attr & HU3D_ATTR_TOON_MAP) {
         color.r = matP->color[0];
         color.g = matP->color[1];
@@ -1073,7 +1074,7 @@ static void SetTevStageTex(HU3DDRAWOBJ *drawObj, HSFMATERIAL *matP) {
             texCoordId++;
             tevStage++;
         }
-        color.a = 255.0f * (1.0f - matP->invAlpha);
+        color.a = (s32)(255.0f * (1.0f - matP->invAlpha)); // N106: through s32, as above
         GXSetTevColor(GX_TEVREG0, color);
         if (matP->refAlpha != 0.0f) {
             SetReflect(drawObj, tevStage, (u16) texCoordId, 255.0f * matP->refAlpha);
@@ -1353,7 +1354,7 @@ static void SetTevStageTex(HU3DDRAWOBJ *drawObj, HSFMATERIAL *matP) {
             texCoordId++;
             tevStage++;
         }
-        color.a = (1.0f - matP->invAlpha) * 255.0f;
+        color.a = (s32)((1.0f - matP->invAlpha) * 255.0f); // N106: through s32, as above
         GXSetTevColor(GX_TEVREG0, color);
         if (matHiliteF != 0) {
             if ((modelP->attr & HU3D_ATTR_HILITE) || (flags & HSF_MATERIAL_HILITE)) {
@@ -1656,7 +1657,7 @@ static void FaceDrawShadow(HU3DDRAWOBJ *drawObj, HSFFACE *face) {
             return;
         }
         materialBak = matP;
-        color.a = 255.0f * (1.0f - matP->invAlpha);
+        color.a = (s32)(255.0f * (1.0f - matP->invAlpha)); // N106: through s32, as above
         GXSetTevColor(GX_TEVREG0, color);
         GXSetZMode(GX_FALSE, GX_LEQUAL, GX_FALSE);
         if (matP->attrNum == 0) {
@@ -2494,6 +2495,13 @@ static void ObjDraw(HU3DDRAWOBJ *arg0)
         }
         dot = VECDotProduct(&dir, &axis);
         dot *= 10000.0f;
+#ifdef TARGET_PC
+        // N106: NaN from a light whose direction is NaN (m429, m446). NaN -> s32 is undefined (the GC's fctiwz and x86
+        // give INT_MIN, arm64 and wasm 0); the s16 is 0 on all of them, as from 0.0f
+        if (dot != dot) {
+            dot = 0.0f;
+        }
+#endif
         OSf32tos16(&dot, &similar);
         if (similar == -10000) {
             MTXScale(hiliteMtx, 0.0f, 0.0f, 0.0f);

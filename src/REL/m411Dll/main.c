@@ -2320,13 +2320,15 @@ void fn_1_7738(void)
 void fn_1_8A80(float arg0, float arg1)
 {
     Hu3DCameraViewportSet(2, 10.0f, 10.0f, arg0 - 11.0f, arg1 - 11.0f, 0.0f, 1.0f);
-    Hu3DCameraScissorSet(2, 10, 10, arg0 - 11.0f, arg1 - 11.0f);
+    // N106: the scissor's u32 arguments through s32: the split's sizes go negative (-10) as it opens, which wraps as
+    // on the GC and x86; arm64's float -> u32 would saturate them to 0
+    Hu3DCameraScissorSet(2, 10, 10, (s32)(arg0 - 11.0f), (s32)(arg1 - 11.0f));
     Hu3DCameraViewportSet(4, arg0 + 2.0f, 10.0f, 630.0f - arg0, arg1 - 11.0f, 0.0f, 1.0f);
-    Hu3DCameraScissorSet(4, arg0 + 2.0f, 10, 630.0f - arg0, arg1 - 11.0f);
+    Hu3DCameraScissorSet(4, (s32)(arg0 + 2.0f), 10, (s32)(630.0f - arg0), (s32)(arg1 - 11.0f));
     Hu3DCameraViewportSet(8, 10.0f, arg1 + 2.0f, arg0 - 11.0f, 470.0f - arg1, 0.0f, 1.0f);
-    Hu3DCameraScissorSet(8, 10, arg1 + 2.0f, arg0 - 11.0f, 470.0f - arg1);
+    Hu3DCameraScissorSet(8, 10, (s32)(arg1 + 2.0f), (s32)(arg0 - 11.0f), (s32)(470.0f - arg1));
     Hu3DCameraViewportSet(16, arg0 + 2.0f, arg1 + 2.0f, 630.0f - arg0, 470.0f - arg1, 0.0f, 1.0f);
-    Hu3DCameraScissorSet(16, arg0 + 2.0f, arg1 + 2.0f, 630.0f - arg0, 470.0f - arg1);
+    Hu3DCameraScissorSet(16, (s32)(arg0 + 2.0f), (s32)(arg1 + 2.0f), (s32)(630.0f - arg0), (s32)(470.0f - arg1));
 }
 
 void fn_1_8DBC(void)

@@ -75,7 +75,8 @@ void HuSprDisp(HUSPRITE *sprite)
         color.r = sprite->r;
         color.g = sprite->g;
         color.b = sprite->b;
-        color.a = sprite->a;
+        // N106: through s32: some sprites' alpha goes far past 255 (22440), out of a u8's range is undefined directly
+        color.a = (s32)sprite->a;
         color_sum = color.r+color.g+color.b+color.a;
         GXSetTevOrder(GX_TEVSTAGE1, GX_TEXCOORD_NULL, GX_TEXMAP_NULL, GX_COLOR0A0);
         GXSetTevColorIn(GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_C0, GX_CC_CPREV, GX_CC_ZERO);
@@ -130,7 +131,7 @@ void HuSprDisp(HUSPRITE *sprite)
             GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
             HuSprTexLoad(anim, layer->bmpNo, 0, sprite->wrapS, sprite->wrapT, (sprite->attr & HUSPR_ATTR_LINEAR) ? GX_LINEAR : GX_NEAR);
             if(layer->alpha != 255 || color_sum != 255*4) {
-                color.a = (u16)(sprite->a*layer->alpha) >> 8;
+                color.a = (u16)(s32)(sprite->a*layer->alpha) >> 8; // N106: through s32, as above
                 GXSetTevColor(GX_TEVSTAGE1, color);
                 GXSetNumTevStages(2);
             } else {

@@ -974,8 +974,10 @@ void fn_1_3F30(omObjData *object)
         var_f24 = fn_1_1C80(var_r31->unk_60, var_r30[0], var_r30[2], var_r30[4], var_r30[6]) - 90.0f;
         var_f23 = fn_1_1C80(var_r31->unk_60, var_r30[1], var_r30[3], var_r30[5], var_r30[7]);
         var_r31->unk_14 = fn_1_3E2C(var_r31->unk_14, atan2d(var_f24 - object->trans.x, -(var_f23 - object->trans.z)), 0.1f);
-        var_r31->unk_06 = (u8)(20.0 * sind(var_r31->unk_14));
-        var_r31->unk_07 = (u8)(20.0 * cosd(var_r31->unk_14));
+        // N106: a COM's stick, negative half the time: through s32 -1.9 -> -1 as on the GC and x86, wasm's float -> u8
+        // would clamp it to 0
+        var_r31->unk_06 = (u8)(s32)(20.0 * sind(var_r31->unk_14));
+        var_r31->unk_07 = (u8)(s32)(20.0 * cosd(var_r31->unk_14));
     }
     else {
         var_r31->unk_06 = 20;
@@ -1188,8 +1190,10 @@ void fn_1_5278(omObjData *object)
 
     for (var_r29 = 0; var_r29 < var_r31->unk_50->bmp->sizeY; var_r29++) {
         for (var_r28 = 0; var_r28 < var_r31->unk_50->bmp->sizeX; var_r28++) {
-            var_r26 = (var_r28 + (var_f31 * var_r31->unk_4C->bmp->sizeX)) - var_r31->unk_50->bmp->sizeX / 2;
-            var_r25 = (var_r29 + (var_f30 * var_r31->unk_4C->bmp->sizeY)) - var_r31->unk_50->bmp->sizeY / 2;
+            // N106: through s32: negative left of/above the bitmap, then wraps to 65535.. and the test below skips the
+            // pixel (GC, x86); wasm's float -> u16 would clamp it to 0 and draw it in column/row 0
+            var_r26 = (s32)((var_r28 + (var_f31 * var_r31->unk_4C->bmp->sizeX)) - var_r31->unk_50->bmp->sizeX / 2);
+            var_r25 = (s32)((var_r29 + (var_f30 * var_r31->unk_4C->bmp->sizeY)) - var_r31->unk_50->bmp->sizeY / 2);
             if (var_r26 < var_r31->unk_4C->bmp->sizeX && var_r25 < var_r31->unk_4C->bmp->sizeY) {
                 fn_1_5E74(var_r31->unk_4C, var_r26, var_r25, fn_1_607C(var_r31->unk_50, var_r28, var_r29));
             }
