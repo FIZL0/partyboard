@@ -671,6 +671,24 @@ void Hu3DModelKill(s16 arg0) {
 }
 
 #ifdef TARGET_PC
+/* Netplay (N74): Hu3DModelLink tags a link's HSFDATA with the slot's mallocNoLink before it sets it, so with the
+ * value an earlier link in that slot left there (0 in a slot never linked). A peer that played before a reload has
+ * the old match's values and a fresh peer zeros, so the blocks' nums (the heap layout) differed for a whole minigame or
+ * results. A match start forgets them for every free slot, as a fresh peer has them; returns how many it forgot. */
+s32 Hu3DModelNetplayReset(void) {
+    HU3DMODEL *model;
+    s32 reset = 0;
+    s16 i;
+
+    for (i = 0, model = Hu3DData; i < HU3D_MODEL_MAX; i++, model++) {
+        if (model->hsf == NULL && model->mallocNoLink != 0) {
+            model->mallocNoLink = 0;
+            reset++;
+        }
+    }
+    return reset;
+}
+
 /* N69: TRUE if a live particle model draws with anim (HuSprAnimKill keeps it for that model's kill). */
 BOOL Hu3DParticleAnimUseCheck(ANIMDATA *anim) {
     HU3DMODEL *model;
