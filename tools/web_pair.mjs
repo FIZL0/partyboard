@@ -8,6 +8,10 @@
 // (netplay_lobby_poll). Each tab gets a fake standard gamepad (navigator.getGamepads) that taps A once the match
 // runs, so both human seats play their turns, and one START 300 frames after a minigame's instructions start (the
 // console's "resync point ... minigame", N52's instDll point), another at 700 frames if they still show.
+// N113: START at every instDll start ("Start New OVL 3"), not only at a minigame point: a battle/Bowser minigame
+// (mid-turn) and an instDll resumed after a reload print no point, and stood at their instructions for ever (N102's
+// d1/d2/m1). A --desync-at flip inside instDll shows only once the minigame runs (N64: instDll is not hash-checked);
+// the summary says whether each peer's flip was followed by a desync.
 // N97: the START that sent N92's matches to the menu from instDll was not instDll's: the title's BootExec (bootDll)
 // ran on under the match (N99), and its "press START" called modeseldll. A run whose match ends at the menu without
 // the party's results now fails, and the summary says how far the match got (turn, minigames started).
@@ -150,7 +154,8 @@ async function tab(name, target, origin, url) {
   let id = 0;
   const waiting = new Map();
   const lines = [];
-  // the last minigame point's frame (-1: none pending) and how many STARTs it got
+  // the frame instDll started at (-1: none pending; -2: started, the main loop reads the frame) and how many STARTs it
+  // got
   const mg = { at: -1, stage: 0 };
   ws.onmessage = ({ data }) => {
     const m = JSON.parse(data);
@@ -161,7 +166,10 @@ async function tab(name, target, origin, url) {
     if (m.method === 'Log.entryAdded') line = `log ${m.params.entry.level}: ${m.params.entry.text}`;
     if (line) {
       const js = expression => ws.send(JSON.stringify({ id: 999990, method: 'Runtime.evaluate', params: { expression } }));
-      // the minigame's instructions: START once they show (the main loop times it in game frames)
+      // the minigame's instructions: START once they show (the main loop times it in game frames). Any instDll start
+      // (N113: battle/Bowser minigames and a resumed instDll print no minigame point); a minigame point, printed just
+      // after it, gives the exact frame
+      if (line.includes('Start New OVL 3 ')) mg.at = -2, mg.stage = 0;
       const point = line.match(/netplay: resync point at frame (\d+): minigame/);
       if (point) mg.at = +point[1], mg.stage = 0;
       // the minigame started: no more START
@@ -496,6 +504,7 @@ try {
     }
     // START 300 frames into instDll (its intro is over), again 700 frames in if it still shows; whatever the frame rate
     for (const [i, t] of peers.entries()) {
+      if (t.mg.at === -2) t.mg.at = frames[i];
       if (t.mg.at < 0 || frames[i] < t.mg.at) continue;
       if ((t.mg.stage === 0 && frames[i] >= t.mg.at + 300) || (t.mg.stage === 1 && frames[i] >= t.mg.at + 700)) {
         t.mg.stage++;
@@ -528,6 +537,16 @@ try {
     const last = points.length ? `, last turn/minigame point at frame ${points[points.length - 1][1]}` : '';
     return `${t.name}: turn ${turns.length ? Math.max(...turns) : 0}, ${games} minigames started${last}, menu processes killed ${killed || '-'}`;
   });
+  // N113: a peer's --desync-at flip and the first desync any peer saw from its frame on (a flip in instDll shows once
+  // the minigame runs; only the peer that compares the hashes, often the host, logs it)
+  const flips = peers.map(t => {
+    const flip = t.lines.map(l => l.match(/netplay: --desync-at (\d+)/)).find(Boolean);
+    if (!flip) return null;
+    const seen = peers.map(p => [p.name, p.lines.map(l => l.match(/netplay: desync at frame (\d+)/)).find(m => m && +m[1] >= +flip[1])])
+      .filter(([, m]) => m).sort((x, y) => x[1][1] - y[1][1])[0];
+    return `${t.name}: flip at ${flip[1]}, ${seen ? `desync at frame ${seen[1][1]} (${seen[0]})` : 'NO DESYNC after it'}`;
+  }).filter(Boolean);
+  if (flips.length) say(`desync-at: ${flips.join('; ')}`);
   say(`reached: ${reached.join('; ')}${menuEnds.some(n => n) ? `; LEFT FOR THE MENU: ${peers.map((t, i) => `${t.name}=${menuEnds[i]}`).join(' ')}` : ''}`);
   say(`started: ${peers.map((t, i) => `${t.name}=${startedLines[i]}`).join(' ')}; desync lines: ${peers.map((t, i) => `${t.name}=${desyncs[i]}`).join(' ')}; ` +
     `frames ${peers.map((t, i) => `${t.name}=${frames[i]}`).join(' ')}${dropAt ? `; redial ${redialOk ? 'ok' : 'FAILED'} (${afterBack} frames after it)` : ''}`);
