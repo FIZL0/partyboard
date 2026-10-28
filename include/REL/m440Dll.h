@@ -131,8 +131,13 @@ typedef struct _unkStruct8 {
     unkStruct11 unk0[3];
     s16 unk18[3];
     s16 unk1E;
+#ifdef TARGET_PC
+    // fn_1_7934 and the display list builder use unk20[0..8], the GC's unk20 and unk38.
+    unkStruct11 unk20[9];
+#else
     unkStruct11 unk20[3];
     char unk38[0x30];
+#endif
     float unk68[5];
     Vec unk7C;
     Vec unk88;

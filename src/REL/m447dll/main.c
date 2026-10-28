@@ -706,7 +706,12 @@ void fn_1_1BF8(void) {
 void fn_1_1CE0(UnkM447Struct_00* arg0) {
     s32 i;
 
+#ifdef TARGET_PC
+    // The GC loop runs to 25 and hides unk34[25], uninitialised padding (unk66), as an esp id.
+    for (i = 0; i < 25; i++) {
+#else
     for (i = 0; i <= 25; i++) {
+#endif
         espDispOff(arg0->unk34[i]);
     }
 }

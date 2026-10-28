@@ -876,7 +876,12 @@ void fn_1_33B0(void)
 
 void fn_1_40E4(void)
 {
+#ifdef TARGET_PC
+    // Holds the 6 characters not in team 0; on the GC [4] and [5] were the stack slot above.
+    s16 sp14[6];
+#else
     s16 sp14[4];
+#endif
     s16 spC[4];
     s16 sp8[2];
     s16 var_r31;

@@ -97,7 +97,12 @@ typedef struct _unkStruct7 {
     };
     s32 unk4;
     s32 unk8;
+#ifdef TARGET_PC
+    // cursor.c uses unkC[0..9]; slot 9 is the padding before unk20 on the GC.
+    s16 unkC[10];
+#else
     s16 unkC[9];
+#endif
     Vec unk20;
     Vec unk2C;
     Vec unk38;
@@ -151,8 +156,19 @@ typedef struct _unkStruct8 {
 
 typedef struct _unkStruct9 {
     s16 unk0[5];
+#ifdef TARGET_PC
+    // m446StageCreate stores 3 lights in unkA[0..2]; slot 2 is unkE on the GC.
+    union {
+        s16 unkA[3];
+        struct {
+            s16 unkA_pad[2];
+            s16 unkE;
+        };
+    };
+#else
     s16 unkA[2];
     s16 unkE;
+#endif
     float unk10;
     float unk14;
     s32 unk18;

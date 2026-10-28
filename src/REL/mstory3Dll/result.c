@@ -34,6 +34,31 @@ typedef struct {
     /* 0x14 */ s32 unk14;
     /* 0x18 */ s32 unk18;
     /* 0x1C */ char unk1C[0x18];
+#ifdef TARGET_PC
+    // fn_1_194A0 and fn_1_1C534 use 12 rows of unk34; rows 4..11 are unk54..unk90 on the GC.
+    union {
+        /* 0x34 */ s32 unk34[12][2];
+        struct {
+        s32 unk34_pad[4][2];
+        /* 0x54 */ s32 unk54;
+        /* 0x58 */ char unk58[4];
+        /* 0x5C */ s32 unk5C;
+        /* 0x60 */ char unk60[4];
+        /* 0x64 */ s32 unk64;
+        /* 0x68 */ char unk68[4];
+        /* 0x6C */ s32 unk6C;
+        /* 0x70 */ char unk70[4];
+        /* 0x74 */ s32 unk74;
+        /* 0x78 */ char unk78[4];
+        /* 0x7C */ s32 unk7C;
+        /* 0x80 */ char unk80[4];
+        /* 0x84 */ s32 unk84;
+        /* 0x88 */ char unk88[4];
+        /* 0x8C */ s32 unk8C;
+        /* 0x90 */ char unk90[4];
+        };
+    };
+#else
     /* 0x34 */ s32 unk34[4][2];
     /* 0x54 */ s32 unk54;
     /* 0x58 */ char unk58[4];
@@ -51,6 +76,7 @@ typedef struct {
     /* 0x88 */ char unk88[4];
     /* 0x8C */ s32 unk8C;
     /* 0x90 */ char unk90[4];
+#endif
 } StructUnk38Bss1A0C; // Size 0x94
 
 typedef struct {

@@ -258,6 +258,19 @@ foreach (dir ${REL_TARGETS})
         endif ()
     endif ()
 endforeach ()
+
+# N73: decomp code indexes past the end of declared arrays (GC struct aliasing). GCC derives loop trip
+# counts from array bounds and removed m425's loop exit test without a warning (N63). Known cases are
+# fixed in the source; this guards the ones nobody has found.
+include(CheckCCompilerFlag)
+check_c_compiler_flag(-fno-aggressive-loop-optimizations PB_HAVE_NO_AGGRESSIVE_LOOP_OPT)
+if (PB_HAVE_NO_AGGRESSIVE_LOOP_OPT)
+    foreach (target dol ${REL_TARGETS})
+        if (TARGET ${target})
+            target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C>:-fno-aggressive-loop-optimizations>)
+        endif ()
+    endforeach ()
+endif ()
 include(cmake/netplay.cmake)
 
 if (ANDROID)

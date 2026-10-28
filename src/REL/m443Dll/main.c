@@ -106,7 +106,12 @@ s16 lbl_1_bss_56;
 s16 lbl_1_bss_54;
 s32 lbl_1_bss_50;
 M443DllUnkStruct lbl_1_bss_14;
+#ifdef TARGET_PC
+// Two sprites; the GC's second slot is the padding before lbl_1_bss_14. On the PC it hit the next variable.
+s16 lbl_1_bss_10[2];
+#else
 s16 lbl_1_bss_10[1]; // why only 1 long?
+#endif
 s32 lbl_1_bss_C;
 s32 lbl_1_bss_8;
 s32 lbl_1_bss_4;

@@ -31,10 +31,23 @@ typedef struct {
     /* 0x00 */ s16 unk00;
     /* 0x02 */ s16 unk02;
     /* 0x04 */ s16 unk04;
+#ifdef TARGET_PC
+    // The group 0 player stores 11 motions in unk06[0..10], over unk16..unk1A on the GC.
+    union {
+        /* 0x06 */ s16 unk06[11];
+        struct {
+            s16 unk06_pad[8];
+            /* 0x16 */ s16 unk16;
+            /* 0x18 */ s16 unk18;
+            /* 0x1A */ s16 unk1A;
+        };
+    };
+#else
     /* 0x06 */ s16 unk06[8];
     /* 0x16 */ s16 unk16;
     /* 0x18 */ s16 unk18;
     /* 0x1A */ s16 unk1A;
+#endif
     /* 0x1C */ s16 unk1C[4];
     /* 0x24 */ s16 unk24;
     /* 0x26 */ char unk26[2];

@@ -71,8 +71,19 @@ typedef struct M433DllUnkStruct {
 
 typedef struct M433DllUnkStruct4 {
     Vec unk_00;
+#ifdef TARGET_PC
+    // Quads (unk_1C = 4) store 4 indices; unk_0C[3] is unk_18 on the GC.
+    union {
+        s32 unk_0C[4];
+        struct {
+            s32 unk_0C_pad[3];
+            s8 unk_18[4];
+        };
+    };
+#else
     s32 unk_0C[3];
     s8 unk_18[4];
+#endif
     s8 unk_1C;
     float unk_20;
     float unk_24;

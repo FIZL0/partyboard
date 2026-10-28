@@ -34,8 +34,19 @@ typedef struct M420DllPlayerStruct {
     /* 0x84 */ s32 unk_84[0xA];
     /* 0xAC */ s16 unk_AC;
     /* 0xAE */ s16 unk_AE[0xB];
+#ifdef TARGET_PC
+    // fn_1_2174 kills unk_C4[0..10]; slot 10 is unk_D8 on the GC.
+    union {
+        /* 0xC4 */ s16 unk_C4[0xB];
+        struct {
+            s16 unk_C4_pad[0xA];
+            /* 0xD8 */ s16 unk_D8;
+        };
+    };
+#else
     /* 0xC4 */ s16 unk_C4[0xA];
     /* 0xD8 */ s16 unk_D8;
+#endif
     /* 0xDC */ float unk_DC;
     /* 0xE0 */ float unk_E0;
     /* 0xE4 */ s32 unk_E4;
