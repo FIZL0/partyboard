@@ -3426,6 +3426,24 @@ void MGSeqPauseKill(void)
     pauseExitF = 1;
 }
 
+#ifdef TARGET_PC
+/* Netplay (N76): a match start or leave in a START-paused minigame. Its pause screen is a dol process that no overlay
+ * kill ends (it waits for pauseExitF), and on its own end it would kill a sprite group and windows of the next
+ * overlay. Ended here, unrun; its windows and sprites go with the overlay (omOvlKill). Returns whether it ran. */
+BOOL MGSeqNetplayPauseKill(void)
+{
+    BOOL active = pauseProcess != NULL;
+    if (active) {
+        HuPrcKill(pauseProcess);
+    }
+    pauseProcess = NULL;
+    pauseActiveF = 0;
+    pauseExitF = 0;
+    pauseWaitF = 0;
+    return active;
+}
+#endif
+
 void MGSeqPauseEnableCtrl(s32 flag)
 {
     if (!_CheckFlag(FLAG_ID_MAKE(1, 8))) {

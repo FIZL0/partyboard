@@ -85,6 +85,7 @@ void BoardViewNetplayReset(void);
 void BoardWarpNetplayReset(void);
 void BoardWinNetplayReset(void);
 s32 BoardItemNetplayKill(void);
+BOOL MGSeqNetplayPauseKill(void);
 void CharEffectNetplayReset(void);
 s32 HuDataNetplayCloseAll(void);
 SHARED_SYM extern u32 GlobalCounter;
@@ -393,11 +394,33 @@ static BOOL overlay_process(const Process *process, void *dol)
     return (f != NULL && f != dol) || (d != NULL && d != dol);
 }
 
+/*
+ * A START pause (a minigame's, or the board's pause menu through omSysPauseCtrl) has paused every process, the 3D,
+ * sprites and sounds (omSystemKeyCheck); its objects (omAllPause, the caller's objman only) go with the objman in
+ * omOvlKill. Nothing of the next overlay lifts it: its omSystemKeyCheck object starts unpaused (N76: a peer paused
+ * when a reload came kept Hu3DPauseF set on the new board, whose models then stood still, and MGSeqKillAll, which
+ * returns while the 3D is paused, left the minigame's sequences running).
+ */
+static void match_pause_lift(void)
+{
+    if (MGSeqNetplayPauseKill()) {
+        OSReport("netplay: match: ended the minigame's pause screen\n");
+    }
+    HuPrcAllPause(FALSE);
+    HuPrcAllUPause(FALSE);
+    Hu3DPauseSet(FALSE);
+    HuSprPauseSet(FALSE);
+    HuAudFXPauseAll(FALSE);
+    HuAudSeqPauseAll(FALSE);
+}
+
 /* Frame 0, first process to run: mentDll fn_1_C174(3) without its wipe-out. */
 static void MatchStartProc(void)
 {
     s32 i;
     s32 killed;
+
+    match_pause_lift();
 
     /* omOvlKill only kills omwatchproc's children (the objman). A menu's root processes (HuPrcCreate in its
      * ObjectSetup, e.g. bootDll's BootExec) end themselves after their own omOvlCallEx; called from here they
@@ -795,14 +818,7 @@ static void MatchLeaveProc(void)
 {
     s32 killed;
 
-    /* A minigame paused with START has paused every process, the 3D, sprites and sounds (omSystemKeyCheck); its
-     * objects (omAllPause, the caller's objman only) go with the objman in omOvlKill. */
-    HuPrcAllPause(FALSE);
-    HuPrcAllUPause(FALSE);
-    Hu3DPauseSet(FALSE);
-    HuSprPauseSet(FALSE);
-    HuAudFXPauseAll(FALSE);
-    HuAudSeqPauseAll(FALSE);
+    match_pause_lift();
     killed = HuPrcKillIf(overlay_process, (void *)code_module((void (*)(void))netplay_match_tick));
     OSReport("netplay: match left: overlay %d, killed %d of its processes\n", (int)omcurovl, (int)killed);
     wipe_reset();

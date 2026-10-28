@@ -114,6 +114,11 @@ void Hu3DPauseSet(BOOL f) { unpaused += (f == 0) * 100; }
 void HuSprPauseSet(BOOL f) { unpaused += (f == 0) * 1000; }
 void HuAudFXPauseAll(BOOL f) { unpaused += (f == 0) * 10000; }
 void HuAudSeqPauseAll(BOOL f) { unpaused += (f == 0) * 100000; }
+/* N76: a match start lifts them too (a peer paused when a reload comes), and ends a minigame's pause screen, before
+ * the board is called. */
+static s32 mg_pause_kills;
+static OMOVL mg_pause_kill_before = -2;
+BOOL MGSeqNetplayPauseKill(void) { mg_pause_kills++; mg_pause_kill_before = called; return FALSE; }
 void HuAudFXAllStop(void) { fx_stops++; }
 AMEM_PTR HuARDirCheck(u32 dir) { return dir == DATADIR_BOARD ? (AMEM_PTR)ar_board : 0; }
 void HuARDirFree(u32 dir) { ar_frees += dir == DATADIR_BOARD; }
@@ -365,7 +370,10 @@ int main(void)
      * process (N64): it is ended before the windows are set up again, so only one runs. */
     win_proc = 1;
     assert(!netplay_ovl_hold());
+    unpaused = 0;
     proc();
+    assert(unpaused == 111111 && mg_pause_kills == 1 && mg_pause_kill_before == DLL_NONE);
+    unpaused = mg_pause_kills = 0;
     /* N67: the board starts in the next frame, also on a peer whose overlay switch was under way (its omwatchproc asks
      * after each sleep). */
     assert(netplay_ovl_hold());
@@ -734,7 +742,9 @@ int main(void)
         netplay_match_leave_poll();
         assert(proc != NULL && proc_prio == 0xFFFF);
         ended = 0;
+        unpaused = mg_pause_kills = 0;
         proc();
+        assert(mg_pause_kills == 1);
         assert(unpaused == 111111 && fx_stops == 1 && ar_frees == 1 && !_CheckFlag(FLAG_ID_MAKE(1, 0)) && ended == 1);
         assert(gone_to.ovl == DLL_modeseldll && gone_to.event == 1);
         assert(omovlhisidx == 1 && his[0].ovl == DLL_bootdll && his[1].ovl == DLL_modeseldll && his[1].event == 1);
