@@ -21,6 +21,10 @@
 
 /* DATA */
 s32 lbl_1_data_4D0[] = { -1, 2, 2, 2, -1, 1, 1, 1, -1, 0, 0, 0, -1, 3, 3, 3 };
+#ifdef TARGET_PC
+// PB: shuffleboard.c's, the 8 words before lbl_1_data_4D0 in the GC REL's .data (see fn_1_C108's return)
+extern s32 lbl_1_data_4B0[8];
+#endif
 
 Process *lbl_1_bss_38C;
 s16 lbl_1_bss_388;
@@ -395,6 +399,16 @@ s32 fn_1_C108(s32 arg0)
     }
     BoardModelRotYSet(lbl_1_bss_30[4], 0.0f);
     HuAudFXStop(lbl_1_bss_384);
+#ifdef TARGET_PC
+    // PB: the ball's angle on the wheel is made positive with one += 360, which leaves it negative when the wheel
+    // has turned past the ball (it ranges from -180 up), so var_r30 can be -8..-1. GC then reads the words before
+    // the table, shuffleboard's lbl_1_data_4B0 (always a positive data number: fn_1_CD04 puts the player on the
+    // last link). PC builds read whatever their linker put there: the browser got a negative value (the coin
+    // shower) where the desktop didn't, and the peers split (N116).
+    if (var_r30 < 0) {
+        return lbl_1_data_4B0[var_r30 + 8];
+    }
+#endif
     return lbl_1_data_4D0[var_r30];
 }
 

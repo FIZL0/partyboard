@@ -1,0 +1,20 @@
+diff --git i/src/REL/m421Dll/player.c w/src/REL/m421Dll/player.c
+index 2a41ea8d..2e143bda 100644
+--- i/src/REL/m421Dll/player.c
++++ w/src/REL/m421Dll/player.c
+@@ -1051,7 +1051,15 @@ void fn_1_7AA0(omObjData *object)
+     sp2C.y = 0.0f;
+     VECSubtract(&sp38, &sp2C, &sp8);
+     sp8.y = 0.0f;
++#ifdef TARGET_PC
++    // N116 test only (N121's): GC's stack has sp14 right after sp8, so this reads sp8.y, sp8.z, sp14.x
++    {
++        Vec n116 = { sp8.y, sp8.z, sp14.x };
++        var_f28 = VECMag(&n116);
++    }
++#else
+     var_f28 = VECMag((Vec *)&sp8.y);
++#endif
+     var_f29 = 0.0025f * var_f28;
+     if (var_f29 > 1.0f) {
+         var_f29 = 1.0f;
