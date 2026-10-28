@@ -1,0 +1,17 @@
+--- a/src/port/ui/ui.cpp
++++ b/src/port/ui/ui.cpp
+@@ -1,3 +1,10 @@
++#include <fstream>
++#include <thread>
++#include <nlohmann/json.hpp>
++#include "online.hpp"
++extern "C" {
++#include "game/gamework_data.h"
++}
+ // Credits: TwilitRealm
+@@ void update() noexcept
++#include "port/main.h"
++#include "<worktree>/research/journal/2026-10-28-n89-same-key-guest/harness/n89_test.inc"
+ void update() noexcept
+ {
++    n88_tick();

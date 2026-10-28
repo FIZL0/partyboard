@@ -1,0 +1,23 @@
+n88: frame 120 dump 
+n88: frame 120 launched 1 lobby_state 0 focus button# 'Play'
+n88: frame 130 tap Online
+n88: frame 260 tap Host Game
+n88: frame 360 writecode /home/ryha/repos/partyboard-slots/s3/build/n89-work/b/code
+n89: wrote code 'endpointaaegqbjkb4u6co3t7aub7m24durjd7eomlp5vqndp3fdhzplp6aemaybabsfvtco7wnagaiavqiqaap5tibqcagavaahn7m2am'
+n88: frame 360 lobby 
+n89: lobby {"state":"open","host":true,"me":"host","code":"endpointaaegqbjkb4u6co3t7aub7m24durjd7eomlp5vqndp3fdhzplp6aemaybabsfvtco7wnagaiavqiqaap5tibqcagavaahn7m2am","short":"","error":"","seats":[0],"room":{"id":"0868052a-1793162667","seats":[{"peer":"host","name":"Hosty","key":"SHAREDKEY","character":0,"cpu":false,"difficulty":1,"team":0},null,null,null],"board":0,"turns":20,"bonus":true,"teams":false,"handicaps":[0,0,0,0],"seed":0,"ready":[],"ver":0,"started":false,"delay":0},"gen":1}
+n88: frame 900 lobby 
+n89: lobby {"state":"open","host":true,"me":"host","code":"endpointaaegqbjkb4u6co3t7aub7m24durjd7eomlp5vqndp3fdhzplp6aemaybabsfvtco7wnagaiavqiqaap5tibqcagavaahn7m2am","short":"H86V","error":"","seats":[0],"room":{"id":"0868052a-1793162667","seats":[{"peer":"host","name":"Hosty","key":"SHAREDKEY","character":0,"cpu":false,"difficulty":1,"team":0},{"peer":"b389e9a642f63f6b01bec7b7a36a93f7f548850c538766ef8857d23a1c98705f","name":"Hosty","key":"SHAREDKEY-2","character":1,"cpu":false,"difficulty":1,"team":0},null,null],"board":0,"turns":20,"bonus":true,"teams":false,"handicaps":[0,0,0,0],"seed":0,"ready":["b389e9a642f63f6b01bec7b7a36a93f7f548850c538766ef8857d23a1c98705f"],"ver":1,"started":false,"delay":0},"gen":4}
+n88: frame 910 dump 
+n88: frame 910 launched 1 lobby_state 2 focus tab# 'Lobby'
+n88: frame 950 tap Start Match
+n88: frame 1400 players 
+n89: GWPlayerCfg[0] iscom 0 character 0 pad 0
+n89: GWPlayerCfg[1] iscom 0 character 1 pad 1
+n89: GWPlayerCfg[2] iscom 1 character 2 pad 2
+n89: GWPlayerCfg[3] iscom 1 character 3 pad 3
+n88: frame 1410 lobby 
+n89: lobby {"state":"started","host":true,"me":"host","code":"endpointaaegqbjkb4u6co3t7aub7m24durjd7eomlp5vqndp3fdhzplp6aemaybabsfvtco7wnagaiavqiqaap5tibqcagavaahn7m2am","short":"569Z","error":"","seats":[0],"room":{"id":"0868052a-1793162667","seats":[{"peer":"host","name":"Hosty","key":"SHAREDKEY","character":0,"cpu":false,"difficulty":1,"team":0},{"peer":"b389e9a642f63f6b01bec7b7a36a93f7f548850c538766ef8857d23a1c98705f","name":"Hosty","key":"SHAREDKEY-2","character":1,"cpu":false,"difficulty":1,"team":0},{"peer":"cpu","name":"CPU","key":"","character":2,"cpu":true,"difficulty":1,"team":1},{"peer":"cpu","name":"CPU","key":"","character":3,"cpu":true,"difficulty":1,"team":1}],"board":0,"turns":20,"bonus":true,"teams":false,"handicaps":[0,0,0,0],"seed":1793162736568114611,"ready":["b389e9a642f63f6b01bec7b7a36a93f7f548850c538766ef8857d23a1c98705f"],"ver":1,"started":true,"delay":2},"gen":6}
+n88: frame 1420 cat /home/ryha/repos/partyboard-slots/s3/build/n89-work/b/xdg/MarioPartyRD/Party Board/online.json
+n89: cat /home/ryha/repos/partyboard-slots/s3/build/n89-work/b/xdg/MarioPartyRD/Party Board/online.json: {
+n88: frame 1430 quit 

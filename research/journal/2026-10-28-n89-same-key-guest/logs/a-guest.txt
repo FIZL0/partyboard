@@ -1,0 +1,22 @@
+n88: frame 100 prepjoin /home/ryha/repos/partyboard-slots/s3/build/n89-work/a/code /home/ryha/repos/partyboard-slots/s3/build/n89-work/a/xdg/MarioPartyRD/Party Board/online-2.json
+n89: prepjoin code 'endpointabxalfqdooad' into /home/ryha/repos/partyboard-slots/s3/build/n89-work/a/xdg/MarioPartyRD/Party Board/online-2.json
+n88: frame 130 tap Online
+n88: frame 200 jointab 
+n89: jointab 1
+n88: frame 230 tap Join Game
+n88: frame 600 ready 
+n89: ready 1
+n88: frame 700 lobby 
+n89: lobby {"state":"started","host":false,"me":"aa1dd47e3204a36aaa44c7f92451e2e0bd684b7cdfe27ca0ed6be02465a56912","code":"","short":"","error":"","seats":[1],"room":{"id":"6e059603-1793162622","seats":[{"peer":"host","name":"Hosty","key":"SHAREDKEY","character":0,"cpu":false,"difficulty":1,"team":0},{"peer":"aa1dd47e3204a36aaa44c7f92451e2e0bd684b7cdfe27ca0ed6be02465a56912","name":"Player 1","key":"f8efc4fcc7ac048e70f23e1d32bd2277903538e844ae9a328b3f2bfba7d5a8a2","character":1,"cpu":false,"difficulty":1,"team":0},{"peer":"cpu","name":"CPU","key":"","character":2,"cpu":true,"difficulty":1,"team":1},{"peer":"cpu","name":"CPU","key":"","character":3,"cpu":true,"difficulty":1,"team":1}],"board":0,"turns":20,"bonus":true,"teams":false,"handicaps":[0,0,0,0],"seed":1793162641424426849,"ready":["aa1dd47e3204a36aaa44c7f92451e2e0bd684b7cdfe27ca0ed6be02465a56912"],"ver":1,"started":true,"delay":2},"gen":4}
+n88: frame 1400 players 
+n89: GWPlayerCfg[0] iscom 0 character 0 pad 0
+n89: GWPlayerCfg[1] iscom 0 character 1 pad 1
+n89: GWPlayerCfg[2] iscom 1 character 2 pad 2
+n89: GWPlayerCfg[3] iscom 1 character 3 pad 3
+n88: frame 1410 lobby 
+n89: lobby {"state":"started","host":false,"me":"aa1dd47e3204a36aaa44c7f92451e2e0bd684b7cdfe27ca0ed6be02465a56912","code":"","short":"","error":"","seats":[1],"room":{"id":"6e059603-1793162622","seats":[{"peer":"host","name":"Hosty","key":"SHAREDKEY","character":0,"cpu":false,"difficulty":1,"team":0},{"peer":"aa1dd47e3204a36aaa44c7f92451e2e0bd684b7cdfe27ca0ed6be02465a56912","name":"Player 1","key":"f8efc4fcc7ac048e70f23e1d32bd2277903538e844ae9a328b3f2bfba7d5a8a2","character":1,"cpu":false,"difficulty":1,"team":0},{"peer":"cpu","name":"CPU","key":"","character":2,"cpu":true,"difficulty":1,"team":1},{"peer":"cpu","name":"CPU","key":"","character":3,"cpu":true,"difficulty":1,"team":1}],"board":0,"turns":20,"bonus":true,"teams":false,"handicaps":[0,0,0,0],"seed":1793162641424426849,"ready":["aa1dd47e3204a36aaa44c7f92451e2e0bd684b7cdfe27ca0ed6be02465a56912"],"ver":1,"started":true,"delay":2},"gen":4}
+n88: frame 1420 cat /home/ryha/repos/partyboard-slots/s3/build/n89-work/a/xdg/MarioPartyRD/Party Board/online-2.json
+n89: cat /home/ryha/repos/partyboard-slots/s3/build/n89-work/a/xdg/MarioPartyRD/Party Board/online-2.json: {
+n88: frame 1425 cat /home/ryha/repos/partyboard-slots/s3/build/n89-work/a/xdg/MarioPartyRD/Party Board/online.json
+n89: cat /home/ryha/repos/partyboard-slots/s3/build/n89-work/a/xdg/MarioPartyRD/Party Board/online.json: {
+n88: frame 1430 quit 
