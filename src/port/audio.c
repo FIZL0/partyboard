@@ -229,8 +229,11 @@ void HuAudFXPauseAll(s32 pause) {
 }
 
 s32 HuAudFXStatusGet(int seNo) {
+    /* The port plays no sound effects, so none is ever playing: 0 is what msmSeGetStatus returns on GC once a sound
+       has ended. The old 12 ("playing" for ever) hung w06's Bowser jump wait (N84) and kept board taunts, w01/w03
+       mg_coin and m439's repeat sound from ever seeing their sound end (N85). */
     // return msmSeGetStatus(seNo);
-    return 12;
+    return 0;
 }
 
 s32 HuAudFXPitchSet(int seNo, s16 pitch)
