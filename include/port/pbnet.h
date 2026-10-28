@@ -52,6 +52,15 @@ uint32_t pbnet_frame(void);
 /* Bit per line-up index of the peers the next frame waits for. */
 uint32_t pbnet_waiting_on(void);
 
+/*
+ * N110 (net/src/keeper.rs): the player switched away (the app went to the background, the window was minimised or
+ * hidden) and the game holds its frames: pbnet_keeper_hidden(1) when the hold starts, (0) when frames run again;
+ * pbnet_keeper_frame() once per real frame held. The peers hold with "Waiting for <name>: their game is in the
+ * background" instead of hearing nothing; a keeper thread speaks while the game's own loop is stopped too.
+ */
+void pbnet_keeper_hidden(int hidden);
+void pbnet_keeper_frame(void);
+
 /* Hash of the state before `frame`: call when pbnet_frame() % 30 == 0, before that frame's pbnet_step. */
 void pbnet_set_hash(uint32_t frame, uint64_t hash);
 /* Oldest hash mismatch: 1 and its fields (NULL pointers skipped), or 0 if none. */
@@ -209,9 +218,10 @@ int pbnet_lobby_answer(const char *answer, char *why, int cap);
  *   hosting or joining.
  * pbnet_rejoin_record: the match this machine can rejoin (JSON {"code","id","token","at"}, snprintf-style), 0 if none.
  * pbnet_rejoin_forget: forget it. pbnet_lobby_rejoin: rejoin it (setup as pbnet_lobby_join), 1 if dialling.
- * pbnet_recover_json: {"running","host","epoch","waiting":[{"index","name","seats","quiet_ms"}],"reconnecting",
- *   "host_left","reloading","message","resync","resyncs"}, snprintf-style. waiting: peers silent for 3 s (the lockstep holds on its own);
- *   message: "Waiting for <name>" or, on a guest, "Host left: the match is saved, any player can host Continue".
+ * pbnet_recover_json: {"running","host","epoch","waiting":[{"index","name","seats","quiet_ms","hidden"}],"reconnecting",
+ *   "host_left","reloading","message","resync","resyncs"}, snprintf-style. waiting: peers silent for 3 s (the lockstep holds on its own)
+ *   or whose player switched away (hidden, N110); message: "Waiting for <name>" (": their game is in the background"
+ *   when hidden) or, on a guest, "Host left: the match is saved, any player can host Continue".
  *   resync (N46): "Resyncing with <host>..." while a desync is mended (a notice: play goes on), else ""; resyncs: the
  *   host's count of resyncs asked.
  * pbnet_recover_epoch: 0 from the start, one more per reload. When it moves while the lobby is started, start the

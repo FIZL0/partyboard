@@ -189,6 +189,8 @@ struct Shared {
     hold: Holder,
     /// A line-up index's silence in the running session (ms; `lockstep_c::quiet_ms` in C).
     quiet: Arc<dyn Fn(u8) -> Option<u64> + Send + Sync>,
+    /// N110: a line-up index's player switched away (`lockstep_c::peer_hidden` in C).
+    hidden: Arc<dyn Fn(u8) -> bool + Send + Sync>,
     /// Host: the live connection of each peer name (a rejoin from the same endpoint replaces the old one, whose
     /// end must not remove the new one's outboxes).
     conns: BTreeMap<String, u64>,
@@ -239,6 +241,7 @@ impl Shared {
             reload_pending: false,
             hold: Arc::new(|| {}),
             quiet: Arc::new(|_| None),
+            hidden: Arc::new(|_| false),
             conns: BTreeMap::new(),
             next_conn: 0,
             host_lost: false,
@@ -563,13 +566,18 @@ impl Shared {
         st.resyncs = self.resync.done;
         if let (true, Some(room)) = (running, self.room()) {
             if self.inbox.is_some() {
-                st.waiting = recover::waiting(room, &self.lineup, &self.me, |p| (self.quiet)(p));
+                st.waiting =
+                    recover::waiting_or_hidden(room, &self.lineup, &self.me, |p| (self.quiet)(p), |p| (self.hidden)(p));
             }
         }
         if st.host_left {
             st.message = recover::HOST_LEFT.into();
         } else if let Some(w) = st.waiting.first() {
-            st.message = format!("Waiting for {}", w.name);
+            st.message = if w.hidden {
+                format!("Waiting for {}: their game is in the background", w.name)
+            } else {
+                format!("Waiting for {}", w.name)
+            };
         }
         st
     }
@@ -854,6 +862,11 @@ impl Lobby {
         let mut s = lock(&self.shared);
         s.hold = hold;
         s.quiet = quiet;
+    }
+
+    /// N110: who switched away (a line-up index's player), for the match's waiting list.
+    pub fn set_hidden_hook(&self, hidden: Arc<dyn Fn(u8) -> bool + Send + Sync>) {
+        lock(&self.shared).hidden = hidden;
     }
 
     /// N10: the match's recovery as its UI shows it.
@@ -1499,6 +1512,7 @@ unsafe fn arg<'a>(p: *const c_char) -> Option<&'a str> {
 /// The C ABI's lobby with the game's hooks: the global lockstep's hold and silence (N10).
 fn hooked(l: Lobby) -> Lobby {
     l.set_hooks(Arc::new(lockstep_c::hold), Arc::new(lockstep_c::quiet_ms));
+    l.set_hidden_hook(Arc::new(lockstep_c::peer_hidden));
     l
 }
 

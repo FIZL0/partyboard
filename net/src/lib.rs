@@ -8,6 +8,7 @@ pub mod android;
 #[cfg(feature = "iroh")]
 pub mod codes;
 pub mod desync;
+pub mod keeper;
 pub mod lobby;
 pub mod lobby_c;
 pub mod lockstep;

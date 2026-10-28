@@ -1,0 +1,21 @@
+120 dump
+130 tap Online
+260 tap Host Game
+360 writecode @D@/code
+900 lobby
+950 tap Start Match
+1300 recover
+1600 recover
+1900 recover
+1950 recover
+2000 recover
+2050 recover
+2100 recover
+2300 recover
+2500 recover
+2700 recover
+2900 recover
+3100 recover
+3400 recover
+3700 recover
+3710 quit

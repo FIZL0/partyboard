@@ -43,6 +43,13 @@ uint32_t pbnet_waiting_on(void)
     return 0;
 }
 
+void pbnet_keeper_hidden(int hidden)
+{
+    (void)hidden;
+}
+
+void pbnet_keeper_frame(void) { }
+
 void pbnet_set_hash(uint32_t frame, uint64_t hash)
 {
     (void)frame;
