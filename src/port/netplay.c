@@ -518,8 +518,14 @@ s32 BoardLotteryNetplayStickGame(void);
  * down (up to 50) and the launch speed is 15 + pull / 4; its COM pulls 20 to 119 frames. */
 #define PLUNGER_PULL_FRAMES 90
 
+/* N104: the frame m444's plunger last waited and on which pad, for netplay_plunger_waiting. */
+static u32 plunger_seen_frame;
+static s32 plunger_seen_pad = -1;
+
 void netplay_script_plunger_wait(s32 pad)
 {
+    plunger_seen_frame = frame;
+    plunger_seen_pad = pad;
     if (!script.plunger_stick || pad < 0 || pad >= 4) {
         return;
     }
@@ -563,6 +569,14 @@ static void lottery_stick_at(s32 game, u32 t, s8 *x, s8 *y)
             *x = (c / (ACROSS + 1)) % 2 == 0 ? 120 : -120;
         }
     }
+}
+
+s32 netplay_plunger_waiting(void)
+{
+    if (plunger_seen_pad < 0 || plunger_seen_frame > frame || frame - plunger_seen_frame > 1) {
+        return -1;
+    }
+    return plunger_seen_pad;
 }
 
 /* Pads for the current frame: every script line up to and including this frame applied. */

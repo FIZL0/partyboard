@@ -109,6 +109,9 @@ BOOL netplay_debug_mg_explain_off(void);
  * between the plunger and the lane's wall for ever.
  */
 void netplay_script_plunger_wait(s32 pad);
+/* N104: the pad m444's plunger waits on (netplay_script_plunger_wait in this frame or the last), else -1. For page
+ * scripts' fake gamepads (src/port/web/web_stick_probe.c), which play it as `plunger-stick on` does. */
+s32 netplay_plunger_waiting(void);
 /*
  * `--turbo` (with --script, N50): the run skips the 60 Hz frame limiter, like holding the TAB turbo key, so
  * scripted checks run as fast as the machine goes. True only for a --script run outside lockstep (a lockstep
