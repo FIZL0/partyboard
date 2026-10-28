@@ -12,6 +12,8 @@ We are adding online play. Design and hook points: `plan/NET.md`. Netcode refere
   the worktree) so config.json and saves don't collide.
 - Game windows: slots set `SDL_APP_ID=partyboard-test`, and the desktop opens that class floating at 1280x960 on a
   hidden workspace, so run the game directly (no gamescope/Xwayland tricks, never on the user's screen).
+- Targets: Linux, Windows, Android, iOS, browser. macOS and tvOS are not targets: don't build, test or fix
+  for them (leave upstream's files for them alone).
 - Never commit disc files, extracted assets or anything under `orig/*/`.
 - Offline play must be unchanged: netplay hooks in `src/game` and `src/REL` are `if (netplay_active())`
   guards, kept small.
