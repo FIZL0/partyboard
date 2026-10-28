@@ -16,8 +16,11 @@
 //! - On a connection ([`Peer`]): the lobby's JSON messages on a reliable, ordered data channel (id 0), the lockstep's
 //!   datagrams on an unordered one with no retransmits (id 1), both negotiated up front, so a code carries nothing
 //!   but ICE and DTLS. Same message and datagram contents as iroh's.
-//! - No LAN discovery (mDNS isn't the page's to use) and no mid-match redial (the host's offer is spent once its
-//!   guest connected; see the N92 journal).
+//! - No LAN discovery (mDNS isn't the page's to use).
+//! - N98, mid-match redial: the offer a guest joined with is spent once it connected, so the host sends every guest a
+//!   *spare* offer of its own over the connection ([`REDIAL`] + the code, not JSON, so the lobby never sees it). A
+//!   guest whose connection dropped redials that one instead of its code; its answer goes back to the host as a new
+//!   guest's would (the hold screen's Copy Answer / Paste Answer), and the host sends a new spare once it is back.
 
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
@@ -41,6 +44,10 @@ const ANSWER_WAIT: Duration = Duration::from_secs(600);
 const OPEN_WAIT: Duration = Duration::from_secs(30);
 /// How often the connections' JavaScript queues are read (each frame's pump runs the timers that are due).
 const POLL: Duration = Duration::from_millis(2);
+/// N98: a control message on the reliable channel, from the host: the guest's spare offer for a redial.
+const REDIAL: &str = "!redial ";
+/// N98: the most spare offers the host keeps (one per guest; the oldest goes first).
+const SPARES_MAX: usize = 8;
 /// The public STUN server the relay setting `n0` (the default) uses.
 const STUN: &str = "stun:stun.l.google.com:19302";
 
@@ -538,6 +545,13 @@ mod fake {
         }
     }
 
+    /// N98: every open connection drops, as on a network change (both ends see it closed).
+    pub fn cut_open() {
+        for p in PCS.lock().unwrap().1.values_mut().filter(|p| p.open) {
+            p.closed = true;
+        }
+    }
+
     pub unsafe fn pbnet_js_rtc_close(id: i32) {
         let mut g = PCS.lock().unwrap();
         let other = g.1.get(&id).and_then(|p| p.other);
@@ -632,7 +646,8 @@ pub struct Peer<T> {
 }
 
 impl<T: Serialize + DeserializeOwned + Send + 'static> Peer<T> {
-    fn new(conn: Conn, remote: PeerId) -> Peer<T> {
+    /// `spare` (a guest's): where the host's spare offer goes ([`REDIAL`]).
+    fn new(conn: Conn, remote: PeerId, spare: Option<Arc<Mutex<Option<Sig>>>>) -> Peer<T> {
         let conn = Arc::new(conn);
         let (mt, msgs) = mpsc::unbounded_channel();
         let (dt, dgrams) = mpsc::unbounded_channel();
@@ -643,6 +658,14 @@ impl<T: Serialize + DeserializeOwned + Send + 'static> Peer<T> {
                     let _ = dt.send(d);
                 }
                 while let Some(m) = js::recv(c.0, 0) {
+                    // N98: the host's spare offer, for this guest's redial
+                    if let Some(code) = m.strip_prefix(REDIAL.as_bytes()) {
+                        let sig = std::str::from_utf8(code).ok().and_then(|c| Sig::parse(c, OFFER)).filter(|s| s.id == remote.0);
+                        if let (Some(sig), Some(spare)) = (sig, &spare) {
+                            *locked(spare) = Some(sig);
+                        }
+                        continue;
+                    }
                     let m = if m.len() > MSG_MAX { Err("message too long".into()) } else { serde_json::from_slice(&m).map_err(|e| e.to_string()) };
                     if mt.send(m).is_err() {
                         return;
@@ -728,6 +751,8 @@ struct Pending {
 struct Hosting {
     /// The offer shown now (None once a guest's answer took it, until the next one is made).
     offer: Option<Pending>,
+    /// N98: each connected guest's spare offer (sent to it), for its redial if the connection drops.
+    spares: Vec<(PeerId, Pending)>,
     /// Guests whose answer was pasted, connecting: their connection, peer name and the time it was pasted.
     connecting: Vec<(Conn, PeerId, tokio::time::Instant)>,
     /// Why the last pasted answer didn't connect, or "" once one did; taken by the lobby ([`Transport::take_error`]).
@@ -745,6 +770,8 @@ pub struct Transport {
     id: PeerId,
     relay: Relay,
     hosting: Arc<Mutex<Hosting>>,
+    /// N98, joining: the spare offer the host sent on the last connection, which a redial answers.
+    spare: Arc<Mutex<Option<Sig>>>,
 }
 
 fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -753,7 +780,7 @@ fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 
 impl Transport {
     pub async fn bind(relay: &Relay) -> Result<Transport, String> {
-        Ok(Transport { id: PeerId::random(), relay: relay.clone(), hosting: Arc::default() })
+        Ok(Transport { id: PeerId::random(), relay: relay.clone(), hosting: Arc::default(), spare: Arc::default() })
     }
 
     /// This browser's peer name.
@@ -830,7 +857,9 @@ impl Transport {
                         js::State::Open => {
                             let (c, id, _) = h.connecting.remove(i);
                             h.error = Some(String::new());
-                            return Some(Peer::new(c, id));
+                            let p = Peer::new(c, id, None);
+                            self.send_spare(id, p.conn.clone());
+                            return Some(p);
                         }
                         js::State::Closed => {
                             h.connecting.remove(i);
@@ -848,10 +877,38 @@ impl Transport {
         }
     }
 
+    /// N98: makes a spare offer for the guest `to` and sends it on `conn` (its new connection), replacing the one it
+    /// had: if that connection drops, the guest's redial answers it.
+    fn send_spare(&self, to: PeerId, conn: Arc<Conn>) {
+        let (relay, me, hosting) = (self.relay.clone(), self.id, self.hosting.clone());
+        tokio::spawn(async move {
+            let Ok(spare) = Conn::new(&relay) else { return };
+            js::offer(spare.0);
+            let Ok(sig) = spare.local(me.0).await else { return };
+            let code = sig.code(OFFER);
+            {
+                let mut h = locked(&hosting);
+                if h.closed {
+                    return;
+                }
+                h.spares.retain(|(g, _)| *g != to);
+                if h.spares.len() >= SPARES_MAX {
+                    h.spares.remove(0);
+                }
+                h.spares.push((to, Pending { conn: spare, sig }));
+            }
+            js::send(conn.0, 0, format!("{REDIAL}{code}").as_bytes());
+        });
+    }
+
     /// Joins the host whose offer is `code`: makes the answer (the lobby shows it, [`answer_code`]) and waits for
     /// the host to take it.
     pub async fn dial<T: Serialize + DeserializeOwned + Send + 'static>(&self, code: &str) -> Result<Peer<T>, String> {
-        let offer = Sig::parse(code, OFFER).ok_or("That code isn't a lobby code.")?;
+        let mut offer = Sig::parse(code, OFFER).ok_or("That code isn't a lobby code.")?;
+        // N98: a redial (the code's offer is spent) answers the spare offer this host sent
+        if let Some(spare) = locked(&self.spare).as_ref().filter(|s| s.id == offer.id) {
+            offer = spare.clone();
+        }
         let conn = Conn::new(&self.relay)?;
         js::answer(conn.0, &offer.sdp(true));
         let mut sig = conn.local(self.id.0).await?;
@@ -868,7 +925,7 @@ impl Transport {
         let r = conn.open(ANSWER_WAIT).await;
         drop(shown);
         r.map_err(|e| if e.contains("timed out") { "The host didn't take your answer in time.".into() } else { e })?;
-        Ok(Peer::new(conn, PeerId(offer.id)))
+        Ok(Peer::new(conn, PeerId(offer.id), Some(self.spare.clone())))
     }
 
     /// Closes the offers and the connections still connecting.
@@ -876,6 +933,7 @@ impl Transport {
         let mut h = locked(&self.hosting);
         h.closed = true;
         h.offer = None;
+        h.spares.clear();
         h.connecting.clear();
         drop(h);
         let mut g = locked(&HOSTING);
@@ -899,7 +957,15 @@ pub fn take_answer(answer: &str) -> Result<(), String> {
     if h.closed {
         return Err("Not hosting a lobby.".into());
     }
-    let Some(p) = h.offer.take_if(|p| p.sig.ufrag == a.to) else {
+    let p = if let Some(p) = h.offer.take_if(|p| p.sig.ufrag == a.to) {
+        p
+    } else if let Some(i) = h.spares.iter().position(|(_, p)| p.sig.ufrag == a.to) {
+        // N98: a guest's redial, from the same peer only (its seats are its rejoin token's anyway)
+        if h.spares[i].0 != PeerId(a.id) {
+            return Err("That answer is for another player's reconnect.".into());
+        }
+        h.spares.remove(i).1
+    } else {
         return Err("That answer is for an older code: send the player the code shown now.".into());
     };
     js::accept(p.conn.0, &a.sdp(false));
@@ -964,7 +1030,9 @@ mod tests {
     }
 
     /// Two lobbies in one process on the fake page: the host's code, the guest's answer pasted back, seated, ready,
-    /// started; then the lockstep's datagrams go both ways on the started lobbies' wires.
+    /// started; then the lockstep's datagrams go both ways on the started lobbies' wires. N98: the connection drops
+    /// mid-match; the guest redials the spare offer the host sent it, the host takes that answer and the wires carry
+    /// datagrams again.
     #[test]
     fn lobby_over_rtc_reaches_start() {
         use crate::lobby::Player;
@@ -984,7 +1052,7 @@ mod tests {
             (Arc::new(move |c, w| drop(tx.lock().unwrap().send((c, w)))), rx)
         }
         async fn until(what: &str, mut f: impl FnMut() -> bool) {
-            for _ in 0..500 {
+            for _ in 0..1000 {
                 if f() {
                     return;
                 }
@@ -1034,6 +1102,26 @@ mod tests {
             })
             .await;
             assert_eq!(got, (Some((0, b"to guest".to_vec())), Some((1, b"to host".to_vec()))));
+
+            // N98: the connection drops mid-match (the only open one in this process: `late` left, spares never open)
+            fake::cut_open();
+            until("reconnecting", || guest.status().reconnecting).await;
+            until("the redial's answer", || !guest.snapshot().answer.is_empty()).await;
+            let redial = guest.snapshot().answer;
+            let to = Sig::parse(&redial, ANSWER).unwrap().to;
+            assert_ne!(to, Sig::parse(&code, OFFER).unwrap().ufrag, "a redial answers the spare offer, not the spent code");
+            take_answer(&redial).unwrap();
+            until("reconnected", || guest.snapshot().answer.is_empty() && !guest.status().reconnecting).await;
+            let mut got = (None, None);
+            until("datagrams after the redial", || {
+                hw.send(1, b"again");
+                gw.send(0, b"back");
+                got.0 = got.0.take().or_else(|| gw.recv());
+                got.1 = got.1.take().or_else(|| hw.recv());
+                got.0.is_some() && got.1.is_some()
+            })
+            .await;
+            assert_eq!(got, (Some((0, b"again".to_vec())), Some((1, b"back".to_vec()))));
         });
     }
 }

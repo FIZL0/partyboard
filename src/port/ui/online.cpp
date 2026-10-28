@@ -16,6 +16,8 @@
 #ifdef __EMSCRIPTEN__
 // N92: src/port/web/web_clipboard.c (SDL has no clipboard in the browser)
 extern "C" void pb_web_copy(const char *text);
+// N98: the page's address with ?code=<code> (malloc'd), and the code of the link the page was opened with
+extern "C" char *pb_web_join_link(const char *code);
 #endif
 #include <fmt/chrono.h>
 #include <fmt/format.h>
@@ -23,6 +25,7 @@ extern "C" void pb_web_copy(const char *text);
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <ctime>
 #include <memory>
 
@@ -79,6 +82,35 @@ namespace {
 #endif
         push_toast({ .title = fmt::format("{} copied", what), .content = shorten(text, 24), .duration = std::chrono::seconds(2) });
     }
+
+#ifdef __EMSCRIPTEN__
+    // N98: the host's code as a link to this page (?code=), which opens the game and joins.
+    std::string join_link(const std::string &code)
+    {
+        char *link = pb_web_join_link(code.c_str());
+        std::string out = link != nullptr ? link : code;
+        free(link);
+        return out;
+    }
+
+    // N98: the answer on the clipboard, taken (pbnet_lobby_answer); says how it went in a toast.
+    void paste_answer_toast()
+    {
+        char *text = SDL_GetClipboardText();
+        const std::string answer = text != nullptr ? trim(text) : std::string();
+        SDL_free(text);
+        char why[256] = "";
+        if (answer.empty()) {
+            push_toast({ .title = "No Answer", .content = "Copy the answer, press Ctrl+V on this page, then Paste Answer.", .duration = std::chrono::seconds(4) });
+        }
+        else if (pbnet_lobby_answer(answer.c_str(), why, sizeof(why))) {
+            push_toast({ .title = "Answer taken", .content = "Your friend is reconnecting.", .duration = std::chrono::seconds(3) });
+        }
+        else {
+            push_toast({ .title = "Can't Use That Answer", .content = why, .duration = std::chrono::seconds(4) });
+        }
+    }
+#endif
 
     void show_message(Document &parent, Rml::String title, Rml::String body)
     {
@@ -601,6 +633,12 @@ void OnlineWindow::join()
     open_lobby();
 }
 
+void OnlineWindow::join_code(const std::string &code)
+{
+    mProfile.lastCode = trim(code);
+    join();
+}
+
 void OnlineWindow::rejoin()
 {
     save();
@@ -784,6 +822,21 @@ void update_online_match()
     if (++tick % 10 != 0) {
         return;
     }
+#ifdef __EMSCRIPTEN__
+    // N98: the page was opened with a join link (platforms/web/pb.js passes its ?code= as PB_JOIN_CODE): once the
+    // game runs, Online > Join with that code.
+    static bool linkTaken = false;
+    if (!linkTaken) {
+        linkTaken = true;
+        const char *code = getenv("PB_JOIN_CODE");
+        if (code != nullptr && *code != '\0' && pbnet_lobby_state() == None) {
+            auto online = std::make_unique<OnlineWindow>();
+            auto &window = *online;
+            push_document(std::move(online));
+            window.join_code(code);
+        }
+    }
+#endif
     if (!*alive) {
         shown = nullptr;
     }
@@ -795,6 +848,11 @@ void update_online_match()
     std::string waitName;
     std::string resync;
     int heldS = 0;
+#ifdef __EMSCRIPTEN__
+    // N98: a browser guest's redial needs its answer taken by the host (net/src/rtc.rs)
+    bool reconnecting = false;
+    std::string answer;
+#endif
     if (pbnet_lobby_state() == Started) {
         const auto j = nlohmann::json::parse(pbnet_text(pbnet_recover_json), nullptr, false);
         if (j.is_object() && j.value("running", false)) {
@@ -808,6 +866,14 @@ void update_online_match()
                 waitName = (*w)[0].value("name", "");
             }
             key = fmt::format("{}|{}|{}", message, waitIndex, j.value("epoch", 0));
+#ifdef __EMSCRIPTEN__
+            reconnecting = j.value("reconnecting", false);
+            if (reconnecting) {
+                const auto l = nlohmann::json::parse(pbnet_text(pbnet_lobby_json), nullptr, false);
+                answer = l.is_object() ? l.value("answer", "") : "";
+                key += "|" + answer;
+            }
+#endif
         }
     }
     // N46: a desync is mended without asking anyone: a short notice, play goes on. N44: when going back did not mend
@@ -837,6 +903,25 @@ void update_online_match()
     };
     std::vector<ModalAction> actions;
     Rml::String body = escape(message);
+    Rml::String title = hostLeft ? "Host Left" : "Waiting";
+#ifdef __EMSCRIPTEN__
+    if (reconnecting) {
+        title = "Reconnecting";
+        // N98: the host takes this guest back by its answer, as when it joined
+        body = "Lost the connection to the host. The match holds until you are back.<br/><br/>";
+        body += answer.empty() ? "Getting ready to reconnect..."
+                               : "Send the host your answer: press <b>Copy Answer</b> and send it to them. They paste it "
+                                 "with <b>Paste Answer</b> on their waiting screen, and you are back.";
+        if (!answer.empty()) {
+            actions.push_back({ .label = "Copy Answer", .onPressed = [answer](Modal &) { copy_text(answer, "Answer"); } });
+        }
+        actions.push_back({ .label = "Leave Match", .onPressed = [](Modal &modal) {
+                               modal.pop();
+                               pbnet_lobby_leave();
+                           } });
+    }
+    else
+#endif
     if (hostLeft) {
         body += "<br/><br/>Your copy of the match is saved too.";
         actions.push_back({ .label = "Leave Match", .onPressed = [](Modal &modal) {
@@ -850,6 +935,12 @@ void update_online_match()
                 "the seat back when they return; everyone goes back to the last save point), or save and quit: "
                 "every player keeps the save, and any of them can host Continue.";
         actions.push_back({ .label = "Keep Waiting", .onPressed = keep });
+#ifdef __EMSCRIPTEN__
+        // N98: a browser guest reconnects with an answer to the spare code it has
+        body += "<br/><br/>When they send you an answer to reconnect, copy it, press Ctrl+V on this page, then "
+                "<b>Paste Answer</b>.";
+        actions.push_back({ .label = "Paste Answer", .onPressed = [](Modal &) { paste_answer_toast(); } });
+#endif
         actions.push_back({ .label = fmt::format("CPU Plays for {}", waitName), .onPressed = [waitIndex](Modal &modal) {
                                close_hold_modal(modal);
                                pbnet_recover_cpu(waitIndex);
@@ -873,7 +964,7 @@ void update_online_match()
     alive = std::make_shared<bool>(false);
     auto modal = std::make_unique<HoldModal>(
         Modal::Props {
-            .title = hostLeft ? "Host Left" : "Waiting",
+            .title = title,
             .bodyRml = body,
             .actions = std::move(actions),
             .onDismiss = keep,
@@ -948,14 +1039,24 @@ LobbyWindow::LobbyWindow()
                         })
                         .on_nav_command([this](Rml::Event &, NavCommand cmd) {
                             if (cmd == NavCommand::Confirm) {
+#ifdef __EMSCRIPTEN__
+                                // N98: a link to this page that joins with the code
+                                copy_text(join_link(mView.shortCode.empty() ? mView.code : mView.shortCode), "Link");
+#else
                                 copy_text(mView.shortCode.empty() ? mView.code : mView.shortCode, "Code");
+#endif
                                 return true;
                             }
                             return false;
                         }),
                 [this](Pane &pane) {
+#ifdef __EMSCRIPTEN__
+                    pane.add_rml("Press to copy a link with this code and send it to a friend: it opens the game in "
+                                 "their browser and joins (or they paste it under <b>Online &gt; Join</b>).");
+#else
                     pane.add_rml("Send this code to your friends; they enter it under <b>Online &gt; Join</b>. "
                                  "Press to copy it.");
+#endif
                     if (mView.shortCode.empty() && !mView.error.empty()) {
                         pane.add_rml("<br/>" + escape(mView.error) + "<br/>Copy the long code instead.");
                     }
@@ -984,7 +1085,8 @@ LobbyWindow::LobbyWindow()
 #endif
         }
 #ifdef __EMSCRIPTEN__
-        else {
+        // N98: only in a lobby opened while joining (one opened seated, as after a match, has nothing to copy)
+        else if (mView.state == Connecting) {
             left.add_section("Answer");
             control(left.add_child<ActionButton>("Copy Answer", [this] { return mView.answer.empty(); }).on_pressed([this] {
                 copy_text(mView.answer, "Answer");

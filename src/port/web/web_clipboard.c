@@ -24,3 +24,15 @@ EMSCRIPTEN_KEEPALIVE void pb_web_paste(const char *text)
 {
     SDL_SetClipboardText(text);
 }
+
+/*
+ * N98: a link to this page that joins the lobby at `code` (pb.js reads ?code= and passes it to the game as
+ * PB_JOIN_CODE). The caller frees it.
+ */
+EM_JS(char *, pb_web_join_link, (const char *code), {
+    const url = new URL(location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('code', UTF8ToString(code));
+    return stringToNewUTF8(url.href);
+});

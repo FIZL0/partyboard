@@ -21,6 +21,8 @@ public:
     ~OnlineWindow() override;
 
     void update() override;
+    // N98: joins the lobby at `code` (a link's ?code= in the browser), as Join Game with it entered.
+    void join_code(const std::string &code);
 
 private:
     void save();

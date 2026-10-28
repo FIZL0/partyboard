@@ -75,11 +75,21 @@ addToLibrary({
   pbnet_js_rtc_answer: function (id, offer) {
     const c = PBRTC.conns[id];
     if (!c) return;
-    const sdp = UTF8ToString(offer);
+    // N98: the offer's candidates go in once this side's are gathered. With them in the offer, Chromium ended the
+    // answer's gathering without its STUN (server-reflexive) candidate, which a guest behind a NAT needs to be
+    // reached; without them it gathers it.
+    const lines = UTF8ToString(offer).split('\r\n');
+    const theirs = lines.filter(l => l.startsWith('a=candidate:')).map(l => l.slice(2));
+    const sdp = lines.filter(l => !l.startsWith('a=candidate:') && l !== 'a=end-of-candidates').join('\r\n');
+    const mid = (lines.find(l => l.startsWith('a=mid:')) ?? 'a=mid:0').slice(6);
     PBRTC.describe(c, async () => {
       await c.pc.setRemoteDescription({ type: 'offer', sdp });
       return c.pc.createAnswer();
-    });
+    }).then(() => Promise.all(theirs.map(candidate => c.pc.addIceCandidate({ candidate, sdpMid: mid, sdpMLineIndex: 0 }))))
+      .catch(e => {
+        console.error('pbnet: WebRTC candidates:', e);
+        c.failed = true;
+      });
   },
 
   pbnet_js_rtc_accept__deps: ['$PBRTC', '$UTF8ToString'],
