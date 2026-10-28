@@ -17,6 +17,8 @@ u16 HuPadBtn[4], HuPadBtnDown[4], HuPadBtnRep[4]; s8 HuPadStkX[4], HuPadStkY[4],
 u8 HuPadTrigL[4], HuPadTrigR[4], HuPadDStk[4], HuPadDStkRep[4]; s8 HuPadErr[4];
 OMOVL omcurovl; s32 omovlevtno; s32 rnd_seed; u32 boardRandSeed; BOOL PartyBoard_IsRunning = TRUE; static u32 fseed;
 u32 frandSeedGet(void) { return fseed; } void frandSeedSet(u32 s) { fseed = s; }
+/* N112: netplay_begin resets the sound handle map (src/port/msm.c). */
+void partyboard_audio_net_reset(void) {}
 /* netplay_match.c is not linked here (tools/netplay/match_test.c tests it). */
 static int over, match_ends, still_drops;
 void netplay_match_tick(void) {} u64 netplay_heap_hash(void) { return 0; }

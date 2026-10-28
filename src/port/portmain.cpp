@@ -25,6 +25,7 @@
 #include <dolphin/pad.h>
 #include <dolphin/vi.h>
 #include <game/disp.h>
+#include <port/audio.h>
 #include <port/config.hpp>
 #include <port/dolassets.h>
 #include <port/lifecycle.h>
@@ -639,6 +640,8 @@ extern "C" int port_main(int argc, char* argv[]) {
     InitializeDol();
 
     game_main();
+
+    partyboard_audio_shutdown();
 
     // partyboard::MoviePlayerShutdown();
 

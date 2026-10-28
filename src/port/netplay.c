@@ -7,6 +7,7 @@
 #include "game/gamework_data.h"
 #include "game/object.h"
 #include "game/pad.h"
+#include "port/audio.h"
 #include "port/main.h"
 #include "port/netplay.h"
 #include "port/pbnet.h"
@@ -87,6 +88,7 @@ void netplay_begin(u32 seed)
     step_taken_set = FALSE;
     memset(step_latched, 0, sizeof(step_latched));
     netplay_reseed();
+    partyboard_audio_net_reset();
     OSReport("netplay: session start, seed %08X\n", seed);
 }
 
