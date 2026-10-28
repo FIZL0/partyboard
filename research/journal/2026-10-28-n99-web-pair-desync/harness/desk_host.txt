@@ -1,0 +1,4 @@
+130 tap Online
+260 tap Host Game
+900 writecode @D@/code
+2400 tap Start Match

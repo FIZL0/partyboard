@@ -1,0 +1,5 @@
+100 prepjoin @D@/code @U@/online-2.json
+130 tap Online
+200 jointab
+230 tap Join Game
+900 ready

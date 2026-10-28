@@ -2,6 +2,9 @@
 #
 # No dlopen in the browser: dol is a static library and every REL an object library, which cmake/web.cmake
 # prelinks into one object per REL and links into partyboard.
+
+# Once, whichever of the CMakeLists.txt lines that include this comes first (N99).
+include_guard(GLOBAL)
 set(PB_DOL_LIBRARY_TYPE STATIC)
 set(PB_REL_LIBRARY_TYPE OBJECT)
 # fmt 11.1's format.h calls malloc/free without <cstdlib>, which Emscripten's libc++ doesn't pull in by itself.

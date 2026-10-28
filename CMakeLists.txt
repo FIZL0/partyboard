@@ -134,6 +134,13 @@ elseif (MSVC)
     add_compile_options(/bigobj)
 endif ()
 
+# N87: the browser build (cmake/web.cmake) links dol statically and every REL as one object.
+set(PB_DOL_LIBRARY_TYPE SHARED)
+set(PB_REL_LIBRARY_TYPE SHARED)
+if (EMSCRIPTEN)
+    include(cmake/web_early.cmake)
+endif ()
+
 include(cmake/aurora_patches.cmake)
 add_subdirectory(extern/aurora EXCLUDE_FROM_ALL)
 add_subdirectory(extern/musyx EXCLUDE_FROM_ALL)
@@ -146,7 +153,7 @@ include(files.cmake)
 source_group("Game" FILES ${GAME_FILES})
 source_group("Port" FILES ${PORT_FILES})
 
-add_library(dol SHARED ${GAME_FILES} ${PORT_FILES} extern/libco/libco.c)
+add_library(dol ${PB_DOL_LIBRARY_TYPE} ${GAME_FILES} ${PORT_FILES} extern/libco/libco.c)
 set_target_properties(dol PROPERTIES C_VISIBILITY_PRESET default CXX_VISIBILITY_PRESET default)
 target_compile_definitions(dol PRIVATE TARGET_PC NON_MATCHING OPTIMIZED_TEXTURE_LOADING BYTESWAPPING TARGET_DOL VERSION=${VERSION} MUSY_VERSION_MAJOR=1 MUSY_VERSION_MINOR=5 MUSY_VERSION_PATCH=4)
 target_include_directories(dol PRIVATE include extern extern/aurora/include extern/aurora/include/dolphin ${CMAKE_BINARY_DIR})
@@ -216,7 +223,7 @@ foreach (dir ${REL_TARGETS})
         list(FILTER REL_SOURCE_FILES INCLUDE REGEX "^src/REL/${dir}/.*\\.c$")
 
         if (REL_SOURCE_FILES)
-            add_library(${dir} SHARED ${REL_SOURCE_FILES})
+            add_library(${dir} ${PB_REL_LIBRARY_TYPE} ${REL_SOURCE_FILES})
             list(APPEND BINARY_TARGETS ${dir})
             if (USE_ASAN)
                 set_source_files_properties(${REL_SOURCE_FILES} PROPERTIES COMPILE_OPTIONS "-fsanitize=address")
@@ -281,6 +288,11 @@ if (ANDROID)
     # SDLActivity loads SDL_main via dlsym on Android. Since aurora::main is a static
     # archive, force an undefined reference so the linker keeps the SDL_main object.
     target_link_options(partyboard PRIVATE "-Wl,-u,SDL_main")
+endif ()
+
+# N87's browser build, after the dol, REL and partyboard targets (N99: put back, a86810a5 had dropped it).
+if (EMSCRIPTEN)
+    include(cmake/web.cmake)
 endif ()
 
 if (NOT APPLE)

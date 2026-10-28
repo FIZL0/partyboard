@@ -4,6 +4,8 @@
  * its first link after an unlink, which is what dlopen after dlclose gives the desktop build. */
 #include "port/web_rel.h"
 
+#include <emscripten.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +15,8 @@ typedef struct WebRel {
     void (*setup)(void);
     char *start;
     char *stop;
+    int (*first)(void); /* N99: the marks around the REL's code (src/port/web/web_rel_mark.c) */
+    int (*last)(void);
 } WebRel;
 
 extern const WebRel web_rel_table[];
@@ -20,6 +24,68 @@ extern const int web_rel_count;
 
 static unsigned char **images;
 static int *links;
+/* N99: each REL's code in the module's function index space, between its marks; NULL if the marks didn't hold. */
+static int (*ranges)[2];
+static const char dol_owner = 0;
+
+/* A function pointer is an index into the wasm table; the JS API names a wasm function by its index in the module. */
+EM_JS_DEPS(web_rel, "$getWasmTableEntry");
+EM_JS(int, web_rel_table_function_index, (int fn), {
+    var f = getWasmTableEntry(fn);
+    var i = f ? Number(f.name) : NaN;
+    return Number.isInteger(i) ? i : -1;
+});
+
+static int web_rel_function_index(void (*fn)(void))
+{
+    return web_rel_table_function_index((int)(uintptr_t)fn);
+}
+
+static void web_rel_ranges(void)
+{
+    int i, j;
+    ranges = calloc(web_rel_count, sizeof(*ranges));
+    for (i = 0; i < web_rel_count; i++) {
+        const WebRel *rel = &web_rel_table[i];
+        int setup = web_rel_function_index(rel->setup);
+        ranges[i][0] = web_rel_function_index((void (*)(void))rel->first);
+        ranges[i][1] = web_rel_function_index((void (*)(void))rel->last);
+        if (ranges[i][0] < 0 || !(ranges[i][0] < setup && setup < ranges[i][1])) {
+            printf("web_rel: %s's code is not between its marks (%d < %d < %d): processes' RELs unknown\n", rel->name,
+                ranges[i][0], setup, ranges[i][1]);
+            free(ranges);
+            ranges = NULL;
+            return;
+        }
+        for (j = 0; j < i; j++) {
+            if (ranges[i][0] <= ranges[j][1] && ranges[j][0] <= ranges[i][1]) {
+                printf("web_rel: %s's code overlaps %s's: processes' RELs unknown\n", rel->name, web_rel_table[j].name);
+                free(ranges);
+                ranges = NULL;
+                return;
+            }
+        }
+    }
+    printf("web_rel: every REL's code is between its marks\n");
+}
+
+const void *web_rel_function_owner(void (*fn)(void))
+{
+    int i, index;
+    if (fn == NULL || ranges == NULL) {
+        return NULL;
+    }
+    index = web_rel_function_index(fn);
+    if (index < 0) {
+        return NULL;
+    }
+    for (i = 0; i < web_rel_count; i++) {
+        if (ranges[i][0] < index && index < ranges[i][1]) {
+            return &web_rel_table[i];
+        }
+    }
+    return &dol_owner;
+}
 
 __attribute__((constructor)) static void web_rel_snapshot(void)
 {
@@ -41,6 +107,7 @@ __attribute__((constructor)) static void web_rel_snapshot(void)
         total += size;
     }
     printf("web_rel: %d RELs, %zu bytes of data kept for relinking\n", web_rel_count, total);
+    web_rel_ranges();
 }
 
 void *web_rel_link(const char *name)
