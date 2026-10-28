@@ -267,3 +267,26 @@ void frame_limiter()
     g_frameLimiter.Sleep(
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds{1}) / 60);
 }
+
+void frame_present_throttle(bool on)
+{
+    static bool skipping;
+    static std::chrono::steady_clock::time_point lastShown;
+    static const bool capturing = std::getenv("PB_ICON_SHOT") != nullptr;
+    if (!on || capturing) {
+        if (skipping) {
+            skipping = false;
+            aurora_set_present_skip(false);
+        }
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    const bool show = now - lastShown >= std::chrono::milliseconds{33};
+    if (show) {
+        lastShown = now;
+    }
+    if (skipping == show) {
+        skipping = !show;
+        aurora_set_present_skip(skipping);
+    }
+}

@@ -5,6 +5,7 @@
 # session for the hidden game windows; takes a few minutes (--turbo). Not part of tools/check.sh for those reasons.
 #
 #   tools/netplay/party_check.sh [out dir]      (default build/party-check; logs stay there)
+#   tools/netplay/gpu_busy.sh tools/netplay/party_check.sh   (N120: the GPU's busy percent over the runs)
 #
 # Exit status: 0 identical and both reached `match over`, 1 otherwise.
 set -euo pipefail

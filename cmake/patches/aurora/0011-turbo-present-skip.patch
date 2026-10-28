@@ -1,0 +1,104 @@
+--- a/include/aurora/aurora.h
++++ b/include/aurora/aurora.h
+@@ -146,6 +146,11 @@
+ 
+ AuroraBackend aurora_get_backend();
+ const AuroraBackend* aurora_get_available_backends(size_t* count);
++// While set, the frames begun are not shown: aurora_end_frame submits their texture uploads and palette conversions but
++// no vertex/uniform copies, render passes or EFB copies, and doesn't present, so the GPU is nearly idle. For runs
++// nobody watches (partyboard's --turbo). An aurora_capture_frame due on a skipped frame is lost (its delay counts every
++// frame begun): leave it off while capturing.
++void aurora_set_present_skip(bool skip);
+ 
+ #ifdef __cplusplus
+ }
+--- a/lib/gfx/common.cpp
++++ b/lib/gfx/common.cpp
+@@ -231,6 +231,8 @@
+   AuroraStats stats{};
+   uint32_t drawCallCount = 0;
+   uint32_t mergedDrawCallCount = 0;
++  // aurora_set_present_skip: uploads only, no draws, no present.
++  bool skipDraws = false;
+ };
+ 
+ static std::array<FramePacket, FrameSlotCount> g_framePackets;
+@@ -240,6 +242,8 @@
+ static render_worker::FrameSlotPool g_frameSlots{FrameSlotCount};
+ static render_worker::FrameSlotPool g_stagingSlots{StagingBufferCount};
+ static u32 g_currentRenderPass = UINT32_MAX;
++// aurora_set_present_skip (main thread): the frames begun skip their draws (FramePacket::skipDraws).
++static bool g_presentSkip = false;
+ static bool g_inOffscreen = false;
+ static std::optional<RenderPass> g_suspendedEfbPass;
+ static Viewport g_suspendedEfbViewport;
+@@ -1077,6 +1081,7 @@
+ 
+   auto& frame = g_framePackets[frameSlot];
+   frame = {};
++  frame.skipDraws = g_presentSkip;
+   frame.frameId = g_nextFrameId++;
+   frame.frameIndex = g_frameIndex;
+   frame.stagingBuffer = *stagingSlot;
+@@ -1154,6 +1159,15 @@
+   ASSERT(!g_inOffscreen, "end_frame called while offscreen rendering is active");
+   ASSERT(g_currentRenderPass == UINT32_MAX, "end_frame called before finish finalized the current render pass");
+   auto& frame = current_frame_packet();
++  if (frame.skipDraws) {
++    // aurora_set_present_skip: submit the uploads, no present (nor the caller's present work).
++    callback = [](wgpu::CommandEncoder& encoder) {
++      const wgpu::CommandBufferDescriptor cmdBufDescriptor{.label = "Skipped frame uploads"};
++      const auto buffer = encoder.Finish(&cmdBufDescriptor);
++      g_queue.Submit(1, &buffer);
++      after_submit();
++    };
++  }
+   frame.stats.drawCallCount = g_drawCallCount;
+   frame.stats.mergedDrawCallCount = g_mergedDrawCallCount;
+   frame.stats.lastVertSize = frame.verts.size();
+@@ -1269,6 +1283,8 @@
+   copied = highWater;
+ }
+ 
++static void copy_texture_uploads(wgpu::CommandEncoder& cmd, FramePacket& frame, const FrameOp& op);
++
+ static void copy_staging_to_high_water(wgpu::CommandEncoder& cmd, FramePacket& frame, const FrameOp& op) {
+   const auto& highWater = op.highWater;
+   copy_staging_buffer_range(cmd, frame, frame.copied.verts, highWater.verts, VertexStagingOffset, g_vertexBuffer);
+@@ -1276,7 +1292,12 @@
+                             g_uniformBuffer);
+   copy_staging_buffer_range(cmd, frame, frame.copied.indices, highWater.indices, IndexStagingOffset, g_indexBuffer);
+   copy_staging_buffer_range(cmd, frame, frame.copied.storage, highWater.storage, StorageStagingOffset, g_storageBuffer);
++  copy_texture_uploads(cmd, frame, op);
++}
+ 
++// The op's texture uploads not copied yet (a skipped frame copies only these: the other staging data is its draws').
++static void copy_texture_uploads(wgpu::CommandEncoder& cmd, FramePacket& frame, const FrameOp& op) {
++  const auto& highWater = op.highWater;
+   if constexpr (UseTextureBuffer) {
+     for (size_t i = frame.copied.textureUploadCount; i < op.textureUploads.size(); ++i) {
+       const auto& item = *op.textureUploads[i];
+@@ -1297,6 +1318,17 @@
+ }
+ 
+ static void encode_op(wgpu::CommandEncoder& cmd, FramePacket& frame, const FrameOp& op) {
++  if (frame.skipDraws) {
++    // Not shown: the texture uploads (a texture loaded on this frame is drawn on later ones) and palette conversions
++    // only.
++    copy_texture_uploads(cmd, frame, op);
++    if (op.type == FrameOpType::RenderPass && op.renderPass != nullptr && op.renderPass->sealed) {
++      for (const auto& conv : op.renderPass->paletteConvs) {
++        tex_palette_conv::run(cmd, conv);
++      }
++    }
++    return;
++  }
+   copy_staging_to_high_water(cmd, frame, op);
+   switch (op.type) {
+   case FrameOpType::RenderPass:
+@@ -1661,3 +1693,5 @@
+ }
+ 
+ const AuroraStats* aurora_get_stats() { return &aurora::gfx::g_stats; }
++
++extern "C" void aurora_set_present_skip(bool skip) { aurora::gfx::g_presentSkip = skip; }

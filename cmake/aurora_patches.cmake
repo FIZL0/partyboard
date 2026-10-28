@@ -33,6 +33,10 @@
 #   for the game's hold; aurora_begin_frame_always() begins a frame that can't be shown and aurora_end_frame drops it
 #   without a submit; aurora_end_frame with no frame begun drops the recorded GX instead of aborting ("No active frame
 #   packet": the iOS crash on Control Center and the Local Network prompt).
+# - 0011-turbo-present-skip (N120): aurora_set_present_skip(bool): while set, a frame's texture uploads and palette
+#   conversions are submitted but its vertex/uniform/index/storage copies, render passes and EFB copies aren't encoded
+#   and nothing is presented. All in gfx/common.cpp (begin_frame/end_frame of aurora.cpp are 0003's and 0010's hunks). partyboard's
+#   --turbo shows ~30 frames a second with it.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
