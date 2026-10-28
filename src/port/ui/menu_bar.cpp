@@ -6,6 +6,8 @@
 
 #include "achievements.hpp"
 #include "aurora/rmlui.hpp"
+#include "port/netplay.h"
+#include "port/pbnet.h"
 #include "port/settings.h"
 #include "imgui.h"
 #include "modal.hpp"
@@ -94,7 +96,7 @@ MenuBar::MenuBar()
         mTabBar->set_active_tab(-1);
         const auto dismiss = [](Modal &modal) { modal.pop(); };
         push(std::make_unique<Modal>(Modal::Props{
-            .title = "Quit Party Board",
+            .title = "Quit to Main Menu",
             .bodyRml = "Unsaved progress will be lost.",
             .actions =
                 {
@@ -112,7 +114,11 @@ MenuBar::MenuBar()
                             [dismiss](Modal& modal) {
                                 // mDoAud_seStartMenu(kSoundClick); // TODO PC
                                 dismiss(modal);
-                                // IsRunning = false; // TODO PC
+                                if (netplay_active()) {
+                                    pbnet_lobby_leave();  // as the hold modal's Leave Match
+                                } else {
+                                    netplay_match_quit_to_menu();
+                                }
                             },
                     },
                 },

@@ -966,6 +966,16 @@ BOOL netplay_match_leaving(void)
     return leave.on;
 }
 
+void netplay_match_quit_to_menu(void)
+{
+    /* bootDll (the title) has not set up the characters and windows that modeseldll needs; modeseldll is the menu. */
+    if (leave.on || omcurovl == DLL_bootdll || omcurovl == DLL_modeseldll) {
+        return;
+    }
+    OSReport("netplay: quit to the main menu\n");
+    netplay_match_leave();
+}
+
 /* A Room (net/src/lobby.rs) of the match for an online save when no lobby runs: --match debug runs. */
 int netplay_match_room_json(char *buf, int cap)
 {

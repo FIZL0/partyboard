@@ -187,6 +187,8 @@ BOOL netplay_match_results(void);
 void netplay_match_leave(void);
 void netplay_match_leave_poll(void);
 BOOL netplay_match_leaving(void);
+/* The menu bar's Quit, offline: back to modeseldll by netplay_match_leave's path (nothing from the title or the menu). */
+void netplay_match_quit_to_menu(void);
 /* TRUE once after an online match ended and its lobby went back to open (or closed meanwhile): show the lobby. Not
  * while the match's results still run here (netplay_match_results). */
 BOOL netplay_lobby_returned(void);
