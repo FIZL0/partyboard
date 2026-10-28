@@ -110,6 +110,9 @@ set(PORT_FILES
         src/port/netplay_still.c
         src/port/OS.c
         src/port/portmain.cpp
+        src/port/quick_continue.c
+        src/port/quick_continue_card.cpp
+        src/port/quick_continue_card.hpp
         src/port/settings.cpp
         src/port/stubs.c
         src/port/version.cpp

@@ -1,0 +1,33 @@
+--- src/port/ui/prelaunch.cpp	2026-10-28 18:18:06.976639929 -0400
++++ src/port/ui/prelaunch.cpp	2026-10-28 18:18:06.970560167 -0400
+@@ -654,6 +654,10 @@
+             if (entries.size() > 3) {
+                 entries.resize(3);
+             }
++            if (getenv("PB_N132_DUP") && !entries.empty()) {
++                entries.push_back(entries[0]);
++                entries.back().kind = QUICK_CONTINUE_STORY;
++            }
+             quick_continue_offer(!entries.empty());
+             for (const auto &entry : entries) {
+                 mMenuButtons.push_back(std::make_unique<Button>(menuList, "Continue"));
+@@ -827,6 +831,19 @@
+ void Prelaunch::update()
+ {
+     ensure_initialized();
++    // N132 test hook (not committed): PB_N132_PRESS=<i> logs the menu and presses button i at update 60.
++    if (static int t = 0; const char *press = getenv("PB_N132_PRESS")) {
++        if (++t == 60) {
++            for (size_t i = 0; i < mMenuButtons.size(); i++) {
++                PrelaunchLog.info("N132 button {}: {}", i, mMenuButtons[i]->root()->GetInnerRML());
++            }
++            const size_t i = static_cast<size_t>(atoi(press));
++            if (i < mMenuButtons.size()) {
++                PrelaunchLog.info("N132 pressing button {}", i);
++                mMenuButtons[i]->root()->DispatchEvent(Rml::EventId::Click, Rml::Dictionary());
++            }
++        }
++    }
+ 
+     if (top_document() == this) {
+         try_push_verification_modal(*this);

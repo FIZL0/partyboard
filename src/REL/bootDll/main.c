@@ -27,6 +27,7 @@
 #ifdef TARGET_PC
 #include "port/byteswap.h"
 #include "port/port_version.h"
+#include "port/quick_continue.h"
 #include "port/settings.h"
 #endif
 
@@ -182,6 +183,9 @@ void ObjectSetup(void)
      OSTick tick_prev;
      Process *curr = HuPrcCurrentGet();
 #ifdef TARGET_PC
+     if (omovlevtno == 0) {
+         QuickContinueHold();
+     }
      if (partyboard_version_is_pal()) {
          if(SystemInitF == FALSE) {
              GwLanguage = LanguageBootGet();
@@ -214,6 +218,18 @@ void ObjectSetup(void)
 #endif
 #endif
 #ifdef TARGET_PC
+     /* N132: Party Board menu > Continue goes straight into the game in progress (no title, file or mode select). */
+     if (omovlevtno == 0 && QuickContinueLoad()) {
+         for (i = 0; i < 4; i++) {
+             GWPlayerCfg[i].pad_idx = i;
+         }
+         BootInitForSkippedSequence();
+         QuickContinueStart();
+         HuPrcEnd();
+         do {
+             HuPrcVSleep();
+         } while (1);
+     }
      if (omovlevtno == 0 && partyboard_settings_skipBootSequence()) {
          for (i = 0; i < 4; i++) {
              GWPlayerCfg[i].pad_idx = i;

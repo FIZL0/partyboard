@@ -6,6 +6,7 @@
 #include "port/log_file.hpp"
 #include "../file_select.hpp"
 #include "../iso_validate.hpp"
+#include "../quick_continue_card.hpp"
 #include "port/main.h"
 #include "port/settings.h"
 #include "modal.hpp"
@@ -603,6 +604,30 @@ bool is_restart_pending() noexcept
     return false;
 }
 
+// N132: what a Continue button shows of its game: the board and turn, then who plays (story: the player alone).
+static std::string continue_detail(const QuickContinueEntry &entry)
+{
+    static constexpr std::array<const char *, 6> kBoards { "Toad's Midway Madness", "Goomba's Greedy Gala",
+        "Shy Guy's Jungle Jam", "Boo's Haunted Bash", "Koopa's Seaside Soiree", "Bowser's Gnarly Party" };
+    static constexpr std::array<const char *, 8> kCharacters { "Mario", "Luigi", "Peach", "Yoshi", "Wario",
+        "Donkey Kong", "Daisy", "Waluigi" };
+    const auto character = [](s32 c) { return c >= 0 && c < 8 ? kCharacters[c] : "?"; };
+    std::string text = entry.board >= 0 && entry.board < 6 ? kBoards[entry.board] : "Board";
+    text += fmt::format(", turn {}/{}", entry.turn, entry.max_turn);
+    if (entry.box >= 0) {
+        text += fmt::format(", file {}", entry.box + 1);
+    }
+    text += "\n";
+    if (entry.kind == QUICK_CONTINUE_STORY) {
+        text += character(entry.character[0]);
+    }
+    else {
+        text += fmt::format("{}, {}, {}, {}", character(entry.character[0]), character(entry.character[1]),
+            character(entry.character[2]), character(entry.character[3]));
+    }
+    return text;
+}
+
 void apply_intro_animation(Rml::Element *element, const char *delay_class)
 {
     if (element == nullptr || delay_class == nullptr) {
@@ -623,6 +648,34 @@ Prelaunch::Prelaunch()
     if (auto *menuList = mDocument->GetElementById("menu-list")) {
         auto &state = prelaunch_state();
         const bool activeDiscLoaded = !state.activeDiscPath.empty();
+        // N132: Continue first, one per game in progress (a small pick list), none when nothing is in progress.
+        if (activeDiscLoaded) {
+            auto entries = quick_continue::scan(state.activeDiscInfo.isPal);
+            if (entries.size() > 3) {
+                entries.resize(3);
+            }
+            quick_continue_offer(!entries.empty());
+            for (const auto &entry : entries) {
+                mMenuButtons.push_back(std::make_unique<Button>(menuList, "Continue"));
+                auto *root = mMenuButtons.back()->root();
+                root->SetClass("continue", true);
+                std::string detail = escape(continue_detail(entry));
+                for (size_t at; (at = detail.find('\n')) != std::string::npos;) {
+                    detail.replace(at, 1, "<br/>");
+                }
+                root->SetInnerRML(fmt::format("{}<span class=\"continue-detail\">{}</span>",
+                    entry.kind == QUICK_CONTINUE_STORY ? "Continue Story" : "Continue", detail));
+                mMenuButtons.back()->on_pressed([this, entry] {
+                    PrelaunchLog.info("Continue: {} in card file {}",
+                        entry.kind == QUICK_CONTINUE_STORY ? "story" : "party", entry.box);
+                    quick_continue_request(entry.kind, entry.box);
+                    mOnlineAfterDisc = false;
+                    launch_game();
+                });
+                apply_intro_animation(root, "delay-1");
+            }
+        }
+        mPlayButton = mMenuButtons.size();
         mMenuButtons.push_back(std::make_unique<Button>(menuList, activeDiscLoaded ? "Play" : "Select Disc Image"));
         mMenuButtons.back()->on_pressed([this] {
             if (prelaunch_state().activeDiscPath.empty()) {
@@ -800,8 +853,8 @@ void Prelaunch::update()
         mEntranceAnimationStarted = true;
     }
 
-    if (!mMenuButtons.empty()) {
-        mMenuButtons[0]->set_text(activeDiscLoaded ? "Play" : "Select Disc Image");
+    if (mPlayButton < mMenuButtons.size()) {
+        mMenuButtons[mPlayButton]->set_text(activeDiscLoaded ? "Play" : "Select Disc Image");
     }
 
     const auto discStatusLabel = mDiscStatus->GetElementById("disc-status-label");

@@ -32,6 +32,7 @@ private:
     bool mEntranceAnimationStarted = false;
     bool mOnlineAfterDisc = false;
     bool mRestartSuppressed = false;
+    size_t mPlayButton = 0;
     std::vector<std::unique_ptr<Button>> mMenuButtons;
     Rml::Element *mRoot = nullptr;
     Rml::Element *mDiscStatus = nullptr;

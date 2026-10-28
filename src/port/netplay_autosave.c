@@ -56,8 +56,9 @@ void netplay_party_autosave(void)
     }
     n = snprintf(json, sizeof(json),
         "{\n  \"format\": %d,\n  \"time\": %lld,\n  \"board\": %d,\n  \"turn\": %d,\n  \"max_turn\": %d,\n"
-        "  \"player\": %d,\n  \"blob\": \"",
-        AUTOSAVE_FORMAT, (long long)time(NULL), GWSystem.board, GWSystem.turn, GWSystem.max_turn, GWSystem.player_curr);
+        "  \"player\": %d,\n  \"box\": %d,\n  \"blob\": \"",
+        AUTOSAVE_FORMAT, (long long)time(NULL), GWSystem.board, GWSystem.turn, GWSystem.max_turn, GWSystem.player_curr,
+        SLSaveFlagGet() ? (int)curBoxNo : -1);
     if (n < 0 || (u32)n + 2 * size + 4 > sizeof(json)) {
         return;
     }
@@ -117,6 +118,19 @@ static u32 autosave_read(u8 *out, u32 cap)
             return 0;
         }
         out[size++] = (u8)(hi << 4 | lo);
+    }
+    return size;
+}
+
+/* N132: the autosave's blob (as autosave_read) and its card file ("box", -1: none or an autosave from before N132). */
+u32 netplay_party_autosave_peek(u8 *out, u32 cap, s32 *box)
+{
+    const char *p;
+    u32 size = autosave_read(out, cap);
+
+    *box = -1;
+    if (size != 0 && (p = strstr(json, "\"box\":")) != NULL) {
+        *box = (s32)strtol(p + 6, NULL, 10);
     }
     return size;
 }

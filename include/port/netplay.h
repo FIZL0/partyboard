@@ -247,6 +247,8 @@ BOOL netplay_turn_hooks(void);
 void netplay_party_autosave(void);
 void netplay_party_offer(void);
 void netplay_party_finish(void);
+/* N132: the autosave without offering it (Party Board menu > Continue): its blob, size 0 if none; *box its card file. */
+u32 netplay_party_autosave_peek(u8 *out, u32 cap, s32 *box);
 /* <dir>/<name> written whole to a temporary file, synced and renamed over it (src/port/netplay_dir.cpp); 1 if done. */
 int netplay_file_replace(const char *dir, const char *name, const void *data, u32 size);
 /* The file's bytes into buf (cap bytes): its size, -1 if it can't be read or is larger than cap. */

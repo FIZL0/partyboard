@@ -17,6 +17,9 @@
 
 GameStat GWGameStat; SystemState GWSystem; PlayerState GWPlayer[4]; PlayerConfig GWPlayerCfg[4];
 SaveBufAll saveBuf; s32 rnd_seed = 1; u32 boardRandSeed = 2;
+/* N132: the card file the autosave names ("box"), -1 without one. */
+u8 curBoxNo = 2; static s32 save_flag = 1;
+s32 SLSaveFlagGet(void) { return save_flag; }
 void OSReport(const char *fmt, ...) { va_list a; va_start(a, fmt); vprintf(fmt, a); va_end(a); }
 void autosave_test_set_dir(const char *d);
 
@@ -122,6 +125,19 @@ int main(void)
         json[fread(json, 1, sizeof(json) - 1, f)] = '\0';
         fclose(f);
         assert(strstr(json, "\"turn\": 4,") && strstr(json, "\"player\": 2,") && strstr(json, "\"format\": 1,"));
+        assert(strstr(json, "\"box\": 2,"));
+    }
+    /* N132: the launcher's peek reads the blob and the card file, and offers nothing. */
+    {
+        static u8 blob[NETPLAY_BLOB_MAX];
+        s32 box = 7;
+        GWGameStat.party_continue = 0;
+        assert(netplay_party_autosave_peek(blob, sizeof(blob), &box) == netplay_board_blob_size() && box == 2);
+        assert(GWGameStat.party_continue == 0 && memcmp(card, saveBuf.buf, sizeof(card)) == 0);
+        save_flag = 0;
+        netplay_turn_checkpoint();
+        assert(netplay_party_autosave_peek(blob, sizeof(blob), &box) != 0 && box == -1);
+        save_flag = 1;
     }
 
     /* Story mode and the tutorial board write nothing. */
