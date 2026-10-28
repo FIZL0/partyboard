@@ -1078,6 +1078,23 @@ EXPORTS
     omSetTra
     omSysPauseEnable
     omVibrate
+    pb_acos
+    pb_acosf
+    pb_asin
+    pb_asinf
+    pb_atan
+    pb_atan2
+    pb_atan2f
+    pb_atanf
+    pb_cos
+    pb_cosf
+    pb_exp
+    pb_log
+    pb_pow
+    pb_sin
+    pb_sinf
+    pb_tan
+    pb_tanf
     print8
     printWin
     rand8

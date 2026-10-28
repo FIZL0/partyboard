@@ -21,9 +21,9 @@ bdir=build/n91-fco
 flag=-fsanitize=float-cast-overflow
 if [ ! -f "$bdir/build.ninja" ]; then
     cmake --preset linux-default-relwithdebinfo -B "$bdir" -DCMAKE_C_FLAGS="$flag" \
-        -DCMAKE_SHARED_LINKER_FLAGS="$flag" -DCMAKE_EXE_LINKER_FLAGS="$flag" >/dev/null
+        -DCMAKE_SHARED_LINKER_FLAGS="$flag" -DCMAKE_EXE_LINKER_FLAGS="$flag" >/dev/null 2>&1
 fi
-cmake --build "$bdir" >/dev/null
+cmake --build "$bdir" >"$bdir/fco-build.log" 2>&1 || { tail -20 "$bdir/fco-build.log"; exit 1; }
 rm -rf "$out"
 mkdir -p "$out/xdg"
 out=$(cd "$out" && pwd)

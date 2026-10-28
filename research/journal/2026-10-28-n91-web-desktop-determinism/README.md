@@ -11,23 +11,33 @@ web build (wasm32, clang, musl) and the Linux build (x86_64, GCC, glibc) up to f
   and `match over` at 110988. glibc's and musl's sin/cos/atan2/sinf/... give the same bits on every argument this
   party passes, so the 10869 split had another cause.
 - **The cause:** a Linux build with GCC's `-fsanitize=float-cast-overflow` on all C (`tools/netplay/float_cast_check.sh`)
-  ran the same party and reported three sites, two of them in m415 at the frame the logs split:
+  ran the same party and reported four sites (GCC reports each source location once), two of them in m415 at the
+  frame the logs split:
   ```
   src/REL/m415Dll/main.c:1196:95: runtime error: -1.73719 is outside the range of representable values of type 'unsigned char'
   src/REL/m415Dll/main.c:1197:95: runtime error: -2 is outside the range of representable values of type 'unsigned char'
-  extern/aurora/include/dolphin/os/OSFastCast.h:15:1: ... type 'unsigned char'   (OSf32tou8, board fade alpha)
+  extern/aurora/include/dolphin/os/OSFastCast.h:15:1: runtime error: -1.33333 is outside ... 'unsigned char'   (OSf32tou8: board fade alpha)
+  src/game/hsfdraw.c:482:49: runtime error: 1424 is outside ... 'unsigned char'   (a material's ambient color)
   ```
-  m415 (the paint minigame) `fn_1_...` case 1, a COM painter picking its next cell: `temp_r28 = (u8)(((0.5f * (600 +
+  m415 (the paint minigame) `fn_1_4660` (a painter object), state `unk5D == 1`, a COM painter picking its next cell: `temp_r28 = (u8)(((0.5f * (600 +
   x)) - 150 * cell) / 50.0f)` goes negative when the painter stands left of/above its target block. Converting a
   negative float to `u8` is undefined in C. GCC on x86_64 does `cvttss2si` (to s32) and keeps the low byte: -1.7 ->
   -1 -> 255, the loop over `temp_r28 - 1 .. temp_r28 + 1` (254..256) finds no cell in 0..2, nothing happens. clang
   on wasm32 converts with `i32.trunc_sat_f32_u` (unsigned, saturating): -1.7 -> 0, the loop looks at cells 0 and 1,
-  and the painter's choice (and its `fn_1_679C` draws, m415's own generator, not one of the three hashed ones) differ:
-  another stroke, other paint counts, another winner (`GWPlayer[3].coin_win`, the first hashed difference at 10869).
+  and the painter's choice (and its `fn_1_679C` draws, m415's own generator, not one of the three hashed ones) differ.
+  From there the paint counts differ; the first hashed field to move is `plr3` at 10869 (by the code, most likely
+  `GWPlayer[].coin_win` set from the paint percentages at the end; not traced field by field).
+- **What each compiler emits** for `unsigned char f(float x) { return x; }` (-O2): GCC x86_64 `cvttss2sil` (signed),
+  NDK clang arm64 `fcvtzs` (signed), emcc wasm32 `i32.trunc_sat_f32_u` (unsigned, saturating). So for negatives only
+  wasm differs. For `unsigned int g(float)` GCC x86_64 does `cvttss2siq` (64-bit signed: -1 -> 0xFFFFFFFF), arm64
+  `fcvtzu` (saturating: -1 -> 0), wasm `i32.trunc_sat_f32_u` (0): there arm64 (Android, iOS) is the odd one out
+  with x86, not wasm. Values above the type's range but inside s32 (hsfdraw's 1424) wrap alike everywhere.
   The GameCube does what x86 does (`fctiwz` to s32, `stb` the low byte), so the desktop was the faithful one.
 - **Fix:** convert through `s32` first, `(u8)(s32)f`, which is defined and wraps the same on every platform (and on
-  the GC). m415 main.c's two lines, and aurora's `OSf32tou8`/`tos8`/`tou16`/`tos16` (patch 0009, they had the same
-  undefined `(u8)inF`; the board's fade filter hit it). The desktop's behaviour is unchanged (it already wrapped).
+  the GC). m415 main.c's two lines, aurora's `OSf32tou8`/`tos8`/`tou16`/`tos16` (patch 0009, they had the same
+  undefined `(u8)inF`; the board's fade filter hit it) and hsfdraw.c's ambient color (render state only, and the
+  same on every platform already, fixed so the check below reports nothing). The desktop's behaviour is unchanged (it
+  already wrapped): its hash log equals the old build's for all 135000 frames.
 
 ## libm anyway: one implementation for the game everywhere
 
