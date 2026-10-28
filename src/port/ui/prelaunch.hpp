@@ -14,13 +14,16 @@ namespace partyboard::ui {
 
 class Prelaunch : public Document {
 public:
-    Prelaunch();
+    // relaunch (N133): opened over the running game by the menu bar's Quit; the game is set up already.
+    explicit Prelaunch(bool relaunch = false);
 
     void show() override;
     void hide(bool close) override;
     void update() override;
     bool focus() override;
     bool visible() const override;
+    // The Play button, once a disc is loaded (the N133 relaunch test); false without one.
+    bool press_play();
 
 protected:
     bool handle_nav_command(Rml::Event &event, NavCommand cmd) override;
@@ -33,6 +36,8 @@ private:
     bool mOnlineAfterDisc = false;
     bool mRestartSuppressed = false;
     size_t mPlayButton = 0;
+    bool mRelaunch = false;
+    int mRelaunchCardFileType = 0;
     std::vector<std::unique_ptr<Button>> mMenuButtons;
     Rml::Element *mRoot = nullptr;
     Rml::Element *mDiscStatus = nullptr;

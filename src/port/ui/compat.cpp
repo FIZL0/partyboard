@@ -5,6 +5,7 @@
 
 #include <chrono>
 
+#include "menu_bar.hpp"
 #include "online.hpp"
 #include "ui.hpp"
 
@@ -42,6 +43,9 @@ void ui_update(void)
     if (netplay_lobby_returned()) {
         partyboard::ui::open_lobby_after_match();
     }
+#ifndef __EMSCRIPTEN__
+    partyboard::ui::relaunch_test_poll();
+#endif
     partyboard::ui::update();
 }
 

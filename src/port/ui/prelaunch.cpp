@@ -28,6 +28,9 @@
 #include <filesystem>
 #include <optional>
 #include <thread>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
 
 extern "C" {
 #include <game/card.h>
@@ -637,13 +640,18 @@ void apply_intro_animation(Rml::Element *element, const char *delay_class)
     element->SetClass(delay_class, true);
 }
 
-Prelaunch::Prelaunch()
+Prelaunch::Prelaunch(bool relaunch)
     : Document(kDocumentSource)
+    , mRelaunch(relaunch)
     , mRoot(mDocument->GetElementById("root"))
 {
     ensure_initialized();
 
-    HuPadInit();
+    // N133: a relaunch menu opens over the running game, whose pads are set up (HuPadInit waits for retraces).
+    if (!mRelaunch) {
+        HuPadInit();
+    }
+    mRelaunchCardFileType = getSettings().backend.cardFileType.getValue();
 
     if (auto *menuList = mDocument->GetElementById("menu-list")) {
         auto &state = prelaunch_state();
@@ -708,9 +716,12 @@ Prelaunch::Prelaunch()
         });
         apply_intro_animation(mMenuButtons.back()->root(), "delay-3");
 
+#if !(defined(__APPLE__) && TARGET_OS_IOS)
+        // N133: an iOS app does not quit itself; on Android the activity finishes once the game's main returns.
         mMenuButtons.push_back(std::make_unique<Button>(menuList, "Quit"));
         mMenuButtons.back()->on_pressed([] { PartyBoard_IsRunning = false; });
         apply_intro_animation(mMenuButtons.back()->root(), "delay-4");
+#endif
     }
 
     mDiscStatus = mDocument->GetElementById("disc-status");
@@ -754,10 +765,23 @@ void Prelaunch::launch_game()
     //     }
     // }
 
-    HuCardInit();
+    // N133: the running game's card is set up (a second CARD work area would leak), unless its file type changed.
+    if (!mRelaunch || getSettings().backend.cardFileType.getValue() != mRelaunchCardFileType) {
+        HuCardInit();
+    }
 
     PartyBoard_IsGameLaunched = true;
     hide(true);
+}
+
+bool Prelaunch::press_play()
+{
+    if (prelaunch_state().activeDiscPath.empty()) {
+        return false;
+    }
+    mOnlineAfterDisc = false;
+    launch_game();
+    return true;
 }
 
 void Prelaunch::launch_online()

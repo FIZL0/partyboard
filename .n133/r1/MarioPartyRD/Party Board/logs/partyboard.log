@@ -1,0 +1,1150 @@
+[error] [partyboard::main] No bundled initial pipeline cache found at '/home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/initial_pipeline_cache.db'
+[INFO | aurora] Aurora initializing
+[INFO | aurora::system_info] CPU model: AMD Ryzen 7 9800X3D 8-Core Processor
+[INFO | aurora::system_info] Memory: 31217 MiB
+[INFO | aurora::system_info] Architecture: x86_64
+[INFO | aurora::system_info] OS: Omarchy 
+[INFO | aurora::gpu] Creating WebGPU instance
+[INFO | aurora::gpu] Attempting to initialize Vulkan
+(lsfg-vk) [ERROR]: Failed to initialize global info:
+(lsfg-vk) [ERROR]: - Invalid profiles section in configuration
+Warning: loader_create_instance_chain: Failed to find 'vkGetInstanceProcAddr' in layer "liblsfg-vk-layer.so"
+WARNING: radv is not a conformant Vulkan implementation, testing use only.
+[INFO | aurora::gpu] Graphics adapter information
+  API: Vulkan
+  Device: AMD Radeon RX 9070 XT (RADV GFX1201) (DiscreteGPU)
+  Driver: radv: Mesa 26.2.5-arch1.1
+[INFO | aurora::gpu] Using limits:
+  maxTextureDimension1D: 32768
+  maxTextureDimension2D: 16384
+  maxTextureDimension3D: 16384
+  maxTextureArrayLayers: 8192
+  maxDynamicStorageBuffersPerPipelineLayout: 8
+  maxStorageBuffersPerShaderStage: 16
+  minUniformBufferOffsetAlignment: 64
+  minStorageBufferOffsetAlignment: 16
+Error: Loader Message: loader_create_device_chain: Failed to find 'vkGetInstanceProcAddr' in layer "liblsfg-vk-layer.so".  Skipping layer.
+[DEBUG | aurora::gpu::cache] SQLite version 3.54.0
+[DEBUG | aurora::gpu::cache] Using dawn cache at /home/ryha/repos/partyboard-slots/s1/.n133/r1/Party Board/dawn_cache.db
+[DEBUG | aurora::gpu::cache] SQLite cache init succeeded
+[INFO | aurora::gpu] Using surface format BGRA8Unorm, present mode Mailbox
+[INFO | aurora::gfx::pipeline_cache] No bundled initial pipeline cache found at '/home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/initial_pipeline_cache.db'
+[INFO | aurora] Using framebuffer size 2048x1536 scale 1.6
+[INFO | partyboard::log] Party Board UNKNOWN-VERSION (task/N133 86c4809c759871a7142029e1fc4e4fe66b193e1f, RelWithDebInfo build of Wed Oct 28 17:55:51 2026 -0400)
+[INFO | partyboard::log] Platform: Linux x86_64
+[INFO | partyboard::log] Device: ASUS System Product Name
+[INFO | partyboard::log] OS: Omarchy, Linux 7.2.8-9-omarchy x86_64
+[INFO | partyboard::log] User dir: /home/ryha/repos/partyboard-slots/s1/.n133/r1/MarioPartyRD/Party Board/
+[INFO | partyboard::log] Log file: /home/ryha/repos/partyboard-slots/s1/.n133/r1/MarioPartyRD/Party Board/logs/partyboard.log
+[INFO | partyboard::main] pbnet 0.1.0
+netplay: script /tmp/claude-1000/-home-ryha-repos-partyboard-slots-s1/141c1bee-4543-4b80-b9ea-df6166b2fd64/scratchpad/board.script: 3104 pad lines, seed 50424E54, end 14000
+netplay: session start, seed 50424E54
+[INFO | aurora::rmlui] Loaded font face 'Alegreya SC' [regular] from 'res/AlegreyaSC-Regular.ttf'.
+[INFO | aurora::rmlui] Loaded font face 'Alegreya SC' [bold] from 'res/AlegreyaSC-Bold.ttf'.
+[INFO | aurora::rmlui] Loaded font face 'Material Symbols Rounded' [regular] from 'res/MaterialSymbolsRounded-Regular.ttf'.
+[INFO | aurora::rmlui] Loaded font face 'N64 Party' [regular] from 'res/N64Party-Monochromatic.otf'.
+[INFO | aurora::rmlui] Loaded font face 'FOT-NewRodin Pro' [weight=600] from 'res/FOT-NewRodin Pro DB.otf'.
+[INFO | partyboard::main] Loading DVD image: /home/ryha/repos/partyboard/orig/GMPE01_01/GMPE01_01.ciso
+[INFO | partyboard::log] Disc id: GMPE01 (disc 0, version 1)
+[INFO | partyboard::config] Saving config to '/home/ryha/repos/partyboard-slots/s1/.n133/r1/MarioPartyRD/Party Board/config.json'
+[INFO | partyboard::version] Loaded game disc is GMPE01
+HuMem> left memory space 64319KB(65863584)
+[INFO | partyboard::audio] Audio output: 48000 Hz, 8 channels
+[DEBUG | aurora::ar] Initialized 0x1800000 bytes of ARAM!
+[INFO | aurora::card] CARD API Initialized BUILT <Oct 28 2026 14:23:59>
+OSDisableInterrupts is a stub
+OSRestoreInterrupts is a stub
+GXSetDrawSyncCallback is a stub
+DLL DBG OUT
+objman>Call New Ovl 1(1)
+VIGetNextField is a stub
+VI_FIELD_BELOW
+[INFO | aurora::input] Added controller 'Xbox 360 Controller' (instance 5, vid 045e, pid 028e, type 2)
+VISetBlack is a stub
+relaunch test: 4 steps
+++++++++++++++++++++ Start New OVL 1 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d4a190 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 008f5e80 cd 00 d4d4a050 d4d40010 00000000 d4d4a1d0 f6e9014f
+MCB:3(2/1) MEM:00900000(0000a180/008f5e80)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 00000000 b5602250 f6e93407
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 ffffff00 aa9fe050 cdcdcdcd
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:0000a180
+objman>Used Memory Cnt:2
+objman>Init esp
+objman>Call objectsetup
+DLLStart 1 0
+Search:bootDll.so
+objdll>Link DLL:bootDll.so
+objdll> bootDll.so prolog start
+******* Boot ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+objdll> bootDll.so prolog end
+objman>ObjectSetup end
+DLL DBG OUT
+Rest Memory 15fd520
+ARAM Trans 20
+Rest Memory 15dd000
+ARAM Trans 2ac0
+Rest Memory 15863e0
+ARAM Trans 25a80
+Rest Memory 15e4f20
+ARAM Trans 9f660
+Rest Memory 15b9560
+data num 74000b
+Rest Memory 12708a0
+0
+GroupSet 0
+***********GroupSet Error 0
+>>>>>>>>MSM_SE_SEL_01 0
+>>>>>>>>SE Num 0
+objman>Call New Ovl 74(1)
+OvlKill 1
+objdll>omDLLNumEnd 1 1
+Search:bootDll.so
++++++++++++ Find0: bootDll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:bootDll.so
+odjdll>Unlink DLL:bootDll.so
+objdll>End DLL finish
+objman>Destory ObjMan
+++++++++++++++++++++ Start New OVL 74 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d4cfd0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00002400 cd 00 d4d4a050 d4d4c590 ffffff00 d4d4a1d0 f6e908e3
+d4d4c590 00000120 a5 01 d4d4a190 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 008f3040 cd 00 d4d4cf70 d4d40010 ffffff00 d4d4d010 f6e908e3
+MCB:9(7/2) MEM:00900000(0000abc0/008f5440)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 ffffff00 b5602250 f6e8d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 10000000 aa9fe050 f6e603de
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:0000abc0
+objman>Used Memory Cnt:7
+objman>Init esp
+objman>Call objectsetup
+SOUND ##########################
+Change AUX 0,1
+##########################
+DLLStart 74 0
+Search:modeseldll.so
+objdll>Link DLL:modeseldll.so
+objdll> modeseldll.so prolog start
+******* MS ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+Rest Memory 15b9560
+objdll> modeseldll.so prolog end
+objman>ObjectSetup end
+DLL DBG OUT
+data num 630000
+Rest Memory 14c1cc0
+[ERROR | aurora::card] Failed to open file: MARIPA4BOX0
+[ERROR | aurora::card] Failed to open file: MARIPA4BOX0
+[ERROR | aurora::card] Failed to open file: MARIPA4BOX1
+[ERROR | aurora::card] Failed to open file: MARIPA4BOX2
+Init
+ARAM data num 86001f
+netplay: match start: board 0, 10 turns, bonus 1, teams 0
+netplay: match state set at frame 1500, entering board 0
+netplay: match start: killed 2 menu processes
+Rest Memory 1361020
+ARAM Trans ba700
+Rest Memory 1358600
+ARAM Trans 1f8360
+Rest Memory 136b280
+ARAM Trans 33e9e0
+Rest Memory 1345b00
+ARAM Trans 4723e0
+objman>Call New Ovl 89(1)
+OvlKill 1
+objman>Destory ObjMan
+objdll>omDLLNumEnd 74 1
+Search:modeseldll.so
++++++++++++ Find0: modeseldll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:modeseldll.so
+odjdll>Unlink DLL:modeseldll.so
+objdll>End DLL finish
+++++++++++++++++++++ Start New OVL 89 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d4cfd0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00002400 cd 00 d4d4a050 d4d4c590 ffffff00 d4d4a1d0 f6e8ca24
+d4d4c590 00000120 a5 01 d4d4a190 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 008f3040 cd 00 d4d4cf70 d4d40010 ffffff00 d4d4d010 f6e908e3
+MCB:9(7/2) MEM:00900000(0000abc0/008f5440)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 10000000 b5602250 f6e8d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 10000000 aa9fe050 f6e603de
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:0000abc0
+objman>Used Memory Cnt:7
+netplay: forgot 3 model slots' link tags
+netplay: heap 0: 7 used blocks, 43968 bytes, layout B3F0E8642D91001A
+netplay: heap 1: 1 used blocks, 1309760 bytes, layout 6AA421FEB596DA2C
+netplay: heap 2: 40 used blocks, 12800 bytes, layout F2D90104EAF2212B
+netplay: heap 3: 0 used blocks, 0 bytes, layout CBF29CE484222325
+netplay: heap 4: 0 used blocks, 0 bytes, layout CBF29CE484222325
+netplay: zeroed 146285600 free heap bytes
+netplay: board overlay 89 starts at frame 1501, turn 1/10, heaps BDDB26B214B20C84
+objman>Init esp
+objman>Call objectsetup
+############CharGrpSet
+Del Group OK
+SOUND ##########################
+0
+GroupSet 9
+***********GroupSet Error 0
+Change AUX 0,1
+##########################
+DLLStart 89 0
+Search:w01Dll.so
+objdll>Link DLL:w01Dll.so
+objdll> w01Dll.so prolog start
+objman>InitObjMan start
+objman>InitObjMan end
+objdll> w01Dll.so prolog end
+objman>ObjectSetup end
+DLL DBG OUT
+Rest Memory 155a780
+Rest Memory 1513ce0
+data num 5e0000
+Rest Memory 14fd240
+ARAM data num 120006
+data num 190000
+Rest Memory 1501e80
+data num 6c0000
+Rest Memory 14e21c0
+data num 890000
+Rest Memory 14f9c00
+data num 7001d
+Rest Memory 13cfee0
+data num 750000
+Rest Memory 1270ae0
+data num 50000
+Rest Memory 11b6c60
+data num 90000
+Rest Memory 11c2420
+relaunch test: step 0 quit in overlay 89
+netplay: quit to the prelaunch menu from overlay 89
+netplay: leaving the match from overlay 89
+netplay: match left: the board exits
+objman>Ovl Return 2=1(1)
+OvlKill 1
+objdll>omDLLNumEnd 89 1
+Search:w01Dll.so
++++++++++++ Find0: w01Dll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:w01Dll.so
+odjdll>Unlink DLL:w01Dll.so
+objdll>End DLL finish
+objman>Destory ObjMan
+++++++++++++++++++++ Start New OVL 74 (EVT:1 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d98ef0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00000aa0 cd 00 d4d4a050 d4d4ac30 ffffff00 d4d4a1d0 f6e908e3
+d4d4ac30 00000280 a5 01 d4d4a190 d4d4aeb0 ffffff00 d4d4ac70 f6e598df
+d4d4aeb0 00000280 a5 01 d4d4ac30 d4d4b130 ffffff00 d4d4aef0 f6e598df
+d4d4b130 00000fa0 a5 01 d4d4aeb0 d4d4c0d0 ffffff00 d4d4b170 f6e598df
+d4d4c0d0 000002e0 a5 01 d4d4b130 d4d4c3b0 ffffff00 d4d4c110 f6e598df
+d4d4c3b0 000001e0 cd 00 d4d4c0d0 d4d4c590 ffffff00 d4d4c3f0 f6e908e3
+d4d4c590 00000120 a5 01 d4d4c3b0 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 0003ee40 cd 00 d4d4cf70 d4d8be10 10000000 d4d4d010 f6e8d31c
+d4d8be10 00002120 a5 01 d4d4cfd0 d4d8df30 ffffff00 d4d8be50 f6e598df
+d4d8df30 000041e0 a5 01 d4d8be10 d4d92110 ffffff00 d4d8df70 f6e598df
+d4d92110 000041e0 a5 01 d4d8df30 d4d962f0 ffffff00 d4d92150 f6e598df
+d4d962f0 00002c00 a5 01 d4d92110 d4d98ef0 ffffff00 d4d96330 f6e598df
+d4d98ef0 008a7120 cd 00 d4d962f0 d4d40010 10000000 d4d98f30 f6e908e3
+MCB:19(15/4) MEM:00900000(00019420/008e6be0)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 10000000 b5602250 f6e8d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 ffffff00 aa9fe050 f6e603de
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:00019420
+objman>Used Memory Cnt:15
+objman>Init esp
+objman>Call objectsetup
+SOUND ##########################
+0
+GroupSet 0
+***********GroupSet Error 0
+##########################
+DLLStart 74 0
+Search:modeseldll.so
+objdll>Link DLL:modeseldll.so
+objdll> modeseldll.so prolog start
+******* MS ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+Rest Memory 15b9560
+objdll> modeseldll.so prolog end
+objman>ObjectSetup end
+netplay: match left: back in modeseldll
+DLL DBG OUT
+data num 630000
+Rest Memory 14c1cc0
+netplay: reboot: overlay 74, killed 2 of its processes
+OvlKill 1
+objman>Destory ObjMan
+objdll>omDLLNumEnd 74 1
+Search:modeseldll.so
++++++++++++ Find0: modeseldll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:modeseldll.so
+odjdll>Unlink DLL:modeseldll.so
+objdll>End DLL finish
+++++++++++++++++++++ Start New OVL 1 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d98ef0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00000aa0 cd 00 d4d4a050 d4d4ac30 ffffff00 d4d4a1d0 f6e8ca24
+d4d4ac30 00000280 a5 01 d4d4a190 d4d4aeb0 ffffff00 d4d4ac70 f6e598df
+d4d4aeb0 00000280 a5 01 d4d4ac30 d4d4b130 ffffff00 d4d4aef0 f6e598df
+d4d4b130 00000fa0 a5 01 d4d4aeb0 d4d4c0d0 ffffff00 d4d4b170 f6e598df
+d4d4c0d0 000002e0 a5 01 d4d4b130 d4d4c3b0 ffffff00 d4d4c110 f6e598df
+d4d4c3b0 000001e0 cd 00 d4d4c0d0 d4d4c590 ffffff00 d4d4c3f0 f6e908e3
+d4d4c590 00000120 a5 01 d4d4c3b0 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 0003ee40 cd 00 d4d4cf70 d4d8be10 10000000 d4d4d010 f6e908e3
+d4d8be10 00002120 a5 01 d4d4cfd0 d4d8df30 ffffff00 d4d8be50 f6e598df
+d4d8df30 000041e0 a5 01 d4d8be10 d4d92110 ffffff00 d4d8df70 f6e598df
+d4d92110 000041e0 a5 01 d4d8df30 d4d962f0 ffffff00 d4d92150 f6e598df
+d4d962f0 00002c00 a5 01 d4d92110 d4d98ef0 ffffff00 d4d96330 f6e598df
+d4d98ef0 008a7120 cd 00 d4d962f0 d4d40010 10000000 d4d98f30 f6e908e3
+MCB:19(15/4) MEM:00900000(00019420/008e6be0)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 10000000 b5602250 f6e8d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 10000000 aa9fe050 f6e603de
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:00019420
+objman>Used Memory Cnt:15
+objman>Init esp
+objman>Call objectsetup
+DLLStart 1 0
+Search:bootDll.so
+objdll>Link DLL:bootDll.so
+objdll> bootDll.so prolog start
+******* Boot ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+objdll> bootDll.so prolog end
+objman>ObjectSetup end
+netplay: reboot: bootDll runs
+DLL DBG OUT
+relaunch test: step 1 play in overlay 1
+>>>>>>>>MSM_SE_SEL_01 0
+>>>>>>>>SE Num 0
+objman>Call New Ovl 74(1)
+OvlKill 1
+objdll>omDLLNumEnd 1 1
+Search:bootDll.so
++++++++++++ Find0: bootDll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:bootDll.so
+odjdll>Unlink DLL:bootDll.so
+objdll>End DLL finish
+objman>Destory ObjMan
+++++++++++++++++++++ Start New OVL 74 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d98ef0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00000aa0 cd 00 d4d4a050 d4d4ac30 ffffff00 d4d4a1d0 f6e908e3
+d4d4ac30 00000280 a5 01 d4d4a190 d4d4aeb0 ffffff00 d4d4ac70 f6e598df
+d4d4aeb0 00000280 a5 01 d4d4ac30 d4d4b130 ffffff00 d4d4aef0 f6e598df
+d4d4b130 00000fa0 a5 01 d4d4aeb0 d4d4c0d0 ffffff00 d4d4b170 f6e598df
+d4d4c0d0 000002e0 a5 01 d4d4b130 d4d4c3b0 ffffff00 d4d4c110 f6e598df
+d4d4c3b0 000001e0 cd 00 d4d4c0d0 d4d4c590 ffffff00 d4d4c3f0 f6e908e3
+d4d4c590 00000120 a5 01 d4d4c3b0 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 0003ee40 cd 00 d4d4cf70 d4d8be10 10000000 d4d4d010 f6e8d31c
+d4d8be10 00002120 a5 01 d4d4cfd0 d4d8df30 ffffff00 d4d8be50 f6e598df
+d4d8df30 000041e0 a5 01 d4d8be10 d4d92110 ffffff00 d4d8df70 f6e598df
+d4d92110 000041e0 a5 01 d4d8df30 d4d962f0 ffffff00 d4d92150 f6e598df
+d4d962f0 00002c00 a5 01 d4d92110 d4d98ef0 ffffff00 d4d96330 f6e598df
+d4d98ef0 008a7120 cd 00 d4d962f0 d4d40010 10000000 d4d98f30 f6e908e3
+MCB:19(15/4) MEM:00900000(00019420/008e6be0)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 ffffff00 b5602250 f6e93ade
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 ffffff00 aa9fe050 f543722c
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:00019420
+objman>Used Memory Cnt:15
+objman>Init esp
+objman>Call objectsetup
+SOUND ##########################
+##########################
+DLLStart 74 0
+Search:modeseldll.so
+objdll>Link DLL:modeseldll.so
+objdll> modeseldll.so prolog start
+******* MS ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+Rest Memory 15b9560
+objdll> modeseldll.so prolog end
+objman>ObjectSetup end
+DLL DBG OUT
+data num 630000
+Rest Memory 14c1cc0
+[ERROR | aurora::card] Failed to open file: MARIPA4BOX1
+[ERROR | aurora::card] Failed to open file: MARIPA4BOX2
+Init
+relaunch test: step 2 quit in overlay 74
+netplay: quit to the prelaunch menu from overlay 74
+netplay: reboot: overlay 74, killed 2 of its processes
+OvlKill 1
+objman>Destory ObjMan
+objdll>omDLLNumEnd 74 1
+Search:modeseldll.so
++++++++++++ Find0: modeseldll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:modeseldll.so
+odjdll>Unlink DLL:modeseldll.so
+objdll>End DLL finish
+++++++++++++++++++++ Start New OVL 1 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d98ef0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00000aa0 cd 00 d4d4a050 d4d4ac30 ffffff00 d4d4a1d0 f6e8ca24
+d4d4ac30 00000280 a5 01 d4d4a190 d4d4aeb0 ffffff00 d4d4ac70 f6e598df
+d4d4aeb0 00000280 a5 01 d4d4ac30 d4d4b130 ffffff00 d4d4aef0 f6e598df
+d4d4b130 00000fa0 a5 01 d4d4aeb0 d4d4c0d0 ffffff00 d4d4b170 f6e598df
+d4d4c0d0 000002e0 a5 01 d4d4b130 d4d4c3b0 ffffff00 d4d4c110 f6e598df
+d4d4c3b0 000001e0 cd 00 d4d4c0d0 d4d4c590 ffffff00 d4d4c3f0 f6e908e3
+d4d4c590 00000120 a5 01 d4d4c3b0 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 0003ee40 cd 00 d4d4cf70 d4d8be10 10000000 d4d4d010 f6e908e3
+d4d8be10 00002120 a5 01 d4d4cfd0 d4d8df30 ffffff00 d4d8be50 f6e598df
+d4d8df30 000041e0 a5 01 d4d8be10 d4d92110 ffffff00 d4d8df70 f6e598df
+d4d92110 000041e0 a5 01 d4d8df30 d4d962f0 ffffff00 d4d92150 f6e598df
+d4d962f0 00002c00 a5 01 d4d92110 d4d98ef0 ffffff00 d4d96330 f6e598df
+d4d98ef0 008a7120 cd 00 d4d962f0 d4d40010 10000000 d4d98f30 f6e908e3
+MCB:19(15/4) MEM:00900000(00019420/008e6be0)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 10000000 b5602250 f6e8d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 10000000 aa9fe050 f6e603de
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:00019420
+objman>Used Memory Cnt:15
+objman>Init esp
+objman>Call objectsetup
+DLLStart 1 0
+Search:bootDll.so
+objdll>Link DLL:bootDll.so
+objdll> bootDll.so prolog start
+******* Boot ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+objdll> bootDll.so prolog end
+objman>ObjectSetup end
+netplay: reboot: bootDll runs
+DLL DBG OUT
+relaunch test: step 3 play in overlay 1
+>>>>>>>>MSM_SE_SEL_01 0
+>>>>>>>>SE Num 0
+objman>Call New Ovl 74(1)
+OvlKill 1
+objdll>omDLLNumEnd 1 1
+Search:bootDll.so
++++++++++++ Find0: bootDll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:bootDll.so
+odjdll>Unlink DLL:bootDll.so
+objdll>End DLL finish
+objman>Destory ObjMan
+++++++++++++++++++++ Start New OVL 74 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d98ef0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00000aa0 cd 00 d4d4a050 d4d4ac30 ffffff00 d4d4a1d0 f6e908e3
+d4d4ac30 00000280 a5 01 d4d4a190 d4d4aeb0 ffffff00 d4d4ac70 f6e598df
+d4d4aeb0 00000280 a5 01 d4d4ac30 d4d4b130 ffffff00 d4d4aef0 f6e598df
+d4d4b130 00000fa0 a5 01 d4d4aeb0 d4d4c0d0 ffffff00 d4d4b170 f6e598df
+d4d4c0d0 000002e0 a5 01 d4d4b130 d4d4c3b0 ffffff00 d4d4c110 f6e598df
+d4d4c3b0 000001e0 cd 00 d4d4c0d0 d4d4c590 ffffff00 d4d4c3f0 f6e908e3
+d4d4c590 00000120 a5 01 d4d4c3b0 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 0003ee40 cd 00 d4d4cf70 d4d8be10 10000000 d4d4d010 f6e8d31c
+d4d8be10 00002120 a5 01 d4d4cfd0 d4d8df30 ffffff00 d4d8be50 f6e598df
+d4d8df30 000041e0 a5 01 d4d8be10 d4d92110 ffffff00 d4d8df70 f6e598df
+d4d92110 000041e0 a5 01 d4d8df30 d4d962f0 ffffff00 d4d92150 f6e598df
+d4d962f0 00002c00 a5 01 d4d92110 d4d98ef0 ffffff00 d4d96330 f6e598df
+d4d98ef0 008a7120 cd 00 d4d962f0 d4d40010 10000000 d4d98f30 f6e908e3
+MCB:19(15/4) MEM:00900000(00019420/008e6be0)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 ffffff00 b5602250 f6e93ade
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 ffffff00 aa9fe050 f543722c
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:00019420
+objman>Used Memory Cnt:15
+objman>Init esp
+objman>Call objectsetup
+SOUND ##########################
+##########################
+DLLStart 74 0
+Search:modeseldll.so
+objdll>Link DLL:modeseldll.so
+objdll> modeseldll.so prolog start
+******* MS ObjectSetup *********
+objman>InitObjMan start
+objman>InitObjMan end
+Rest Memory 15b9560
+objdll> modeseldll.so prolog end
+objman>ObjectSetup end
+DLL DBG OUT
+data num 630000
+Rest Memory 14c1cc0
+[ERROR | aurora::card] Failed to open file: MARIPA4BOX1
+[ERROR | aurora::card] Failed to open file: MARIPA4BOX2
+Init
+objman>Call New Ovl 70(1)
+OvlKill 1
+objdll>omDLLNumEnd 74 1
+Search:modeseldll.so
++++++++++++ Find0: modeseldll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:modeseldll.so
+odjdll>Unlink DLL:modeseldll.so
+objdll>End DLL finish
+objman>Destory ObjMan
+++++++++++++++++++++ Start New OVL 70 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d98ef0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00000aa0 cd 00 d4d4a050 d4d4ac30 ffffff00 d4d4a1d0 f6e908e3
+d4d4ac30 00000280 a5 01 d4d4a190 d4d4aeb0 ffffff00 d4d4ac70 f6e598df
+d4d4aeb0 00000280 a5 01 d4d4ac30 d4d4b130 ffffff00 d4d4aef0 f6e598df
+d4d4b130 00000fa0 a5 01 d4d4aeb0 d4d4c0d0 ffffff00 d4d4b170 f6e598df
+d4d4c0d0 000002e0 a5 01 d4d4b130 d4d4c3b0 ffffff00 d4d4c110 f6e598df
+d4d4c3b0 000001e0 cd 00 d4d4c0d0 d4d4c590 ffffff00 d4d4c3f0 f6e908e3
+d4d4c590 00000120 a5 01 d4d4c3b0 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 0003ee40 cd 00 d4d4cf70 d4d8be10 10000000 d4d4d010 f6e8d31c
+d4d8be10 00002120 a5 01 d4d4cfd0 d4d8df30 ffffff00 d4d8be50 f6e598df
+d4d8df30 000041e0 a5 01 d4d8be10 d4d92110 ffffff00 d4d8df70 f6e598df
+d4d92110 000041e0 a5 01 d4d8df30 d4d962f0 ffffff00 d4d92150 f6e598df
+d4d962f0 00002c00 a5 01 d4d92110 d4d98ef0 ffffff00 d4d96330 f6e598df
+d4d98ef0 008a7120 cd 00 d4d962f0 d4d40010 10000000 d4d98f30 f6e908e3
+MCB:19(15/4) MEM:00900000(00019420/008e6be0)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 10000000 b5602250 f6e8d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 01600000 cd 00 aa9fe010 aa9fe010 10000000 aa9fe050 f6e603de
+MCB:1(0/1) MEM:01600000(00000000/01600000)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:00019420
+objman>Used Memory Cnt:15
+objman>Init esp
+objman>Call objectsetup
+DLLStart 70 0
+Search:mentDll.so
+objdll>Link DLL:mentDll.so
+objdll> mentDll.so prolog start
+objman>InitObjMan start
+objman>InitObjMan end
+Rest Memory 15b9560
+1
+GroupSet 7
+***********GroupSet Error 0
+objdll> mentDll.so prolog end
+objman>ObjectSetup end
+DLL DBG OUT
+data num 600008
+Rest Memory 122d6a0
+ARAM data num 120006
+########### ME_MainProcFunc000
+Rest Memory 1475760
+Rest Memory 14a0c00
+Rest Memory 1362f60
+ARAM Trans 244f60
+Rest Memory 135a540
+ARAM Trans 382bc0
+Rest Memory 136d1c0
+ARAM Trans 4c9240
+Rest Memory 1347a40
+ARAM Trans 5fcc40
+objman>Call New Ovl 89(1)
+OvlKill 1
+objdll>omDLLNumEnd 70 1
+Search:mentDll.so
++++++++++++ Find0: mentDll.so
+objdll>omDLLEnd 0 1
+objdll>End DLL:mentDll.so
+odjdll>Unlink DLL:mentDll.so
+objdll>End DLL finish
+objman>Destory ObjMan
+++++++++++++++++++++ Start New OVL 89 (EVT:0 STAT:0x00000000) ++++++++++++++++++
+======== HuMem heap dump d4d40010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+d4d40010 0000a040 a5 01 d4d98ef0 d4d4a050 ffffff00 d4d40050 f6e591ff
+d4d4a050 00000140 a5 01 d4d40010 d4d4a190 ffffff00 d4d4a090 f6e9014f
+d4d4a190 00000aa0 cd 00 d4d4a050 d4d4ac30 ffffff00 d4d4a1d0 f6e908e3
+d4d4ac30 00000280 a5 01 d4d4a190 d4d4aeb0 ffffff00 d4d4ac70 f6e598df
+d4d4aeb0 00000280 a5 01 d4d4ac30 d4d4b130 ffffff00 d4d4aef0 f6e598df
+d4d4b130 00000fa0 a5 01 d4d4aeb0 d4d4c0d0 ffffff00 d4d4b170 f6e598df
+d4d4c0d0 000002e0 a5 01 d4d4b130 d4d4c3b0 ffffff00 d4d4c110 f6e598df
+d4d4c3b0 000001e0 cd 00 d4d4c0d0 d4d4c590 ffffff00 d4d4c3f0 f6e908e3
+d4d4c590 00000120 a5 01 d4d4c3b0 d4d4c6b0 ffffff00 d4d4c5d0 f6e8695b
+d4d4c6b0 00000420 a5 01 d4d4c590 d4d4cad0 ffffff00 d4d4c6f0 f6e869db
+d4d4cad0 00000420 a5 01 d4d4c6b0 d4d4cef0 ffffff00 d4d4cb10 f6e86a3b
+d4d4cef0 00000080 a5 01 d4d4cad0 d4d4cf70 ffffff00 d4d4cf30 f6e86a9b
+d4d4cf70 00000060 a5 01 d4d4cef0 d4d4cfd0 ffffff00 d4d4cfb0 f6e86b1b
+d4d4cfd0 0003ee40 cd 00 d4d4cf70 d4d8be10 10000000 d4d4d010 f6e908e3
+d4d8be10 00002120 a5 01 d4d4cfd0 d4d8df30 ffffff00 d4d8be50 f6e598df
+d4d8df30 000041e0 a5 01 d4d8be10 d4d92110 ffffff00 d4d8df70 f6e598df
+d4d92110 000041e0 a5 01 d4d8df30 d4d962f0 ffffff00 d4d92150 f6e598df
+d4d962f0 00002c00 a5 01 d4d92110 d4d98ef0 ffffff00 d4d96330 f6e598df
+d4d98ef0 008a7120 cd 00 d4d962f0 d4d40010 10000000 d4d98f30 f6e908e3
+MCB:19(15/4) MEM:00900000(00019420/008e6be0)
+======== HuMem heap dump d4d40010 end =====
+======== HuMem heap dump b55ff010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+b55ff010 00000080 a5 01 b5602210 b55ff090 ffffff00 b55ff050 f6e93319
+b55ff090 00000060 a5 01 b55ff010 b55ff0f0 ffffff00 b55ff0d0 f6e93348
+b55ff0f0 00000060 a5 01 b55ff090 b55ff150 ffffff00 b55ff130 f6e933a5
+b55ff150 000003c0 a5 01 b55ff0f0 b55ff510 ffffff00 b55ff190 f6e93407
+b55ff510 00000080 a5 01 b55ff150 b55ff590 ffffff00 b55ff550 f6e93319
+b55ff590 00000060 a5 01 b55ff510 b55ff5f0 ffffff00 b55ff5d0 f6e93348
+b55ff5f0 00000060 a5 01 b55ff590 b55ff650 ffffff00 b55ff630 f6e933a5
+b55ff650 000003c0 a5 01 b55ff5f0 b55ffa10 ffffff00 b55ff690 f6e93407
+b55ffa10 00000080 a5 01 b55ff650 b55ffa90 ffffff00 b55ffa50 f6e93319
+b55ffa90 00000060 a5 01 b55ffa10 b55ffaf0 ffffff00 b55ffad0 f6e93348
+b55ffaf0 00000060 a5 01 b55ffa90 b55ffb50 ffffff00 b55ffb30 f6e933a5
+b55ffb50 000003c0 a5 01 b55ffaf0 b55fff10 ffffff00 b55ffb90 f6e93407
+b55fff10 00000080 a5 01 b55ffb50 b55fff90 ffffff00 b55fff50 f6e93319
+b55fff90 00000060 a5 01 b55fff10 b55ffff0 ffffff00 b55fffd0 f6e93348
+b55ffff0 00000060 a5 01 b55fff90 b5600050 ffffff00 b5600030 f6e933a5
+b5600050 000003c0 a5 01 b55ffff0 b5600410 ffffff00 b5600090 f6e93407
+b5600410 00000080 a5 01 b5600050 b5600490 ffffff00 b5600450 f6e93319
+b5600490 00000060 a5 01 b5600410 b56004f0 ffffff00 b56004d0 f6e93348
+b56004f0 00000060 a5 01 b5600490 b5600550 ffffff00 b5600530 f6e933a5
+b5600550 000003c0 a5 01 b56004f0 b5600910 ffffff00 b5600590 f6e93407
+b5600910 00000080 a5 01 b5600550 b5600990 ffffff00 b5600950 f6e93319
+b5600990 00000060 a5 01 b5600910 b56009f0 ffffff00 b56009d0 f6e93348
+b56009f0 00000060 a5 01 b5600990 b5600a50 ffffff00 b5600a30 f6e933a5
+b5600a50 000003c0 a5 01 b56009f0 b5600e10 ffffff00 b5600a90 f6e93407
+b5600e10 00000080 a5 01 b5600a50 b5600e90 ffffff00 b5600e50 f6e93319
+b5600e90 00000060 a5 01 b5600e10 b5600ef0 ffffff00 b5600ed0 f6e93348
+b5600ef0 00000060 a5 01 b5600e90 b5600f50 ffffff00 b5600f30 f6e933a5
+b5600f50 000003c0 a5 01 b5600ef0 b5601310 ffffff00 b5600f90 f6e93407
+b5601310 00000080 a5 01 b5600f50 b5601390 ffffff00 b5601350 f6e93319
+b5601390 00000060 a5 01 b5601310 b56013f0 ffffff00 b56013d0 f6e93348
+b56013f0 00000060 a5 01 b5601390 b5601450 ffffff00 b5601430 f6e933a5
+b5601450 000003c0 a5 01 b56013f0 b5601810 ffffff00 b5601490 f6e93407
+b5601810 00000080 a5 01 b5601450 b5601890 ffffff00 b5601850 f6e93319
+b5601890 00000060 a5 01 b5601810 b56018f0 ffffff00 b56018d0 f6e93348
+b56018f0 00000060 a5 01 b5601890 b5601950 ffffff00 b5601930 f6e933a5
+b5601950 000003c0 a5 01 b56018f0 b5601d10 ffffff00 b5601990 f6e93407
+b5601d10 00000080 a5 01 b5601950 b5601d90 ffffff00 b5601d50 f6e93319
+b5601d90 00000060 a5 01 b5601d10 b5601df0 ffffff00 b5601dd0 f6e93348
+b5601df0 00000060 a5 01 b5601d90 b5601e50 ffffff00 b5601e30 f6e933a5
+b5601e50 000003c0 a5 01 b5601df0 b5602210 ffffff00 b5601e90 f6e93407
+b5602210 029fce00 cd 00 b5601e50 b55ff010 10000000 b5602250 f6e8d344
+MCB:41(40/1) MEM:02a00000(00003200/029fce00)
+======== HuMem heap dump b55ff010 end =====
+======== HuMem heap dump aa9fe010 ========
+MCB-----+Size----+MG+FL+Prev----+Next----+UNum----+Body----+Call----
+aa9fe010 0015f400 a5 01 aab5d410 aab5d410 ffffff00 aa9fe050 f6e61153
+aab5d410 014a0c00 cd 00 aa9fe010 aa9fe010 ffffff00 aab5d450 f6e603de
+MCB:2(1/1) MEM:01600000(0015f400/014a0c00)
+======== HuMem heap dump aa9fe010 end =====
+objman>Used Memory Size:00019420
+objman>Used Memory Cnt:15
+objman>Init esp
+objman>Call objectsetup
+SOUND ##########################
+0
+GroupSet 9
+***********GroupSet Error 0
+##########################
+DLLStart 89 0
+Search:w01Dll.so
+objdll>Link DLL:w01Dll.so
+objdll> w01Dll.so prolog start
+objman>InitObjMan start
+objman>InitObjMan end
+objdll> w01Dll.so prolog end
+objman>ObjectSetup end
+DLL DBG OUT
+Rest Memory 13fb380
+Rest Memory 13b48e0
+data num 5e0000
+Rest Memory 139de40
+ARAM data num 120006
+data num 190000
+Rest Memory 13a2a80
+data num 6c0000
+Rest Memory 1382dc0
+data num 890000
+Rest Memory 139a800
+ARAM data num 7001d
+data num 50000
+Rest Memory 11b6c60
+data num 90000
+Rest Memory 11c2420
+netplay: script ended at frame 14000, hash BCF80B7691E0D9C3
+OSResetSystem is a stub

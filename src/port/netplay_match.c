@@ -914,10 +914,89 @@ void netplay_match_leave(void)
     OSReport("netplay: leaving the match from overlay %d\n", (int)omcurovl);
 }
 
+/*
+ * N133: the menu bar's Quit goes back to the prelaunch menu, which the game boots under at launch: the game boots
+ * again (bootDll, event 0, a history of bootDll alone) under a new prelaunch menu. A match is left first (to
+ * modeseldll, as above; online, its lobby is left and netplay_end comes first), then the reboot goes from there.
+ * bootDll runs again with SystemInitF set (the windows, characters and sound group 0 are kept, as a reset to the
+ * title does); every overlay switch frees the overlay's processes, heaps and data, as this one does.
+ */
+static struct {
+    BOOL on;
+    BOOL switching; /* MatchRebootProc created */
+} reboot;
+
+static void MatchRebootProc(void)
+{
+    s32 killed;
+
+    match_pause_lift();
+    killed = HuPrcKillIf(overlay_process, (void *)function_module((void (*)(void))netplay_match_tick));
+    OSReport("netplay: reboot: overlay %d, killed %d of its processes\n", (int)omcurovl, (int)killed);
+    wipe_reset();
+    HuAudFXAllStop();
+    HuAudSeqAllFadeOut(500);
+    HuAudSStreamAllFadeOut(500);
+    omovlhisidx = 0;
+    omOvlHisChg(0, DLL_bootdll, 0, 0);
+    omOvlGotoEx(DLL_bootdll, 1, 0, 0);
+    HuPrcEnd();
+}
+
+static void reboot_poll(void)
+{
+    if (leave.on || netplay_lockstep() || omnextovl != DLL_NONE || omcurovl == DLL_NONE) {
+        /* The match is still being left, or an overlay switch is under way. */
+        return;
+    }
+    if (reboot.switching) {
+        if (omcurovl == DLL_bootdll) {
+            reboot.on = FALSE;
+            reboot.switching = FALSE;
+            OSReport("netplay: reboot: bootDll runs\n");
+        }
+        return;
+    }
+    if (HuPrcCreate(MatchRebootProc, 0xFFFF, 0x2000, 0) == NULL) {
+        OSReport("netplay: reboot: cannot create the reboot process\n");
+        return;
+    }
+    reboot.switching = TRUE;
+}
+
+void netplay_match_quit_to_launcher(void)
+{
+    if (reboot.on) {
+        return;
+    }
+    OSReport("netplay: quit to the prelaunch menu from overlay %d\n", (int)omcurovl);
+    memset(&reboot, 0, sizeof(reboot));
+    reboot.on = TRUE;
+    /* Online the match is left by its lobby (match_left, once the lockstep stops); the menus need no leaving. */
+    if (netplay_lockstep() || leave.on) {
+        return;
+    }
+    if (match.running) {
+        /* A --match debug party (a scripted session goes on, as match_left's) */
+        netplay_match_end();
+    }
+    if (omcurovl != DLL_bootdll && omcurovl != DLL_modeseldll) {
+        netplay_match_leave();
+    }
+}
+
+BOOL netplay_match_rebooting(void)
+{
+    return reboot.on;
+}
+
 void netplay_match_leave_poll(void)
 {
     BOOL board;
 
+    if (reboot.on) {
+        reboot_poll();
+    }
     if (!leave.on) {
         return;
     }

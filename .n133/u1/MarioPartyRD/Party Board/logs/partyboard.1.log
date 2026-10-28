@@ -1,0 +1,91 @@
+[error] [partyboard::main] No bundled initial pipeline cache found at '/home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/initial_pipeline_cache.db'
+[INFO | aurora] Aurora initializing
+[INFO | aurora::system_info] CPU model: AMD Ryzen 7 9800X3D 8-Core Processor
+[INFO | aurora::system_info] Memory: 31217 MiB
+[INFO | aurora::system_info] Architecture: x86_64
+[INFO | aurora::system_info] OS: Omarchy 
+[ERROR | aurora::window] Error initializing SDL: No available video device
+[FATAL | aurora] Error initializing window
+*** PartyBoard crashed: signal 6 (SIGABRT), code -6, sent by pid 2635882
+*** UNKNOWN-VERSION 86c4809c759871a7142029e1fc4e4fe66b193e1f RelWithDebInfo
+*** pc 0x7ffba109a11c lr 0x0 sp 0x7ffe6df83d10
+*** pc frame:
+  #0 0x7ffba109a11c libc.so.6+0x9a11c
+*** backtrace (13 frames, the first are the crash handler's):
+  #0 0x7ffba2ad03bf libdol.so+0x6d03bf
+  #1 0x7ffba103e6f0 libc.so.6+0x3e6f0
+  #2 0x7ffba109a11c libc.so.6+0x9a11c
+  #3 0x7ffba103e5d0 libc.so.6+0x3e5d0 (gsignal+0x20)
+  #4 0x7ffba1025685 libc.so.6+0x25685 (abort+0x26)
+  #5 0x7ffba2adfc92 libdol.so+0x6dfc92 (_Z19aurora_log_callback14AuroraLogLevelPKcS1_j+0x92)
+  #6 0x7ffba2b92d4c libdol.so+0x792d4c (_ZN6aurora12log_internalE14AuroraLogLevelPKcS2_j+0x3c)
+  #7 0x7ffba2ae2ba4 libdol.so+0x6e2ba4 (_ZN6aurora6Module5fatalIJEEEvN3fmt3v117fstringIJDpT_EE1tEDpOS5_+0x54)
+  #8 0x7ffba2b8ac98 libdol.so+0x78ac98 (aurora_initialize+0x438)
+  #9 0x7ffba2ae098e libdol.so+0x6e098e (port_main+0xaee)
+  #10 0x7ffba1027781 libc.so.6+0x27781
+  #11 0x7ffba10278b9 libc.so.6+0x278b9 (__libc_start_main+0x89)
+  #12 0x560f63f6d075 partyboard+0x1075
+*** loaded images (load base, path):
+  0x560f63f6c000 /home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/partyboard
+  0x7ffba5af0000 linux-vdso.so.1
+  0x7ffba2400000 /home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/libdol.so
+  0x7ffba5a73000 /usr/lib/libpng16.so.16
+  0x7ffba5a58000 /usr/lib/libz.so.1
+  0x7ffba2260000 /usr/lib/libsqlite3.so.0
+  0x7ffba5972000 /usr/lib/libzstd.so.1
+  0x7ffba217b000 /usr/lib/libfreetype.so.6
+  0x7ffba5965000 /usr/lib/libabsl_raw_hash_set.so.2608.0.0
+  0x7ffba594c000 /usr/lib/libabsl_cord.so.2608.0.0
+  0x7ffba5945000 /usr/lib/libabsl_cordz_info.so.2608.0.0
+  0x7ffba5936000 /usr/lib/libabsl_cord_internal.so.2608.0.0
+  0x7ffba5931000 /usr/lib/libabsl_cordz_functions.so.2608.0.0
+  0x7ffba592a000 /usr/lib/libabsl_cordz_handle.so.2608.0.0
+  0x7ffba5923000 /usr/lib/libabsl_crc_cord_state.so.2608.0.0
+  0x7ffba591d000 /usr/lib/libabsl_crc32c.so.2608.0.0
+  0x7ffba5917000 /usr/lib/libabsl_crc_internal.so.2608.0.0
+  0x7ffba5912000 /usr/lib/libabsl_base_cpu_detect.so.2608.0.0
+  0x7ffba215c000 /usr/lib/libabsl_str_format_internal.so.2608.0.0
+  0x7ffba590b000 /usr/lib/libabsl_hash.so.2608.0.0
+  0x7ffba5906000 /usr/lib/libabsl_city.so.2608.0.0
+  0x7ffba2156000 /usr/lib/libabsl_hashtablez_sampler.so.2608.0.0
+  0x7ffba2151000 /usr/lib/libabsl_exponential_biased.so.2608.0.0
+  0x7ffba213d000 /usr/lib/libabsl_synchronization.so.2608.0.0
+  0x7ffba2138000 /usr/lib/libabsl_stacktrace.so.2608.0.0
+  0x7ffba212f000 /usr/lib/libabsl_graphcycles_internal.so.2608.0.0
+  0x7ffba212a000 /usr/lib/libabsl_kernel_timeout_internal.so.2608.0.0
+  0x7ffba2116000 /usr/lib/libabsl_time.so.2608.0.0
+  0x7ffba210e000 /usr/lib/libabsl_civil_time.so.2608.0.0
+  0x7ffba20f1000 /usr/lib/libabsl_time_zone.so.2608.0.0
+  0x7ffba20e9000 /usr/lib/libabsl_symbolize.so.2608.0.0
+  0x7ffba20c3000 /usr/lib/libabsl_strings.so.2608.0.0
+  0x7ffba20bd000 /usr/lib/libabsl_strings_internal.so.2608.0.0
+  0x7ffba20b7000 /usr/lib/libabsl_throw_delegate.so.2608.0.0
+  0x7ffba20ae000 /usr/lib/libabsl_int128.so.2608.0.0
+  0x7ffba20a9000 /usr/lib/libabsl_source_location.so.2608.0.0
+  0x7ffba20a2000 /usr/lib/libabsl_debugging_internal.so.2608.0.0
+  0x7ffba209b000 /usr/lib/libabsl_malloc_internal.so.2608.0.0
+  0x7ffba208e000 /usr/lib/libabsl_demangle_internal.so.2608.0.0
+  0x7ffba2087000 /usr/lib/libabsl_demangle_rust.so.2608.0.0
+  0x7ffba2080000 /usr/lib/libabsl_decode_rust_punycode.so.2608.0.0
+  0x7ffba207b000 /usr/lib/libabsl_utf8_for_code_point.so.2608.0.0
+  0x7ffba2076000 /usr/lib/libabsl_tracing_internal.so.2608.0.0
+  0x7ffba2070000 /usr/lib/libabsl_base.so.2608.0.0
+  0x7ffba206b000 /usr/lib/libabsl_raw_logging_internal.so.2608.0.0
+  0x7ffba2064000 /usr/lib/libabsl_log_severity.so.2608.0.0
+  0x7ffba205f000 /usr/lib/libabsl_spinlock_wait.so.2608.0.0
+  0x7ffba205a000 /usr/lib/libabsl_hardening.so.2608.0.0
+  0x7ffba2034000 /home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/_deps/fmt-build/libfmt.so.11
+  0x7ffba1fd3000 /home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/librmlui_debugger.so
+  0x7ffba1c00000 /home/ryha/repos/partyboard-slots/s1/build/linux-default-relwithdebinfo/librmlui.so
+  0x7ffba1800000 /usr/lib/libSDL3.so.0
+  0x7ffba1400000 /usr/lib/libstdc++.so.6
+  0x7ffba12c9000 /usr/lib/libm.so.6
+  0x7ffba1fa4000 /usr/lib/libgcc_s.so.1
+  0x7ffba1000000 /usr/lib/libc.so.6
+  0x7ffba5af2000 /lib64/ld-linux-x86-64.so.2
+  0x7ffba1f8f000 /usr/lib/libbz2.so.1.0
+  0x7ffba1f80000 /usr/lib/libbrotlidec.so.1
+  0x7ffba1f5b000 /usr/lib/libbrotlicommon.so.1
+  0x7ffba1b84000 /usr/lib/libdbus-1.so.3
+  0x7ffba06b6000 /usr/lib/libsystemd.so.0
+*** end of crash report
