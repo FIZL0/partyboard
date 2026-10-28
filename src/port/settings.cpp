@@ -72,6 +72,7 @@ UserSettings g_userSettings = {
         .checkForUpdates {"backend.checkForUpdates", true},
         .cardFileType {"backend.cardFileType", static_cast<int>(CARD_RAWIMAGE)},
         .enableAdvancedSettings {"backend.enableAdvancedSettings", false},
+        .writeLogFile {"backend.writeLogFile", true},
     }
 };
 
@@ -126,6 +127,7 @@ void registerSettings() {
     Register(g_userSettings.backend.checkForUpdates);
     Register(g_userSettings.backend.cardFileType);
     Register(g_userSettings.backend.enableAdvancedSettings);
+    Register(g_userSettings.backend.writeLogFile);
 }
 
 }
