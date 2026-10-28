@@ -568,10 +568,17 @@ static void fnv_word(u64 *h, u64 v)
  * A block's num as the same value in every run. Some nums are host pointers: hsfman.c tags a model's blocks
  * with (uintptr_t)hsf, an address in a game heap, which moves with the host's ASLR from run to run
  * (research/journal/2026-10-27-n15-determinism-run). A num inside a heap becomes (heap, offset in it).
+ * N101: the game's constant tags are not addresses. In the browser's 32-bit memory MEMORY_DEFAULT_NUM (0x10000000)
+ * lies inside HEAP_MISC, whose address follows what the page allocated before it (a join link's code), so it became
+ * an offset that differed between peers.
  */
 static u64 heap_num(uintptr_t num)
 {
     s32 heap;
+    if (num == MEMORY_DEFAULT_NUM || num == 0x20000000) {
+        /* wipe.c tags its copy 0x20000000 */
+        return (u64)num;
+    }
     for (heap = 0; heap < HEAP_MAX; heap++) {
         uintptr_t base = (uintptr_t)HuMemHeapPtrGet((HeapID)heap);
         if (base != 0 && num >= base && num - base < HuMemHeapSizeGet((HeapID)heap)) {

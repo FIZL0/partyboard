@@ -1,0 +1,23 @@
+--- a/src/port/netplay_match.c
++++ b/src/port/netplay_match.c
+@@ heap_block
++static BOOL n101_dump;
+ static void heap_block(void *user, uintptr_t offset, s32 size, BOOL used, uintptr_t num, void *data, size_t data_size)
+ {
+     HeapWalk *w = user;
++    if (used && n101_dump) {
++        OSReport("n101 blk h%d off=%lx size=%x num=%llx\n", (int)w->heap, (unsigned long)offset, (unsigned)size,
++            (unsigned long long)heap_num(num));
++    }
+     if (used) {
+@@ netplay_heap_hash
+ u64 netplay_heap_hash(void)
+ {
+-    return heap_walk(FALSE, FALSE);
++    static int n101_done;
++    u64 h;
++    n101_dump = omcurovl > 3 && n101_done++ < 2;
++    h = heap_walk(FALSE, FALSE);
++    n101_dump = FALSE;
++    return h;
+ }
