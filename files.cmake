@@ -93,6 +93,7 @@ set(PORT_FILES
         src/port/config.cpp
         src/port/dolassets.cpp
         #        src/port/dvd.c
+        src/port/fast_menus.c
         src/port/file_select.cpp
         src/port/file_select.hpp
         src/port/imgui.cpp

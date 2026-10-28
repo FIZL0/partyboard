@@ -1,0 +1,47 @@
+diff --git i/src/game/objmain.c w/src/game/objmain.c
+index f85297a4..d7e81d03 100644
+--- i/src/game/objmain.c
++++ w/src/game/objmain.c
+@@ -91,6 +91,7 @@ static void omWatchOverlayProc(void)
+                     continue;
+                 }
+ #endif
++                { extern u32 GlobalCounter; OSReport("n131 mark ovl %d evt %d frame %u\n", omnextovl, omnextovlevtno, GlobalCounter); }
+                 OSReport("++++++++++++++++++++ Start New OVL %d (EVT:%d STAT:0x%08x) ++++++++++++++++++\n", omnextovl, omnextovlevtno, omnextovlstat);
+                 HuMemHeapDump(HuMemHeapPtrGet(HEAP_SYSTEM), -1);
+                 HuMemHeapDump(HuMemHeapPtrGet(HEAP_DATA), -1);
+diff --git i/src/game/window.c w/src/game/window.c
+index 86a33aeb..5ef9e0cd 100644
+--- i/src/game/window.c
++++ w/src/game/window.c
+@@ -1351,6 +1351,7 @@ void HuWinBGColSet(s16 window, GXColor *bg_color)
+ 
+ void HuWinMesSpeedSet(s16 window, s16 speed)
+ {
++{ extern u32 GlobalCounter; extern s32 omcurovl; OSReport("n131 mark %s ovl %d frame %u arg %d\n", "speed", omcurovl, GlobalCounter, speed); }
+     WindowData *window_ptr = &winData[window];
+ 
+     window_ptr->speed = speed;
+@@ -1396,6 +1397,7 @@ void HuWinMesRead(s32 mess_data_no)
+ 
+ void HuWinMesSet(s16 window, u32 mess)
+ {
++{ extern u32 GlobalCounter; extern s32 omcurovl; OSReport("n131 mark %s ovl %d frame %u arg %d\n", "mes", omcurovl, GlobalCounter, (int)mess); }
+     WindowData *window_ptr = &winData[window];
+ 
+     window_ptr->stat = 1;
+diff --git i/src/game/wipe.c w/src/game/wipe.c
+index 9ed4ffa3..2bf372f4 100644
+--- i/src/game/wipe.c
++++ w/src/game/wipe.c
+@@ -110,6 +110,7 @@ void WipeExecAlways(void)
+ 
+ void WipeCreate(s16 mode, s16 type, s16 duration)
+ {
++{ extern u32 GlobalCounter; extern s32 omcurovl; OSReport("n131 mark %s ovl %d frame %u arg %d\n", "wipe", omcurovl, GlobalCounter, mode*1000+duration); }
+ 	WipeState *wipe;
+ 	if(_CheckFlag(FLAG_ID_MAKE(1, 11)) && boardTutorialF) {
+ 		return;
+# and in src/game/main.c, after GlobalCounter++ (N131_SHOT=<dir>: a PNG every 15 frames; shots on unshown frames are lost):
+# 232:        { extern void aurora_capture_frame(const char *, unsigned); static const char *n131 = (const char *)-1; if (n131 == (const char *)-1) n131 = getenv("N131_SHOT");
+# 233:          if (n131 && GlobalCounter % 15 == 0) { char p[512]; snprintf(p, sizeof p, "%s/f%05u.png", n131, GlobalCounter); aurora_capture_frame(p, 0); } }

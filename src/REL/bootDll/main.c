@@ -28,6 +28,7 @@
 #include "port/byteswap.h"
 #include "port/port_version.h"
 #include "port/settings.h"
+#include "port/fast_menus.h"
 #endif
 
 #if defined(TARGET_PC) && defined(PB_FCO_BOOT)
@@ -170,6 +171,31 @@ void ObjectSetup(void)
      }
      initLanguageF = TRUE;
  }
+
+ /* N131: Fast Menus skips the logos on the first boot: their setup (and the 3 s waits around it) runs at once. */
+ static void BootInitForFastMenus(s16 group)
+ {
+     ANIMDATA *data;
+     s16 sprite_hudson;
+     void *group_samp;
+
+     CharInit();
+     HuWindowInit();
+     MGSeqInit();
+     HuWinInit(1);
+     BootTitleCreate();
+     data = HuSprAnimReadFile(TITLE_ANM_VER_ADJUSTED(TITLE_HUDSON_ANM));
+     sprite_hudson = HuSprCreate(data, 0, 0);
+     HuSprGrpMemberSet(group, 1, sprite_hudson);
+     HuSprPosSet(group, 1, 288, 240);
+     HuSprAttrSet(group, 1, HUSPR_ATTR_DISPOFF);
+     group_samp = HuMemDirectMalloc(HEAP_DATA, msmSysGetSampSize(0));
+     msmSysLoadGroup(0, group_samp, 0);
+     HuMemDirectFree(group_samp);
+     HuAudSndGrpSetSet(0);
+     SystemInitF = 1;
+     initLanguageF = TRUE;
+ }
 #endif
 
  void BootExec(void)
@@ -276,6 +302,12 @@ void ObjectSetup(void)
              HuWinInit(1);
          }
          #endif
+#ifdef TARGET_PC
+         if (!SystemInitF && port_fast_menus()) {
+             BootInitForFastMenus(group);
+             goto title;
+         }
+#endif
      repeat:
          HuSprAttrReset(group, 0, HUSPR_ATTR_DISPOFF);
          WipeCreate(WIPE_MODE_IN, WIPE_TYPE_NORMAL, 30);
@@ -429,6 +461,9 @@ void ObjectSetup(void)
          }
          skip_wait = FALSE;
      }
+#ifdef TARGET_PC
+ title:
+#endif
      if (!BootTitleExec()) {
          HuPrcSleep(60);
          goto repeat;
@@ -818,6 +853,13 @@ void ObjectSetup(void)
     if (partyboard_version_is_ntsc()) {
         HuSprAttrReset(bootGrpId, 3, HUSPR_ATTR_DISPOFF);
         for (i = 1; i <= 50; i++) {
+            /* N131: Fast Menus takes START or A during the logo's zoom too */
+            if (port_fast_menus() && (HuPadBtnDown[0] & (PAD_BUTTON_START | PAD_BUTTON_A))) {
+                HuSprScaleSet(bootGrpId, 3, 1.0f, 1.0f);
+                HuSprTPLvlSet(bootGrpId, 3, 1.0f);
+                HuAudFXPlay(2092);
+                return 1;
+            }
             scale = (cosd(i * 1.8) * 10.0) + 1.0;
             HuSprScaleSet(bootGrpId, 3, scale, scale);
             HuSprTPLvlSet(bootGrpId, 3, i / 50.0);
@@ -973,7 +1015,8 @@ void ObjectSetup(void)
              if (i <= 10) {
                  HuSprTPLvlSet(bootGrpId, 2, i / 10.0);
              }
-             if (HuPadBtnDown[0] & PAD_BUTTON_START) {
+             /* N131: Fast Menus takes A at the title as well */
+             if (HuPadBtnDown[0] & (port_fast_menus() ? (PAD_BUTTON_START | PAD_BUTTON_A) : PAD_BUTTON_START)) {
                  s32 ret = HuAudFXPlay(2092);
                  if (ret < 0) {
                      OSReport(">>>>>Error %d\n", ret);

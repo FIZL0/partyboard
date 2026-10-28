@@ -1122,6 +1122,7 @@ EXPORTS
     GetRelIncludeData
     OSGetLanguage
     partyboard_settings_skipBootSequence
+    port_fast_menus
     partyboard_settings_unlock_bowsers_gnarly_party
     partyboard_version_is_pal
     partyboard_version_is_ntsc

@@ -28,6 +28,7 @@ UserSettings g_userSettings = {
 
         // Quality of Life
         .enableQuickTransform {"game.enableQuickTransform", false},
+        .fastMenus {"game.fastMenus", true},
 
         // Preferences
         .pauseOnFocusLost {"game.pauseOnFocusLost", false},
@@ -102,6 +103,7 @@ void registerSettings() {
     // Game
     Register(g_userSettings.game.language);
     Register(g_userSettings.game.enableQuickTransform);
+    Register(g_userSettings.game.fastMenus);
     Register(g_userSettings.game.pauseOnFocusLost);
     Register(g_userSettings.game.internalResolutionScale);
     Register(g_userSettings.game.shadowResolutionMultiplier);
@@ -159,5 +161,10 @@ bool partyboard_settings_unlock_all_minigames(void)
 bool partyboard_settings_unlock_bowsers_gnarly_party(void)
 {
     return partyboard::getSettings().game.unlockBowsersGnarlyParty.getValue();
+}
+
+bool partyboard_settings_fastMenus(void)
+{
+    return partyboard::getSettings().game.fastMenus.getValue();
 }
 }
