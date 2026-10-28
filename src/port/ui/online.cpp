@@ -13,6 +13,10 @@
 #include "ui.hpp"
 
 #include <SDL3/SDL_clipboard.h>
+#ifdef __EMSCRIPTEN__
+// N92: src/port/web/web_clipboard.c (SDL has no clipboard in the browser)
+extern "C" void pb_web_copy(const char *text);
+#endif
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
@@ -70,6 +74,9 @@ namespace {
             return;
         }
         SDL_SetClipboardText(text.c_str());
+#ifdef __EMSCRIPTEN__
+        pb_web_copy(text.c_str());
+#endif
         push_toast({ .title = fmt::format("{} copied", what), .content = shorten(text, 24), .duration = std::chrono::seconds(2) });
     }
 
@@ -387,7 +394,11 @@ OnlineWindow::OnlineWindow()
                 }
             }
         }),
+#ifdef __EMSCRIPTEN__
+            "Use the code on the clipboard (in the browser: press Ctrl+V on the page first).");
+#else
             "Use the code on the clipboard.");
+#endif
         help(left, right, left.add_child<ActionButton>("Join Game", [this] { return mProfile.lastCode.empty(); }).on_pressed([this] { join(); }),
             "Join the lobby with this code.");
         left.finalize();
@@ -932,7 +943,7 @@ LobbyWindow::LobbyWindow()
             left.add_section("Invite");
             control(left.add_select_button({
                             .key = "Code",
-                            .getValue = [this] { return mView.shortCode.empty() ? Rml::String("...") : mView.shortCode; },
+                            .getValue = [this] { return mView.shortCode.empty() ? Rml::String("...") : shorten(mView.shortCode, 20); },
                             .submit = false,
                         })
                         .on_nav_command([this](Rml::Event &, NavCommand cmd) {
@@ -949,6 +960,7 @@ LobbyWindow::LobbyWindow()
                         pane.add_rml("<br/>" + escape(mView.error) + "<br/>Copy the long code instead.");
                     }
                 });
+#ifndef __EMSCRIPTEN__
             control(left.add_child<ActionButton>("Copy Long Code", [this] { return mView.code.empty(); }).on_pressed([this] {
                 copy_text(mView.code, "Long code");
             }),
@@ -956,7 +968,33 @@ LobbyWindow::LobbyWindow()
                     pane.add_rml("The long code works without the short-code service, for example on a network "
                                  "without internet.");
                 });
+#else
+            // N92: a browser's code is a WebRTC offer; the guest's answer comes back to be pasted here.
+            control(left.add_child<ActionButton>("Paste Answer", [this] { return mView.state != Open; }).on_pressed([this] {
+                paste_answer();
+            }),
+                [this](Pane &pane) {
+                    pane.add_rml("A friend who joins with your code gets an answer to send back to you. Copy it, press "
+                                 "Ctrl+V on this page, then press here to let them in. The code then changes: send the "
+                                 "new one to the next friend.");
+                    if (!mView.error.empty()) {
+                        pane.add_rml("<br/>" + escape(mView.error));
+                    }
+                });
+#endif
         }
+#ifdef __EMSCRIPTEN__
+        else {
+            left.add_section("Answer");
+            control(left.add_child<ActionButton>("Copy Answer", [this] { return mView.answer.empty(); }).on_pressed([this] {
+                copy_text(mView.answer, "Answer");
+            }),
+                [](Pane &pane) {
+                    pane.add_rml("Send this answer back to the host: they paste it in their lobby with "
+                                 "<b>Paste Answer</b>, and you are in. Press to copy it.");
+                });
+        }
+#endif
 
         left.add_section("Seats");
         for (int i = 0; i < kSeats; ++i) {
@@ -1207,6 +1245,26 @@ LobbyWindow::LobbyWindow()
     });
 }
 
+#ifdef __EMSCRIPTEN__
+void LobbyWindow::paste_answer()
+{
+    char *text = SDL_GetClipboardText();
+    const std::string answer = text != nullptr ? trim(text) : std::string();
+    SDL_free(text);
+    char why[256] = "";
+    if (answer.empty()) {
+        show_message(*this, "No Answer", "Copy the answer your friend sent you, press Ctrl+V on this page, then press "
+                                         "Paste Answer again.");
+    }
+    else if (pbnet_lobby_answer(answer.c_str(), why, sizeof(why))) {
+        push_toast({ .title = "Answer taken", .content = "Your friend is connecting.", .duration = std::chrono::seconds(3) });
+    }
+    else {
+        show_message(*this, "Can't Use That Answer", why);
+    }
+}
+#endif
+
 void LobbyWindow::refresh()
 {
     int len = pbnet_lobby_json(nullptr, 0);
@@ -1244,7 +1302,12 @@ void LobbyWindow::show_right(Pane &pane, std::function<void(Pane &)> builder)
 
 void LobbyWindow::update()
 {
-    if (const uint32_t gen = pbnet_lobby_gen(); gen != mGen || pbnet_lobby_state() != mView.state) {
+    if (const uint32_t gen = pbnet_lobby_gen(); gen != mGen || pbnet_lobby_state() != mView.state
+#ifdef __EMSCRIPTEN__
+        // N92: a guest's answer shows up without a change to the room
+        || (mView.state == Connecting && !mView.host)
+#endif
+    ) {
         mGen = gen;
         refresh();
     }

@@ -143,6 +143,9 @@ impl Save {
             // Synced before the rename: a crash or power loss right after it never leaves a short file (N47).
             let mut f = fs::File::create(&tmp)?;
             io::Write::write_all(&mut f, &json)?;
+            // N92: not in the browser, where fsync on IDBFS is an async import (it saves the whole FS to IndexedDB and
+            // sleeps until done): Asyncify can't unwind through Rust's std. The page saves IDBFS every 5 s itself.
+            #[cfg(not(target_os = "emscripten"))]
             f.sync_all()?;
         }
         fs::rename(&tmp, &path)?;

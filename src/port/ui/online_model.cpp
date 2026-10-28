@@ -254,6 +254,7 @@ bool parse_view(std::string_view json, View &view)
     v.code = str(j, "code");
     v.shortCode = str(j, "short");
     v.error = str(j, "error");
+    v.answer = str(j, "answer");
     v.gen = static_cast<uint32_t>(num(j, "gen", 0));
     if (auto it = j.find("seats"); it != j.end() && it->is_array()) {
         for (const auto &s : *it) {

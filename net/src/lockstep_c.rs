@@ -76,6 +76,7 @@ pub extern "C" fn pbnet_lockstep_stop() {
 pub extern "C" fn pbnet_lockstep_finish() {
     let Some(mut l) = live().take() else { return };
     let epoch = EPOCH.load(Ordering::SeqCst);
+    #[cfg(feature = "iroh")]
     std::thread::spawn(move || {
         let until = Instant::now() + DRAIN_FOR;
         while EPOCH.load(Ordering::SeqCst) == epoch && Instant::now() < until {
@@ -83,6 +84,17 @@ pub extern "C" fn pbnet_lockstep_finish() {
                 return;
             }
             std::thread::sleep(DRAIN_EVERY);
+        }
+    });
+    // N92: no threads in the browser: the drain is a task of the lobby's runtime, which the game's frames pump
+    #[cfg(not(feature = "iroh"))]
+    crate::lobby_c::spawn(async move {
+        let until = Instant::now() + DRAIN_FOR;
+        while EPOCH.load(Ordering::SeqCst) == epoch && Instant::now() < until {
+            if l.session.drain(l.start.elapsed().as_millis() as u64) {
+                return;
+            }
+            tokio::time::sleep(DRAIN_EVERY).await;
         }
     });
 }
@@ -105,6 +117,8 @@ pub extern "C" fn pbnet_lockstep_active() -> i32 {
 /// only used during the call. Thread-safe (serialised by a mutex), but meant for the game thread.
 #[no_mangle]
 pub unsafe extern "C" fn pbnet_step(local: *const Pad, n_local: i32, out: *mut Pad) -> i32 {
+    // N92: the browser's connections are read here, once per real frame (a no-op on the desktop)
+    crate::lobby_c::pump();
     if HELD.load(Ordering::SeqCst) {
         return PBNET_WAIT;
     }
@@ -117,7 +131,7 @@ pub unsafe extern "C" fn pbnet_step(local: *const Pad, n_local: i32, out: *mut P
         unsafe { std::slice::from_raw_parts(local, n_local as usize) }
     };
     let now = l.start.elapsed().as_millis() as u64;
-    match l.session.step(now, local) {
+    let r = match l.session.step(now, local) {
         Step::Ready(pads) => {
             if !out.is_null() {
                 // SAFETY: the caller guarantees `out` points to 4 writable pads that don't overlap `local`.
@@ -126,7 +140,11 @@ pub unsafe extern "C" fn pbnet_step(local: *const Pad, n_local: i32, out: *mut P
             PBNET_READY
         }
         Step::Wait => PBNET_WAIT,
-    }
+    };
+    // N92: and the pads this step queued go out now, not a frame later
+    drop(g);
+    crate::lobby_c::pump();
+    r
 }
 
 /// The next frame `pbnet_step` runs (0 with no session). Safe to call any time, from any thread.

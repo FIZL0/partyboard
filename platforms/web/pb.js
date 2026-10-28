@@ -146,6 +146,22 @@ $('pick').addEventListener('change', async () => {
 });
 $('play').addEventListener('click', async () => { const disc = await refresh(); if (disc) play(disc); });
 $('forget').addEventListener('click', async () => { await forgetDisc(); refresh(); });
+// N92: SDL has no clipboard in the browser (src/port/web/web_clipboard.c): Ctrl+V on the page hands the clipboard's
+// text to the game, whose Paste buttons (Join code, a guest's answer) then use it. SDL takes the key itself (no
+// paste event), so the text is read with the async clipboard API (the browser may ask for permission once).
+const pasteToGame = text => {
+  const m = window.pbModule;
+  if (!text || !m?._pb_web_paste) return;
+  const p = m.stringToNewUTF8(text);
+  m._pb_web_paste(p);
+  m._free(p);
+};
+addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && navigator.clipboard?.readText) {
+    navigator.clipboard.readText().then(pasteToGame, err => console.warn('clipboard:', err));
+  }
+}, true);
+addEventListener('paste', e => pasteToGame(e.clipboardData?.getData('text')));
 addEventListener('error', e => fail(String(e.error?.stack ?? e.message)));
 addEventListener('unhandledrejection', e => fail(String(e.reason?.stack ?? e.reason)));
 

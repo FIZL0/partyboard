@@ -3,8 +3,9 @@
 //! Game-agnostic netcode linked into `dol` as a static library. The C ABI is declared by hand in
 //! `include/port/pbnet.h`; every `extern "C"` fn here must have a matching prototype there.
 
-#[cfg(target_os = "android")]
+#[cfg(all(target_os = "android", feature = "iroh"))]
 pub mod android;
+#[cfg(feature = "iroh")]
 pub mod codes;
 pub mod desync;
 pub mod lobby;
@@ -12,8 +13,16 @@ pub mod lobby_c;
 pub mod lockstep;
 pub mod lockstep_c;
 pub mod recover;
+#[cfg(not(feature = "iroh"))]
+pub mod rtc;
 pub mod save;
+#[cfg(feature = "iroh")]
 pub mod transport;
+// N92: without iroh (the browser) the lobby runs on WebRTC under the same names.
+#[cfg(not(feature = "iroh"))]
+pub use rtc as transport;
+#[cfg(not(feature = "iroh"))]
+pub use rtc::codes;
 
 use std::ffi::{c_char, CStr};
 

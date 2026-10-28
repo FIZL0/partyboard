@@ -392,6 +392,16 @@ impl Transport {
     }
 }
 
+/// N92: a browser guest's answer for its host (`rtc.rs`); iroh's guests need none.
+pub fn answer_code() -> String {
+    String::new()
+}
+
+/// N92: a browser host takes a guest's answer (`rtc.rs`); iroh's hosts never need one.
+pub fn take_answer(_answer: &str) -> Result<(), String> {
+    Err("Only a lobby hosted in a browser takes answers.".into())
+}
+
 /// Keeps a map of the hosts mDNS hears now (a host's record updates when its listing changes; gone when it stops).
 fn watch_lan(mdns: Option<MdnsAddressLookup>) -> Lan {
     let lan = Lan::default();

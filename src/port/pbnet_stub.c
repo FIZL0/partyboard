@@ -110,6 +110,15 @@ int pbnet_lobby_join(const char *setup, const char *code)
 
 void pbnet_lobby_leave(void) { }
 
+int pbnet_lobby_answer(const char *answer, char *why, int cap)
+{
+    (void)answer;
+    if (why != NULL && cap > 0) {
+        snprintf(why, (size_t)cap, "%s", "no online play in this build");
+    }
+    return 0;
+}
+
 int pbnet_lobby_back(void)
 {
     return 0;

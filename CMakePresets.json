@@ -521,7 +521,7 @@
         "Rust_CARGO_TARGET": "wasm32-unknown-emscripten",
         "PBNET_STUB": {
           "type": "BOOL",
-          "value": true
+          "value": false
         },
         "PB_NETPLAY_HOOK": "define",
         "CMAKE_DISABLE_FIND_PACKAGE_PkgConfig": {

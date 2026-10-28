@@ -4,6 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 if [ -f net/Cargo.toml ]; then
   cargo test --quiet --manifest-path net/Cargo.toml
+  # N92: the browser's transport (WebRTC, net/src/rtc.rs) over a fake page, without iroh
+  cargo test --quiet --manifest-path net/Cargo.toml --no-default-features
 fi
 # worktrees (slots, merge) start without submodules
 [ -f extern/aurora/CMakeLists.txt ] || git submodule update --init --recursive --quiet
