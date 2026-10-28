@@ -8,6 +8,15 @@
 #include <random>
 #include <system_error>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#endif
+
 namespace partyboard::online {
 
 const char *const kCharacterNames[kCharacters] = {
@@ -125,6 +134,61 @@ Profile load_profile(const std::filesystem::path &path)
         }
     }
     return profile;
+}
+
+namespace {
+
+    // Holds `path` locked for the rest of the process (the handle is never closed); false if another process
+    // holds it. The OS drops the lock when the process ends, crashed or not.
+    bool lock_for_process(const std::filesystem::path &path)
+    {
+#ifdef _WIN32
+        // No sharing: a second open fails while the first copy's handle is open.
+        const HANDLE h = CreateFileW(path.wstring().c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL, nullptr);
+        return h != INVALID_HANDLE_VALUE;
+#else
+        const int fd = open(path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);
+        if (fd < 0) {
+            return false;
+        }
+        if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
+            close(fd);
+            return false;
+        }
+        return true;
+#endif
+    }
+
+} // namespace
+
+std::filesystem::path claim_profile(const std::filesystem::path &dir)
+{
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    for (int n = 1; n <= 8; ++n) {
+        const std::string stem = n == 1 ? std::string("online") : "online-" + std::to_string(n);
+        if (lock_for_process(dir / (stem + ".lock"))) {
+            return dir / (stem + ".json");
+        }
+    }
+    return dir / "online.json";
+}
+
+bool adopt_keys(Profile &profile, const View &view)
+{
+    bool changed = false;
+    for (size_t p = 0; !view.host && p < view.mySeats.size() && p < kSeats; ++p) {
+        const int i = view.mySeats[p];
+        if (i < 0 || i >= kSeats || view.seats[i].open || view.seats[i].cpu || view.seats[i].key.empty()) {
+            continue;
+        }
+        if (profile.players[p].key != view.seats[i].key) {
+            profile.players[p].key = view.seats[i].key;
+            changed = true;
+        }
+    }
+    return changed;
 }
 
 bool save_profile(const std::filesystem::path &path, const Profile &profile)

@@ -51,6 +51,11 @@ struct Profile {
     std::string lastCode;
 };
 
+// The profile file this running copy of the game uses in config dir `dir`: online.json, or when another running
+// copy holds it (two copies on one PC, N89), online-2.json, online-3.json, ... Each is claimed by a lock file
+// (online.lock, online-2.lock, ...) held until the process ends. Call once per process.
+std::filesystem::path claim_profile(const std::filesystem::path &dir);
+
 // Missing or broken file: defaults. Every player gets a name and a fresh random key if it has none.
 Profile load_profile(const std::filesystem::path &path);
 bool save_profile(const std::filesystem::path &path, const Profile &profile);
@@ -100,6 +105,10 @@ struct View {
 
 // False (and view untouched) if json is not a lobby snapshot.
 bool parse_view(std::string_view json, View &view);
+
+// A guest's seats keys as the host gave them (a fresh one when its Hello's key was a player's already here, N89)
+// into profile's players, in seat order. Whether any changed. Nothing for the host.
+bool adopt_keys(Profile &profile, const View &view);
 
 // The peer has nothing left to confirm: the host, a CPU, or a guest in the ready list.
 bool peer_ready(const View &view, const std::string &peer);

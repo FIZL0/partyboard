@@ -5,7 +5,9 @@
 //!
 //! - guest → host [`Msg::Hello`]: its build id, disc revision and local players (name, stable player key). The host
 //!   answers [`Msg::Refused`] (other build, other disc, full, already started) or seats the players and sends
-//!   [`Msg::Room`] to everyone.
+//!   [`Msg::Room`] to everyone. A key already in the room is another player's only while that player is away (the
+//!   computer plays its seat); a key whose seat is held by someone here (the host's own players too: two copies of
+//!   the game sharing a profile, N89) is a different player, seated with a fresh key ([`Seat::key`] in the room).
 //! - guest → host [`Msg::Picks`]: characters and teams for its seats, in seat order. A pick the host can't take
 //!   (a character another seat has) keeps the seat's old one; the next `Room` says so.
 //! - guest → host [`Msg::Ready`]: ready (or not) for line-up [`Room::ver`]. Every change of seats or settings bumps
@@ -314,14 +316,28 @@ impl Host {
         &mut self.room
     }
 
-    /// Seats `players` for `peer`: first the seats their keys already hold (a player back after a reconnect),
-    /// then the open ones in order.
+    /// The seat `key` takes back: one with that key the computer plays (its player is away). A seat whose player is
+    /// still here (a connected guest, the host's own) isn't: a Hello with its key is another player (N89: two copies
+    /// of the game sharing one profile).
+    fn reclaimable(&self, key: &str) -> Option<usize> {
+        (0..SEATS).find(|&i| self.room.seats[i].as_ref().is_some_and(|s| !key.is_empty() && s.key == key && s.peer == CPU))
+    }
+
+    /// `key`, or when a seat already has it, a fresh one made from it (`key-2`, `key-3`, ...) that no seat has. The
+    /// player learns it from the room ([`Room::seats_of`]) and keeps it for later continues.
+    fn unique_key(&self, key: &str) -> String {
+        let taken = |k: &str| self.room.seats.iter().flatten().any(|s| s.key == k);
+        if key.is_empty() || !taken(key) {
+            return key.into();
+        }
+        (2..).map(|n| format!("{key}-{n}")).find(|k| !taken(k)).unwrap()
+    }
+
+    /// Seats `players` for `peer`: first the seats their keys hold that the computer plays (a player back), then
+    /// the open ones in order.
     fn seat(&mut self, peer: &str, players: &[Player]) {
         for p in players.iter().take(SEATS) {
-            let back = (0..SEATS).find(|&i| {
-                self.room.seats[i].as_ref().is_some_and(|s| !p.key.is_empty() && s.key == p.key && s.peer != peer)
-            });
-            if let Some(i) = back {
+            if let Some(i) = self.reclaimable(&p.key) {
                 let s = self.room.seats[i].as_mut().unwrap();
                 self.room.ready.remove(&s.peer);
                 s.peer = peer.into();
@@ -331,11 +347,12 @@ impl Host {
                 continue;
             }
             let Some(i) = self.room.free_seat() else { return };
+            let key = self.unique_key(&p.key);
             if let Some(s) = self.room.seats[i].as_mut() {
                 // resuming: the seat is this player's from now on (the next save gives it back by this key)
                 s.peer = peer.into();
                 s.name = p.name.clone();
-                s.key = p.key.clone();
+                s.key = key;
                 s.cpu = false;
                 continue;
             }
@@ -343,7 +360,7 @@ impl Host {
             self.room.seats[i] = Some(Seat {
                 peer: peer.into(),
                 name: p.name.clone(),
-                key: p.key.clone(),
+                key,
                 character,
                 cpu: false,
                 difficulty: 1,
@@ -377,8 +394,7 @@ impl Host {
                 if players.is_empty() || players.len() > SEATS {
                     return refuse("no players".into());
                 }
-                let back =
-                    players.iter().filter(|p| !p.key.is_empty() && self.room.seats.iter().flatten().any(|s| s.key == p.key)).count();
+                let back = players.iter().filter(|p| self.reclaimable(&p.key).is_some()).count();
                 if players.len() - back > self.room.open() {
                     return refuse("the lobby is full".into());
                 }
@@ -851,18 +867,66 @@ mod tests {
     }
 
     #[test]
-    fn leave_frees_seats_and_key_takes_seat_back() {
+    fn leave_frees_seats() {
         let mut n = Net::new();
         n.join("g1", ident(), vec![player("g1")]);
-        n.send("g1", Msg::Picks(vec![Pick { character: 5, team: 1 }]));
-        // the same player on a new connection (another endpoint) gets its seat and pick back
-        n.join("g1b", ident(), vec![player("g1")]);
-        assert_eq!(n.guests["g1b"].seats(), [1]);
-        assert_eq!(n.host.room().seats[1].as_ref().unwrap().character, 5);
-        assert_eq!(n.host.room().peers(), ["host", "g1b"]);
-        n.send("g1b", Msg::Leave);
+        assert_eq!(n.guests["g1"].seats(), [1]);
+        n.send("g1", Msg::Leave);
         assert_eq!(n.host.room().peers(), ["host"]);
         assert!(n.host.room().seats[1].is_none());
+    }
+
+    /// N89: two copies of the game on one PC share a profile, so the guest's Hello carries the host's own key. The
+    /// host's seat is held (the host is here): the guest is another player, with a seat and a fresh key of its own.
+    /// Likewise a second guest with a connected guest's key.
+    #[test]
+    fn a_key_whose_player_is_here_takes_a_new_seat() {
+        let mut n = Net::new();
+        n.join("g1", ident(), vec![player("h")]);
+        assert_eq!(n.last("g1"), Some(&Event::Room));
+        assert_eq!(n.guests["g1"].seats(), [1], "a seat of its own");
+        let r = n.host.room();
+        assert_eq!(r.seats_of(HOST), [0], "the host keeps its seat");
+        assert_eq!(r.seats.iter().flatten().filter(|s| s.human()).count(), 2);
+        assert_eq!(r.seats[0].as_ref().unwrap().key, "key-h");
+        assert_eq!(r.seats[1].as_ref().unwrap().key, "key-h-2", "a fresh key, which the guest sees");
+        assert_eq!(n.guests["g1"].room.as_ref().unwrap().seats[1].as_ref().unwrap().key, "key-h-2");
+
+        n.join("g2", ident(), vec![player("h"), player("g2")]);
+        assert_eq!(n.guests["g2"].seats(), [2, 3]);
+        let keys: Vec<&str> = n.host.room().seats.iter().flatten().map(|s| s.key.as_str()).collect();
+        assert_eq!(keys, ["key-h", "key-h-2", "key-h-3", "key-g2"], "every key once");
+        n.ready("g1");
+        n.ready("g2");
+        n.host.start(1).unwrap();
+        assert_eq!(n.host.room().seats.iter().flatten().filter(|s| s.human()).count(), 4);
+    }
+
+    /// N89: resuming, a seat whose player is away (the computer plays it) still goes back to its key; one whose
+    /// player is here doesn't, and the same key on a new connection is someone else. A player who drops and comes
+    /// back gets its seat again.
+    #[test]
+    fn continue_reclaims_only_seats_of_absent_players() {
+        let saved = played_match();
+        let mut n = resumed(&saved, &[player("h")]);
+        // the host's own key from another copy: not seat 0, the seat the computer played in the save (3)
+        n.join("twin", ident(), vec![player("h")]);
+        assert_eq!(n.guests["twin"].seats(), [3]);
+        assert_eq!(n.host.room().seats_of(HOST), [0]);
+        assert_eq!(n.host.room().seats[3].as_ref().unwrap().key, "key-h-2");
+        // g1 back by key, then dropped: the computer's again, still with g1's key; g1 rejoins and takes it back
+        n.join("g1", ident(), vec![player("g1")]);
+        assert_eq!(n.guests["g1"].seats(), [1]);
+        n.join("g1-twin", ident(), vec![player("g1")]);
+        assert_eq!(n.guests["g1-twin"].seats(), [2], "g1 is here: an absent player's seat, not g1's");
+        n.send("g1-twin", Msg::Leave);
+        let out = n.host.gone("g1");
+        n.deliver(out);
+        let s1 = n.host.room().seats[1].as_ref().unwrap();
+        assert_eq!((s1.peer.as_str(), s1.key.as_str()), (CPU, "key-g1"));
+        n.join("g1b", ident(), vec![player("g1")]);
+        assert_eq!(n.guests["g1b"].seats(), [1], "back by key");
+        assert_eq!(n.host.room().seats[1].as_ref().unwrap().character, 5, "the save's character");
     }
 
     #[test]

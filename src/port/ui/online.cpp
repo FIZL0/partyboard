@@ -29,7 +29,8 @@ namespace {
 
     std::filesystem::path profile_path()
     {
-        return PartyBoard_ConfigPath / "online.json";
+        static const std::filesystem::path path = claim_profile(PartyBoard_ConfigPath);
+        return path;
     }
 
     // Peers must run the same build and disc; pbnet refuses a guest whose differ.
@@ -549,6 +550,13 @@ OnlineWindow::OnlineWindow()
 
 void OnlineWindow::save()
 {
+    // N89: keys only change on disk (a lobby's fresh key, LobbyWindow::refresh); keep them.
+    if (std::filesystem::exists(profile_path())) {
+        const Profile disk = load_profile(profile_path());
+        for (int i = 0; i < kSeats; ++i) {
+            mProfile.players[i].key = disk.players[i].key;
+        }
+    }
     save_profile(profile_path(), mProfile);
 }
 
@@ -1207,6 +1215,13 @@ void LobbyWindow::refresh()
     json.resize(static_cast<size_t>(std::clamp(len, 0, static_cast<int>(json.size()) - 1)));
     if (!parse_view(json, mView)) {
         mView = {};
+    }
+    // N89: the host gave a seat a fresh key (another player here has ours); keep it for continues.
+    if (mView.hasRoom && !mView.host) {
+        Profile profile = load_profile(profile_path());
+        if (adopt_keys(profile, mView)) {
+            save_profile(profile_path(), profile);
+        }
     }
 
     // Redraw the details for the new room unless the player is using them.

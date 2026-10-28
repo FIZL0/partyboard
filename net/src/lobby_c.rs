@@ -1818,6 +1818,34 @@ mod tests {
         });
     }
 
+    /// N89 over real endpoints: a guest whose Hello carries the host's own player key (two copies of the game
+    /// sharing one profile) gets a seat and a fresh key of its own; the host keeps seat 0; both are humans at the start.
+    #[test]
+    fn a_guest_with_the_hosts_key_gets_its_own_seat() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(3).await.unwrap();
+            let h = Handle::current();
+            let host = Lobby::host(&h, bind(&net), setup("h", "GMPE01-00"), catch().0);
+            let s = until(&host, "host open", |s| s.state == Phase::Open && !s.code.is_empty()).await;
+            let guest = Lobby::join(&h, bind(&net), setup("h", "GMPE01-00"), &s.code, catch().0);
+            let g = until(&guest, "guest seated", |s| s.state == Phase::Open).await;
+            assert_eq!(g.seats, [1]);
+            assert_eq!(g.room.as_ref().unwrap().seats[1].as_ref().unwrap().key, "key-h-2");
+            let hs = until(&host, "host sees guest", |s| s.room.as_ref().unwrap().peers().len() == 2).await;
+            assert_eq!(hs.seats, [0], "the host keeps its seat");
+            assert!(guest.ready(true));
+            until(&host, "guest ready", |s| s.room.as_ref().unwrap().all_ready()).await;
+            host.start(3).unwrap();
+            let gs = until(&guest, "guest started", |s| s.state == Phase::Started).await;
+            let room = gs.room.unwrap();
+            assert_eq!(room.seats.iter().flatten().filter(|s| s.human()).count(), 2);
+            assert_eq!(room.peers().len(), 2);
+            host.leave();
+            guest.leave();
+        });
+    }
+
     /// Continue (N9) over real endpoints: a save written after a match of "h" and "g" is hosted by "g" this time;
     /// "h" joins and gets its seat back by key; both hold the same started room with the save's checkpoint. A save
     /// that can't be read closes the host's lobby with why.
