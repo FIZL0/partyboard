@@ -23,6 +23,19 @@ const describe = e => (e instanceof Error
   : String(e));
 const DISC_DIR = 'disc';
 
+// The last warnings and errors (the game's FATAL lines among them) go along with a crash, ?log=1 or not: a WebGPU
+// error that aborts the game names what the browser refused there.
+const recent = [];
+for (const level of ['warn', 'error']) {
+  const orig = console[level].bind(console);
+  console[level] = (...a) => {
+    orig(...a);
+    recent.push(a.map(String).join(' '));
+    if (recent.length > 12) recent.shift();
+  };
+}
+const withRecent = text => recent.length ? `${text}\n\nLast log lines:\n${recent.join('\n')}` : text;
+
 // ?log=1: the console (the game's log included) on screen, for browsers without a reachable inspector (iOS Safari
 // without a Mac). The last 300 lines.
 if (query.get('log')) {
@@ -366,7 +379,7 @@ async function play(disc) {
           module.removeRunDependency('idbfs');
         });
       }],
-      onAbort: what => fail(`The game stopped: ${what}`),
+      onAbort: what => fail(withRecent(`The game stopped: ${what}`)),
     });
     canvas.focus();
     watchUserDir(window.pbModule.FS);
@@ -414,7 +427,7 @@ addEventListener('keydown', e => {
   }
 }, true);
 addEventListener('paste', e => pasteToGame(e.clipboardData?.getData('text')));
-addEventListener('error', e => fail(e.error ? describe(e.error) : e.message));
+addEventListener('error', e => fail(withRecent(e.error ? describe(e.error) : e.message)));
 addEventListener('unhandledrejection', e => fail(describe(e.reason)));
 
 const gpuCheck = webgpuProblem();
