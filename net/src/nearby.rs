@@ -341,6 +341,21 @@ mod tests {
         });
     }
 
+    /// A host that went without unlisting (its page closed) drops out a minute after its last put, read or not.
+    #[test]
+    fn stale_records_drop_out() {
+        let now = signal::unix_micros();
+        let f = Found::default();
+        f.lock().slots[0] = Some(("AAAA".into(), "{}".into(), now - 59_000_000));
+        f.lock().slots[1] = Some(("BBBB".into(), "{}".into(), now - 61_000_000));
+        assert_eq!(f.games(), vec![("AAAA".to_string(), "{}".to_string())]);
+        // a stale record is a free slot for another host
+        assert!(free(&Ok(Some((record("BBBB", "{}").unwrap(), now - 61_000_000))), "CCCC"));
+        assert!(!free(&Ok(Some((record("BBBB", "{}").unwrap(), now))), "CCCC"));
+        assert!(free(&Ok(Some((record("CCCC", "{}").unwrap(), now))), "CCCC"));
+        assert!(!free(&Err("429".into()), "CCCC"));
+    }
+
     #[test]
     fn no_address_no_browse() {
         let rt = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();

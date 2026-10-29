@@ -497,7 +497,7 @@ async function lobbyByMenu(host, guests, linkTab) {
   };
   await openOnline(host);
   await host.press('Host Game');
-  const shown = await until('a: hosting', 30, async () => { const c = (await json(host)).short; return c && (!wantShort || SHORT.test(c)) && c; });
+  const shown = await until('a: hosting', 90, async () => { const c = (await json(host)).short; return c && (!wantShort || SHORT.test(c)) && c; });
   await host.find(`Code ${shown.slice(0, 4)}`);
   await host.key('Enter');
   const link = await until('the invite link on the clipboard', 10, async () => { const c = await host.clipboard(); return c.includes(`?code=${shown.slice(0, 8)}`) && c; });
