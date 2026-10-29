@@ -1,0 +1,39 @@
+diff --git a/lib/gfx/common.cpp b/lib/gfx/common.cpp
+--- a/lib/gfx/common.cpp
++++ b/lib/gfx/common.cpp
+@@ -333,6 +333,9 @@
+ 
+ static RenderPassList& current_render_passes() { return current_frame_packet().renderPasses; }
+ 
++// The frame being recorded is left out by aurora_set_present_skip: its passes and texture copies are not run.
++bool frame_draws_skipped() noexcept { return g_recordingFrame != nullptr && g_recordingFrame->skipDraws; }
++
+ static StagingHighWater current_high_water(const FramePacket& frame) noexcept {
+   return {
+       .verts = static_cast<uint32_t>(frame.verts.size()),
+diff --git a/lib/rmlui.cpp b/lib/rmlui.cpp
+--- a/lib/rmlui.cpp
++++ b/lib/rmlui.cpp
+@@ -16,6 +16,10 @@
+ #include "rmlui/WebGPURenderInterface.hpp"
+ #include "webgpu/gpu.hpp"
+ 
++namespace aurora::gfx {
++bool frame_draws_skipped() noexcept;
++} // namespace aurora::gfx
++
+ namespace aurora::rmlui {
+ Rml::Context* g_context = nullptr;
+ FileInterface_SDL* g_fileInterface = nullptr;
+@@ -422,6 +426,11 @@
+ 
+   sync_context_metrics(dim);
+   g_context->Update();
++  // A frame aurora_set_present_skip leaves out runs no texture copies, so a box-shadow texture (SaveLayerAsTexture)
++  // made on it would stay blank for as long as RmlUi caches it. Nothing of the frame is shown: draw on the next one.
++  if (gfx::frame_draws_skipped()) {
++    return {};
++  }
+ 
+   auto* renderInterface = get_render_interface();
+   renderInterface->SetWindowSize(g_context->GetDimensions());
