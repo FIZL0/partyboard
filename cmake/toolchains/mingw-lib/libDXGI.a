@@ -1,0 +1,2 @@
+/* N138: aurora links MSVC library names; GNU ld reads this as a linker script. */
+INPUT(-ldxgi)

@@ -5,8 +5,8 @@
 # "New in …" list; without it, the commit subjects since the last v* tag. A published (Latest) release also rebuilds
 # the shared FIZL0 source (github.com/FIZL0/apps) at once instead of within the hour.
 # Uploads (opentennis's names): partyboard-ios.ipa, altstore-source.json, partyboard-linux-x86_64.tar.gz (N137,
-# tools/linux-release.sh: needs docker), SHA256SUMS. N138 adds partyboard-windows-x86_64.zip: its build, a line in
-# `files` and a row below.
+# tools/linux-release.sh: needs docker), partyboard-windows-x86_64.zip (N138, tools/build.sh windows: MinGW cross
+# build), SHA256SUMS.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo=FIZL0/partyboard source=https://fizl0.github.io/apps/source.json
@@ -31,8 +31,10 @@ rm -rf "$out" && mkdir -p "$out"
 tools/ios-ipa.sh "$out/partyboard-ios.ipa"
 tools/ios-source.sh "$version" "$out/partyboard-ios.ipa" >/dev/null
 tools/linux-release.sh "$out/partyboard-linux-x86_64.tar.gz"
+tools/build.sh windows && cp build/dist/partyboard-windows-x86_64.zip "$out/"
 files=(partyboard-ios.ipa)
 files+=(partyboard-linux-x86_64.tar.gz)
+files+=(partyboard-windows-x86_64.zip)
 (cd "$out" && sha256sum "${files[@]}" >SHA256SUMS)
 dl=https://github.com/$repo/releases/download/$tag
 body=$out/notes.md
@@ -46,6 +48,7 @@ body=$out/notes.md
     echo "|---|---|---|"
     echo "| **Linux** / **Steam Deck** (x86_64, glibc 2.31+: Ubuntu 20.04+, Debian 11+, SteamOS 3) | [\`partyboard-linux-x86_64.tar.gz\`]($dl/partyboard-linux-x86_64.tar.gz) | Unpack and run \`PartyBoard/partyboard\`, then pick your disc image |"
     echo "| **iPhone** / **iPad** (iOS 15+) | [\`partyboard-ios.ipa\`]($dl/partyboard-ios.ipa) | Unsigned: sign and install it yourself (AltStore, SideStore, Feather, Sideloadly…), then put your disc image in Files → On My iPhone → Party Board. Easiest: add the source \`$source\` in AltStore, SideStore or Feather to install and get updates |"
+    echo "| **Windows** 10/11 (64-bit) | [\`partyboard-windows-x86_64.zip\`]($dl/partyboard-windows-x86_64.zip) | Unzip, run \`PartyBoard\\partyboard.exe\`, pick your disc image. Needs the [Microsoft Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe), which most PCs already have |"
     echo "| **Browser**, **Android** | build from source | see the [README](https://github.com/$repo#readme) |"
     echo
     echo "## What you need"

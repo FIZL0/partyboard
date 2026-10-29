@@ -163,13 +163,15 @@ add_custom_target(pbnet_cargo
 # the archive into one relocatable object and make every symbol but `pbnet_*` local.
 # ELF: also drop the COMDAT groups (only `DW.ref.rust_eh_personality`): left in, the linker keeps our
 # copy of the group and nod's reference lands on a symbol we just made local.
-if (MSVC)
+if (MSVC OR MINGW)
+    # N138: MinGW too (the windows-mingw preset vendors nod as a DLL; its `ld -r` of the Rust archive fails on
+    # duplicate raw-dylib import stubs).
     # COFF has no `ld -r` + localize, so the cargo .lib is linked as is. That is fine with aurora's
     # Windows default, nod as a DLL: its import lib defines only nod_* stubs. A static nod_static.lib
     # carries its own std and the link fails on `rust_eh_personality` (checked with lld-link; see
     # research/journal/2026-10-27-n13-pbnet-non-linux), so refuse that up front.
     if (AURORA_NOD_LINKAGE STREQUAL "static")
-        message(FATAL_ERROR "pbnet: AURORA_NOD_LINKAGE=static is not supported with MSVC (two Rust std copies "
+        message(FATAL_ERROR "pbnet: AURORA_NOD_LINKAGE=static is not supported on Windows (two Rust std copies "
                 "in one link, which COFF cannot hide); use the default AURORA_NOD_LINKAGE=shared")
     endif ()
     set(PBNET_LIB ${PBNET_CARGO_LIB})

@@ -58,6 +58,11 @@
 #   before RmlUi, so overlays (the saving icon) never showed in tests. Encoded in end_frame's present callback when
 #   RmlUi drew; new files plus one line each in aurora.cpp (include, encode), rmlui.cpp (capture_texture) and
 #   aurora_gx.cmake, clear of the other patches' context.
+# - 0015-mingw-dawn-instance-descriptor (N138): the MinGW build (windows-mingw preset) doesn't chain
+#   dawn::native::DawnInstanceDescriptor into the instance descriptor. Dawn's DLL is the MSVC-built package, and GCC
+#   puts the struct's first member in wgpu::ChainedStruct's tail padding where MSVC doesn't: Dawn read every field
+#   8 bytes off (backendValidationLevel's 2 as the platform pointer, a crash in CreateInstance's adapter request).
+#   One line after 0004's #endif in initialize(), under __MINGW32__.
 find_package(Git REQUIRED)
 file(GLOB PB_AURORA_PATCHES ${CMAKE_SOURCE_DIR}/cmake/patches/aurora/*.patch)
 list(SORT PB_AURORA_PATCHES)
