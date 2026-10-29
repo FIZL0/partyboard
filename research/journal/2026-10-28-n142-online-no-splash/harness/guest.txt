@@ -1,0 +1,12 @@
+100 prepjoin @D@/code @U@/online-2.json
+130 tap Online
+200 jointab
+230 tap Join Game
+400 shot @D@/guest-0400-efb.png
+400 shotui @D@/guest-0400-ui.png
+600 ready
+700 lobby
+1100 shot @D@/guest-1100-efb.png
+4800 players
+4810 lobby
+5000 quit

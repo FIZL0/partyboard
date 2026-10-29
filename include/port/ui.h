@@ -15,6 +15,8 @@ extern "C" {
 
 bool ui_initialize(void);
 bool ui_is_prelaunch_open(void);
+/* N142: an Online or Lobby window is open. */
+bool ui_is_online_open(void);
 void ui_shutdown(void);
 void ui_handle_sdl_event(const SDL_Event *event);
 void ui_update(void);

@@ -48,6 +48,17 @@ BOOL QuickContinueLoad(void);
 /* bootDll, after QuickContinueLoad and the system init: the board (or story event) is called. */
 void QuickContinueStart(void);
 
+/* N142: Party Board menu > Online goes to the lobby without the boot logos and the title. */
+/* The launcher shows Online: bootDll's first boot waits for the launcher's choice (QuickContinueHold) as for Continue. */
+void quick_online_offer(BOOL on);
+/* The launcher's Online. */
+void quick_online_request(void);
+/* bootDll, first boot (omovlevtno 0), after QuickContinueHold: TRUE once after quick_online_request. */
+BOOL QuickOnlineTake(void);
+/* bootDll, on the lobby's backdrop: TRUE while the Online menu, a lobby or a match is there (and for a moment after,
+ * so that a switch from one online window to the next does not end it). */
+BOOL QuickOnlineHeld(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -21,6 +21,11 @@ bool ui_is_prelaunch_open(void)
     return partyboard::ui::is_prelaunch_open();
 }
 
+bool ui_is_online_open(void)
+{
+    return partyboard::ui::is_online_open();
+}
+
 void ui_shutdown(void)
 {
     partyboard::ui::shutdown();

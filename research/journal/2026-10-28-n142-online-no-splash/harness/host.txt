@@ -1,0 +1,18 @@
+110 shotui @D@/host-0110-launcher-ui.png
+120 dump
+130 tap Online
+200 shot @D@/host-0200-efb.png
+200 shotui @D@/host-0200-ui.png
+260 tap Host Game
+360 writecode @D@/code
+360 lobby
+500 shot @D@/host-0500-efb.png
+500 shotui @D@/host-0500-ui.png
+900 lobby
+910 dump
+950 tap Start Match
+1100 shot @D@/host-1100-efb.png
+1500 shot @D@/host-1500-efb.png
+4800 players
+4810 lobby
+5000 quit

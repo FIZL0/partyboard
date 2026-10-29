@@ -663,6 +663,8 @@ Prelaunch::Prelaunch(bool relaunch)
                 entries.resize(3);
             }
             quick_continue_offer(!entries.empty());
+            // N142: Online would waste the boot behind the launcher too (bootDll skips it for the lobby's backdrop).
+            quick_online_offer(TRUE);
             mContinueEntries = entries;
             for (const auto &entry : entries) {
                 mMenuButtons.push_back(std::make_unique<Button>(menuList, "Continue"));
@@ -697,6 +699,7 @@ Prelaunch::Prelaunch(bool relaunch)
             if (prelaunch_state().activeDiscPath.empty()) {
                 // update() carries on once a disc is loaded.
                 mOnlineAfterDisc = true;
+                quick_online_offer(TRUE);
                 open_iso_picker();
                 return;
             }
@@ -800,6 +803,8 @@ bool Prelaunch::press_continue()
 void Prelaunch::launch_online()
 {
     mOnlineAfterDisc = false;
+    // N142: no boot logos or title under the Online window (bootDll's lobby backdrop).
+    quick_online_request();
     launch_game();
     push_document(std::make_unique<OnlineWindow>());
 }
