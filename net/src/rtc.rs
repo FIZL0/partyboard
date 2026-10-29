@@ -52,6 +52,8 @@ const OPEN_WAIT: Duration = Duration::from_secs(90);
 /// N139: how long a guest that joined by short code waits for its answer to connect before it answers the host's
 /// offer again (time the page runs: a frozen page's minute away counts a second).
 const ATTEMPT: Duration = Duration::from_secs(20);
+/// N139: how long a host shows no code while its first short code is being put; the long code after that.
+const SHORT_WAIT: Duration = Duration::from_secs(10);
 /// N139: after the relay failed, the host tries it again this much later.
 const RELAY_RETRY: Duration = Duration::from_secs(15);
 /// N139: how long after its last put the host keeps showing its short code while renewing the record fails (the
@@ -795,6 +797,9 @@ struct Hosting {
     closed: bool,
     /// N139: the short code the offers are put under, while the relay takes them.
     short: Option<String>,
+    /// N139: until then no code shows while the first short code is being put (rather than the long code, then the
+    /// short one); None once the relay failed, or with the relay Off.
+    short_wait: Option<tokio::time::Instant>,
 }
 
 /// The hosting transport, for `pbnet_lobby_answer`.
@@ -850,6 +855,7 @@ impl Transport {
         }
         // N139: no relay, no server at all: offer and answer codes only
         if self.relay != Relay::Off {
+            locked(&self.hosting).short_wait = Some(tokio::time::Instant::now() + SHORT_WAIT);
             tokio::spawn(relay_host(self.hosting.clone()));
         }
     }
@@ -876,7 +882,11 @@ impl Transport {
     /// could be made.
     pub async fn publish_code(&self, _first: Option<String>) -> Result<String, String> {
         let offer = self.fresh_offer().await?;
-        Ok(locked(&self.hosting).short.clone().unwrap_or(offer))
+        let h = locked(&self.hosting);
+        if h.short.is_none() && h.short_wait.is_some_and(|t| tokio::time::Instant::now() < t) {
+            return Ok(String::new());
+        }
+        Ok(h.short.clone().unwrap_or(offer))
     }
 
     /// Hosting: why the last pasted answer didn't connect (Some("") once one did), if that changed since last asked.
@@ -1128,6 +1138,7 @@ async fn relay_host(hosting: Arc<Mutex<Hosting>>) {
                 Err(e) => {
                     eprintln!("pbnet: the short code isn't online: {e}");
                     next_put = Instant::now() + RELAY_RETRY;
+                    h.short_wait = None;
                     if h.short.take().is_some() || put_at.is_none() {
                         h.error = Some(format!("The short code isn't online ({e}). Send the long code: your friend gets an answer to send back for Paste Answer."));
                     }

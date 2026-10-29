@@ -156,7 +156,8 @@ fn pause(k: u32) -> Duration {
     Duration::from_secs(2 << k.min(2))
 }
 
-/// The record named `name` and its seq; Ok(None): there is none. Asked again after a 429 (three times at most).
+/// The record named `name` and its seq; Ok(None): there is none. Asked again after a 429 or a failed request
+/// (three times at most).
 pub async fn get(name: &str) -> Result<Option<(String, i64)>, String> {
     let mut why = String::new();
     for k in 0..3 {
@@ -169,9 +170,12 @@ pub async fn get(name: &str) -> Result<Option<(String, i64)>, String> {
             }
             Ok((429, _)) => why = trouble(Some(429), ""),
             Ok((s, _)) => return Err(trouble(Some(s), "")),
-            Err(e) => return Err(trouble(None, &e)),
+            // the relay's 429 has no CORS headers: in a browser it is a failed fetch
+            Err(e) => why = trouble(None, &e),
         }
-        tokio::time::sleep(pause(k)).await;
+        if k < 2 {
+            tokio::time::sleep(pause(k)).await;
+        }
     }
     Err(why)
 }
@@ -194,9 +198,12 @@ pub async fn put(name: &str, text: &str, after: i64) -> Result<i64, String> {
             }
             Ok(429) => why = trouble(Some(429), ""),
             Ok(s) => return Err(trouble(Some(s), "")),
-            Err(e) => return Err(trouble(None, &e)),
+            // as in `get`: maybe a 429 the browser couldn't read
+            Err(e) => why = trouble(None, &e),
         }
-        tokio::time::sleep(pause(k)).await;
+        if k < 2 {
+            tokio::time::sleep(pause(k)).await;
+        }
     }
     Err(why)
 }

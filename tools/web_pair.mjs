@@ -568,6 +568,19 @@ async function dropAndRedial(host, b) {
   const closed = await b.evaluate('(__pbPcs.filter(pc => pc.connectionState === "connected").forEach(pc => pc.close()), __pbPcs.length)');
   say(`b: dropped its peer connections at frame ${frame} (${closed} made so far)`);
   await until('b: reconnecting', 30, async () => (await recover(b)).reconnecting);
+  // N139: joined by a short code, the redial's answer goes through the code server: nothing to copy or paste
+  if (wantShort) {
+    await b.shot('dropped');
+    await until('b: back by the short code', 90, async () => !(await recover(b)).reconnecting);
+    if ((await json(b)).answer) throw new Error('b: shows an answer to send back after a short-code redial');
+    const back = await b.evaluate('pbModule._pbnet_frame()');
+    say(`b: back in the match by the short code (frame ${back}); host log: ${host.lines.filter(l => l.includes('rejoin of') || l.includes('by the short code')).slice(-1)[0] ?? 'no rejoin line'}`);
+    for (const t of peers) {
+      for (let i = 0; i < 3 && (await t.focus()) !== ''; i++) await t.key('Escape');
+    }
+    for (const t of peers) await t.evaluate('window.__pbMash = true');
+    return back;
+  }
   const answer = await until('b: its redial answer', 30, async () => (await json(b)).answer);
   say(`b: reconnecting, its answer ${answer.length} chars`);
   await until('b: Copy Answer on the hold screen', 20, async () => { await b.press('Copy Answer'); return (await b.clipboard()) === answer; });

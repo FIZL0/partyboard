@@ -24,6 +24,10 @@ restart point. It is used for: continue a saved match, rejoin after an app resta
   the transport is WebRTC data channels in the page (`net/src/rtc.rs` over `src/port/web/pbnet_rtc.js`, polled), codes
   both ways (the host's offer, the guest's answer back through `pbnet_lobby_answer`), the lobby's tasks on a
   current-thread runtime pumped from `pbnet_lobby_state`/`pbnet_step`. Findings: `research/journal/2026-10-28-n92-web-online`.
+- One code (N139): with the relay setting on, a WebRTC host (browser, or desktop Host for Browsers) puts each offer
+  under a 4-symbol short code on relay.pkarr.org (`net/src/signal.rs`, the same key as the desktop's iroh short codes)
+  and polls the code's answer key every 2 s; guests join with the code alone. Offer/answer codes stay as the fallback.
+  Findings: `research/journal/2026-10-28-n139-one-code-join`.
 
 ## Hook points (from the code survey, 2026-10-27)
 
