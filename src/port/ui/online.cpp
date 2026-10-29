@@ -1320,13 +1320,11 @@ LobbyWindow::LobbyWindow()
         left.add_section("Match");
         if (mView.host) {
             control(left.add_child<ActionButton>("Start Match", [this] { return mView.state != Open; }).on_pressed([this] {
-                char why[256] = {};
-                if (!pbnet_lobby_start(0, why, sizeof(why))) {
-                    show_message(*this, "Can't Start", why[0] ? why : "The match could not be started.");
-                }
+                confirm_start();
             }),
                 [](Pane &pane) {
-                    pane.add_rml("Start once everyone is ready. Open seats are played by the computer.");
+                    pane.add_rml("Start the match. Players who are not ready yet play with what they picked. Open "
+                                 "seats are played by the computer.");
                 });
         }
         else {
@@ -1500,6 +1498,14 @@ void LobbyWindow::update()
         if (mView.state == Started) {
             // The match takes over from here (the lobby keeps running for it).
             mFinished = true;
+            // N148: the host may start while this guest is in a dialog (Leave Lobby, a message); it goes with the lobby.
+            auto &stack = get_document_stack();
+            const auto me = std::find_if(stack.begin(), stack.end(), [this](const auto &doc) { return doc.get() == this; });
+            for (auto it = me; it != stack.end(); ++it) {
+                if (dynamic_cast<Modal *>(it->get()) != nullptr && !(*it)->closed()) {
+                    (*it)->hide(true);
+                }
+            }
             push_toast({ .title = "Online match", .content = "The match is starting.", .duration = std::chrono::seconds(3) });
             hide(true);
         }
@@ -1549,6 +1555,45 @@ void LobbyWindow::confirm_leave()
                             leave_to_menu();
                         },
                 },
+            },
+        .onDismiss = dismiss,
+        .icon = "question-mark",
+    }));
+}
+
+// N148: the host may start before everyone is ready; it asks once, naming who isn't.
+void LobbyWindow::confirm_start()
+{
+    const auto start = [this] {
+        char why[256] = {};
+        if (!pbnet_lobby_start(0, why, sizeof(why))) {
+            show_message(*this, "Can't Start", why[0] ? why : "The match could not be started.");
+        }
+    };
+    const auto waiting = not_ready(mView);
+    if (waiting.empty()) {
+        start();
+        return;
+    }
+    Rml::String names;
+    for (size_t i = 0; i < waiting.size(); ++i) {
+        names += (i == 0 ? "" : i + 1 == waiting.size() ? " and " : ", ") + waiting[i];
+    }
+    const auto dismiss = [](Modal &modal) { modal.pop(); };
+    push(std::make_unique<Modal>(Modal::Props {
+        .title = "Start Match",
+        .bodyRml = escape(fmt::format("Start without {} ready?", names)),
+        .actions =
+            {
+                ModalAction {
+                    .label = "Start",
+                    .onPressed =
+                        [start](Modal &modal) {
+                            modal.pop();
+                            start();
+                        },
+                },
+                ModalAction { .label = "Cancel", .onPressed = dismiss },
             },
         .onDismiss = dismiss,
         .icon = "question-mark",

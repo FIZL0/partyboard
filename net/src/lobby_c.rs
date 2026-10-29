@@ -1784,7 +1784,7 @@ pub extern "C" fn pbnet_lobby_cpu(seat: i32, difficulty: i32) -> i32 {
     global().as_ref().is_some_and(|l| l.cpu(seat as usize, d)) as i32
 }
 
-/// Host: starts the match with `seed` (0: one from the clock) once every guest is ready. 1 if started; else 0 and,
+/// Host: starts the match with `seed` (0: one from the clock), ready guests or not (N148). 1 if started; else 0 and,
 /// if `why` is not null, the reason snprintf'd into `why`/`cap`.
 ///
 /// # Safety
@@ -1972,7 +1972,7 @@ mod tests {
                 r.board == 2 && r.seats[1].as_ref().unwrap().character == 6
             })
             .await;
-            assert!(host.start(9).is_err(), "guest not ready");
+            assert!(!host.snapshot().room.unwrap().all_ready(), "guest not ready");
             assert!(guest.ready(true));
             until(&host, "guest ready", |s| s.room.as_ref().unwrap().all_ready()).await;
 
@@ -2132,9 +2132,11 @@ mod tests {
             until(&host, "both in", |s| s.room.as_ref().unwrap().peers().len() == 3).await;
             for g in [&a, &b] {
                 until(g, "sees three", |s| s.room.as_ref().unwrap().peers().len() == 3).await;
-                assert!(g.ready(true));
             }
-            until(&host, "all ready", |s| s.room.as_ref().unwrap().all_ready()).await;
+            // N148: a is ready, b isn't; the host starts anyway and both run the match alike
+            assert!(a.ready(true));
+            until(&host, "a ready", |s| s.room.as_ref().unwrap().ready.len() == 1).await;
+            assert!(!host.snapshot().room.unwrap().all_ready());
             assert!(!host.lockstep_started());
             host.start(7).unwrap();
             until(&a, "a started", |s| s.state == Phase::Started).await;
@@ -2203,7 +2205,7 @@ mod tests {
             assert_eq!(a.snapshot().room.unwrap().id, room.id);
             assert!(a.back());
             assert_eq!(a.snapshot().room.unwrap().id, open.id, "the host's room heard while playing");
-            assert!(host.start(8).is_err(), "nobody ready after the match");
+            assert!(!host.snapshot().room.unwrap().all_ready(), "nobody ready after the match");
             for g in [&a, &b] {
                 assert!(g.ready(true));
             }
