@@ -12,8 +12,9 @@
 //!   (a character another seat has) keeps the seat's old one; the next `Room` says so.
 //! - guest → host [`Msg::Ready`]: ready (or not) for line-up [`Room::ver`]. Every change of seats or settings bumps
 //!   `ver` and clears the ready flags, so a guest is only ever ready for what it last saw.
-//! - host → all [`Msg::Start`]: the final `Room` once every guest is ready and the host starts. Open seats are the
-//!   computer's from then on ([`CPU`]), the match seed is set.
+//! - host → all [`Msg::Start`]: the final `Room` when the host starts, ready guests or not (N148: the host's menu
+//!   asks first when some aren't). Every guest starts on it alike, ready or not, with the seats and picks the host
+//!   holds. Open seats are the computer's from then on ([`CPU`]), the match seed is set.
 //! - either way [`Msg::Leave`]: a guest leaving frees its seats; the host leaving ends the lobby.
 //!
 //! **Continue** (N9): a host holding an online save ([`crate::save`]) opens the lobby with [`Host::resume`]. The
@@ -523,8 +524,8 @@ impl Host {
         }
     }
 
-    /// Starts the match with `seed` once every guest is ready: open seats become the computer's (normal
-    /// difficulty), and every guest gets the final room. Err (why) if someone isn't ready or it already started.
+    /// Starts the match with `seed`, ready guests or not (N148; [`Room::all_ready`] says whether to ask first): open
+    /// seats become the computer's (normal difficulty), and every guest gets the final room. Err if it already started.
     pub fn start(&mut self, seed: u64) -> Result<Vec<(To, Msg)>, String> {
         self.start_with(seed, 0)
     }
@@ -533,9 +534,6 @@ impl Host {
     pub fn start_with(&mut self, seed: u64, delay: u32) -> Result<Vec<(To, Msg)>, String> {
         if self.room.started {
             return Err("already started".into());
-        }
-        if !self.room.all_ready() {
-            return Err("not everyone is ready".into());
         }
         for i in 0..SEATS {
             if self.room.seats[i].is_none() {
@@ -729,7 +727,7 @@ mod tests {
         for (g, c) in [("g1", 4), ("g2", 5), ("g3", 6)] {
             n.send(g, Msg::Picks(vec![Pick { character: c, team: 1 }]));
         }
-        assert!(n.host.start(42).is_err(), "nobody ready yet");
+        assert!(!n.host.room().all_ready(), "nobody ready yet");
         for g in ["g1", "g2", "g3"] {
             n.ready(g);
         }
@@ -785,7 +783,7 @@ mod tests {
 
         // a stale ready (old line-up) is answered with the room; then the next match
         n.send("g1", Msg::Ready { ver: started.ver, ready: true });
-        assert!(n.host.start(7).is_err());
+        assert!(!n.host.room().all_ready());
         n.ready("g1");
         n.ready("g2");
         let out = n.host.start(7).unwrap();
@@ -814,6 +812,41 @@ mod tests {
         assert_eq!(chars.len(), SEATS, "every seat a different character");
     }
 
+    /// N148: the host starts with guests not ready; only the host can, and every guest starts on the same room with
+    /// the picks it made (ready or not).
+    #[test]
+    fn host_starts_without_everyone_ready() {
+        let mut n = Net::new();
+        for g in ["g1", "g2", "g3"] {
+            n.join(g, ident(), vec![player(g)]);
+        }
+        n.send("g2", Msg::Picks(vec![Pick { character: 5, team: 1 }]));
+        n.ready("g1");
+        assert!(!n.host.room().all_ready());
+
+        // a guest can't start it: a Start from one is ignored
+        let mut fake = n.host.room().clone();
+        fake.started = true;
+        fake.seed = 99;
+        let heard = n.heard.len();
+        n.send("g1", Msg::Start(fake));
+        assert!(!n.host.room().started && n.heard.len() == heard, "a guest's Start does nothing");
+
+        let out = n.host.start(42).unwrap();
+        n.deliver(out);
+        let room = n.host.room().clone();
+        assert!(room.started && room.seed == 42);
+        assert_eq!(room.seats[2].as_ref().map(|s| (s.peer.as_str(), s.character)), Some(("g2", 5)), "g2's pick");
+        for g in ["g1", "g2", "g3"] {
+            assert_eq!(n.last(g), Some(&Event::Started), "{g} started, ready or not");
+            assert_eq!(n.guests[g].room.as_ref(), Some(&room), "{g} holds the host's room");
+        }
+        // a late ready changes nothing, and it starts once
+        n.ready("g3");
+        assert_eq!(n.host.room(), &room);
+        assert!(n.host.start(42).is_err(), "already started");
+    }
+
     #[test]
     fn mismatched_build_or_disc_is_refused() {
         let mut n = Net::new();
@@ -840,7 +873,7 @@ mod tests {
         assert!(matches!(n.last("g2"), Some(Event::Refused(w)) if w.contains("full")));
         n.join("g3", ident(), vec![player("c")]);
         assert_eq!(n.guests["g3"].seats(), [3]);
-        assert!(n.host.start(1).is_err());
+        assert!(!n.host.room().all_ready());
     }
 
     #[test]
@@ -863,7 +896,7 @@ mod tests {
         let out = n.host.settings(1, 35, true, false, [0; SEATS]);
         n.deliver(out);
         assert!(n.host.room().ready.is_empty(), "a change clears ready");
-        assert!(n.host.start(1).is_err());
+        assert!(!n.host.room().all_ready());
     }
 
     #[test]

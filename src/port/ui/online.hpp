@@ -69,6 +69,7 @@ private:
     void paste_answer();
     void show_right(Pane &pane, std::function<void(Pane &)> builder);
     void confirm_leave();
+    void confirm_start();
     void leave_to_menu();
     void send_picks(int mine, int character, int team);
     void send_settings(int board, int turns, bool bonus, bool teams, const uint8_t *handicaps);
