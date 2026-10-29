@@ -7,36 +7,43 @@
 A fork of [mariopartyrd/partyboard](https://github.com/mariopartyrd/partyboard) that adds online play.
 Everything below "Overview" is upstream's README; the port itself is their work.
 
+## Play
+
+You need your own disc image of *Mario Party 4* (USA, GMPE01). **No game data is included.**
+
+| Platform | Get it | The disc |
+|---|---|---|
+| **Windows** 10/11 | `partyboard-windows-x86_64.zip` from the [latest release](https://github.com/FIZL0/partyboard/releases/latest) | pick it on the home screen |
+| **Linux** x86_64 | `partyboard-linux-x86_64.tar.gz` from the [latest release](https://github.com/FIZL0/partyboard/releases/latest) | pick it on the home screen |
+| **iPhone / iPad** | add the source `https://fizl0.github.io/apps/source.json` in AltStore, SideStore or Feather (or sideload `partyboard-ios.ipa`) | put it in Files → On My iPhone → Party Board |
+| **Browser** | <https://fizl0.github.io/partyboard/> (needs WebGPU: Chrome or Edge; Safari on iPhone not working yet) | pick it in the page; it stays in the browser |
+| **Android** | build from source ([building.md](building.md)) | pick it on the home screen |
+
 ## What this fork adds
 
 - **Online play**: delay-based lockstep (every peer runs the same frames with the same four pads) over
   [iroh](https://iroh.computer) QUIC. Join by a short code, find games on your LAN, or go through a relay
-  (relay URL is a setting).
-- **Lobby**: host or join from the Online menu (the launcher's **Online** button next to Play, or the menu bar),
-  pick characters, fill empty seats with CPUs, ready up and start.
-- **Party Board in the browser**: `tools/web.sh` builds `build/web/` (Emscripten, WebGPU through emdawnwebgpu),
-  about 6.6 MB to download (brotli). No game data is in it: the player picks their disc image in the page, which keeps
-  it in the browser's private storage. Checked in Chromium, Firefox and WebKit (Playwright on Linux).
-  Play it at <https://fizl0.github.io/partyboard/> (`tools/web-pages.sh` publishes `build/web/` there).
-- **Online play in the browser** over WebRTC (codes, join links, mid-match redial, 2-4 browsers), and **desktop and
-  browser in one match**: the desktop's Host > Host for Browsers speaks the browser's WebRTC (N96).
-- **Autosave and Continue**: an online match saves a checkpoint at every player's turn and after every minigame on
-  every peer (`<user dir>/online/`); the Online menu's Continue tab resumes it. The save is deleted when the party
-  ends. Offline parties autosave every turn too (`<user dir>/local/party.json`), offered by the game's own Continue.
+  (relay URL is a setting). The host can start without everyone ready.
+- **Lobby**: host or join from the home screen's **Online** button (straight to the lobby, no boot logos) or the
+  menu bar; pick characters, fill empty seats with CPUs, ready up and start.
+- **Browser**: the whole game in the page (Emscripten, WebGPU), reading only the parts of the disc it needs. Online
+  over WebRTC with **one code** (no answer to send back), browser lobbies on your home network in the LAN tab, and
+  **desktop and browser in one match** (the desktop's Host for Browsers). `tools/web.sh` builds it,
+  `tools/web-pages.sh` publishes it.
+- **Autosave and Continue**: every player's turn is saved, online on every peer and offline too; the home screen's
+  **Continue** resumes a party in progress. The menu bar's **Quit to Main Menu** goes back to the home screen.
 - **Drops never end a match**: the game holds with "Waiting for &lt;name&gt;", a guest that restarts the app can
   rejoin (the match reloads from the last checkpoint), or the host lets a CPU play for the missing player.
-- **Desync check and resync**: peers compare a gameplay-only state hash (players, system state, pads; not menus or
-  effects) during boards and minigames. On a mismatch everyone resyncs to the host's newest point (the current
-  turn's start or the minigame's start) and plays on.
-- **On-screen touch pad** (stick, A/B/X/Y, L/R/Z, Start) on touch screens, shown on the first touch and hidden by
-  a controller or key (Settings > Input > Touch Controls).
-- **Per-controller button icons**: prompts show the buttons of the controller each player uses (PlayStation, Xbox,
-  Switch, generic, keyboard keycaps, touch), also in the menus (Settings > Input > Button Icons).
-- **Log file** on every platform (`<user dir>/logs/partyboard.log`, Settings > Advanced).
-- **First launch** uses the Party Board preset directly, with no Classic / Party Board prompt.
-- **Mobile**: the Rust netcode (`net/`, `pbnet`) builds for Android (Gradle APKs), and `tools/ios-ipa.sh` builds an
-  **unsigned iOS IPA on Linux** (`build/partyboard-ios.ipa`) for you to sign and sideload. Released IPAs install and
-  update through the FIZL0 source: add `https://fizl0.github.io/apps/source.json` in AltStore, SideStore or Feather.
+- **Desync check and resync**: peers compare a gameplay-only state hash during boards and minigames; on a mismatch
+  everyone resyncs to the host's newest point and plays on.
+- **Audio** (MusyX), with Settings > Audio > Master Volume; on iPhone it plays with the silent switch on.
+- **Home screen**: the game's art and card-select music, big buttons that work by touch, pad and mouse, sized for
+  phones. **Fast Menus**, a **Safe Area** setting (on iPhone only the Dynamic Island's side is kept clear), and the
+  board's autosave without the saving screen.
+- **On-screen touch pad** on touch screens, **per-controller button icons**, controllers connected at any time, and a
+  **log file** on every platform (`<user dir>/logs/partyboard.log`).
+- **Releases** (`tools/release.sh`): Windows, Linux and the unsigned iOS IPA (built on Linux), with an
+  AltStore/SideStore/Feather source.
 
 **Platforms**: Linux, Windows, Android, iOS and the browser. macOS and tvOS are **not targets** of this fork:
 upstream's files for them are left as they are, but nothing here is built, tested or fixed for them.
@@ -45,23 +52,15 @@ Design and hook points: [plan/NET.md](plan/NET.md). Findings per task: [research
 
 ### Not done yet
 
-This is work in progress; see [plan/TODO.md](plan/TODO.md) for the full list. Notably:
+See [plan/TODO.md](plan/TODO.md). Notably:
 
-- **No real devices in testing**: no iPhone or simulator was used to check the iOS app. On a user's iPhone it
-  crashes whenever iOS takes focus (the Local Network prompt, Control Center), since there is no background handling
-  yet. Android ran only on the
-  emulator. The browser build ran only in Playwright's browsers on Linux, not Safari on iOS/macOS, Chrome on an
-  Android phone or with a real gamepad.
-- **Online play has not been played on two physical devices**: two-peer matches ran as two processes on one
-  machine (desktop-desktop, browser-browser in headless Chromium, desktop-browser).
-- **No audio** on any platform yet.
-- **Browser**: WebGPU only, there is no WebGL2 path, so a browser without WebGPU shows a message instead of the game.
-  Minigame m411 aborts in the browser (negative viewport), and browser and desktop split on two boards in long
-  scripted parties.
-- Minigame m444 never ends in some scripted parties, and the tutorial board crashes when jumped into directly;
-  both are open.
-- **Windows**: the netplay hooks (the define route for MSVC) have only been built on Linux and with toy MinGW DLLs,
-  never on a real Windows/MSVC machine. This fork's CI has never run.
+- **Tested by a person** so far: the iPhone app (an iPhone 15 Pro: LAN lobbies, joining and playing).
+  Windows, Linux and Android builds, and the browser on real devices (Safari on iOS, Chrome on Android, a real gamepad),
+  were only checked by build tests, emulators and headless browsers.
+- **Browser**: WebGPU only (no WebGL2 path); a browser without WebGPU shows a message instead of the game. On Linux,
+  Chrome needs `chrome://flags/#enable-unsafe-webgpu` and `#enable-vulkan`, or it runs in software (the page warns).
+- **Windows**: the MSVC build route of the netplay hooks was never built on a real Windows machine (releases use
+  MinGW). This fork's CI has never run.
 
 # Overview
 
@@ -79,10 +78,7 @@ Version Completion:
 
 ### 1. Download [Party Board](https://github.com/mariopartyrd/partyboard/releases)
 
-Those are upstream's builds, without online play. This fork's releases ([FIZL0/partyboard](https://github.com/FIZL0/partyboard/releases),
-`tools/release.sh`) carry only the unsigned iOS IPA so far: on an iPhone, add the source
-`https://fizl0.github.io/apps/source.json` in AltStore, SideStore or Feather to install and update it. Other platforms:
-build it from source (below).
+Those are upstream's builds, without online play. This fork's builds are under [Play](#play) above.
 
 ### 2. Setup the game
 
