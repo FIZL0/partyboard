@@ -1,0 +1,2 @@
+/* N138: aurora links MSVC library names; GNU ld reads this as a linker script. MinGW has no comsupp: aurora uses only
+   the wide-string _bstr_t constructor, which comutil.h implements inline. */

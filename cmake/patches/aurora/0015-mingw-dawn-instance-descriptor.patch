@@ -1,0 +1,16 @@
+diff --git a/lib/webgpu/gpu.cpp b/lib/webgpu/gpu.cpp
+--- a/lib/webgpu/gpu.cpp
++++ b/lib/webgpu/gpu.cpp
+@@ -714,6 +714,12 @@
+     dawnInstanceDescriptor.backendValidationLevel = dawn::native::BackendValidationLevel::Disabled;
+     instanceDescriptor.nextInChain = &dawnInstanceDescriptor;
+ #endif
++#ifdef __MINGW32__
++    // MinGW GCC with the prebuilt (MSVC) Dawn DLL: GCC lays DawnInstanceDescriptor's first member out in
++    // wgpu::ChainedStruct's tail padding (Itanium ABI), MSVC doesn't, so Dawn would read every field 8 bytes off.
++    // Validation is off without it too.
++    instanceDescriptor.nextInChain = nullptr;
++#endif
+     g_instance = wgpu::CreateInstance(&instanceDescriptor);
+     if (!g_instance) {
+       Log.error("Failed to create WebGPU instance");

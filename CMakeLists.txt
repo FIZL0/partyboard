@@ -181,6 +181,21 @@ target_include_directories(dol PRIVATE include extern extern/aurora/include exte
 target_link_libraries(dol PUBLIC aurora::core aurora::card aurora::dvd aurora::gx aurora::mtx aurora::os aurora::si aurora::vi aurora::pad musyx absl::flat_hash_map nlohmann_json::nlohmann_json fmt::fmt rmlui_debugger)
 include(cmake/pbnet.cmake)
 target_link_libraries(dol PRIVATE pbnet::pbnet)
+if (MINGW)
+    # N138: a GCC-mangled copy of the one C++ symbol aurora takes from the MSVC-built Dawn DLL
+    target_sources(dol PRIVATE src/port/mingw/dawn_native.cpp)
+    target_link_libraries(dol PRIVATE dawn::webgpu_dawn)
+    # The game's data is __declspec(dllexport) (SHARED_SYM), which turns MinGW's auto-export off for everything
+    # else: export every function too, aurora's and musyx's included, so the RELs import them from dol as an ELF
+    # REL resolves them against libdol.so (one copy of GX, OS and sound state). Not Rust's std from pbnet.
+    target_link_options(dol PRIVATE "LINKER:--export-all-symbols" "LINKER:--exclude-libs,libpbnet.a")
+    # aurora's headers declare OSReport/OSPanic weak (DECL_WEAK): dol's definitions would be COFF weak externals, which
+    # --export-all-symbols leaves out. aurora's own weak defaults (compiled without this) still lose to dol's.
+    target_compile_definitions(dol PRIVATE DECL_WEAK=)
+    # All of aurora's mtx (quaternions only m417 calls): a REL that pulled them from libaurora_mtx.a itself would
+    # need dol's pb_sinf after the linker had read dol's import library.
+    target_link_options(dol PRIVATE "LINKER:--whole-archive" $<TARGET_FILE:aurora_mtx> "LINKER:--no-whole-archive")
+endif ()
 # TODO it doesn't work on Linux yet
 if (WIN32)
     if(USE_ASAN)
@@ -285,7 +300,20 @@ foreach (dir ${REL_TARGETS})
                 endif()
                 set_target_properties(${dir} PROPERTIES PREFIX "")
             endif ()
-            target_link_libraries(${dir} PRIVATE dol musyx aurora::mtx aurora::gx)
+            if (MINGW)
+                # N138: aurora and musyx come from dol's exports (above); their headers still
+                target_link_libraries(${dir} PRIVATE dol)
+                set_target_properties(${dir} PROPERTIES PREFIX "") # objdll.c loads "<name>.dll"
+                target_include_directories(${dir} PRIVATE $<TARGET_PROPERTY:musyx,INTERFACE_INCLUDE_DIRECTORIES>
+                        $<TARGET_PROPERTY:aurora::mtx,INTERFACE_INCLUDE_DIRECTORIES> $<TARGET_PROPERTY:aurora::gx,INTERFACE_INCLUDE_DIRECTORIES>)
+                target_compile_definitions(${dir} PRIVATE $<TARGET_PROPERTY:aurora::gx,INTERFACE_COMPILE_DEFINITIONS>)
+                # aurora's headers declare OSReport/OSPanic weak (DECL_WEAK). ELF resolves an undefined weak from
+                # libdol.so at load time; a COFF weak external never pulls dol's import stub: it linked to 0 and
+                # bootDll's first OSReport jumped there.
+                target_compile_definitions(${dir} PRIVATE DECL_WEAK=)
+            else ()
+                target_link_libraries(${dir} PRIVATE dol musyx aurora::mtx aurora::gx)
+            endif ()
             add_dependencies(partyboard ${dir})
         endif ()
     endif ()
@@ -307,6 +335,12 @@ include(cmake/netplay.cmake)
 include(cmake/pbmath.cmake)
 if (EMSCRIPTEN)
     include(cmake/web.cmake)
+endif ()
+
+if (MINGW)
+    # N138: SDL's MinGW entry point is WinMain (aurora::main's SDL_main_impl.h), which libmingw32's console main()
+    # calls; libmingw32 comes last on the line, after aurora_main's archive was read.
+    target_link_options(partyboard PRIVATE "LINKER:-u,WinMain")
 endif ()
 
 if (ANDROID)
@@ -336,16 +370,29 @@ if (WIN32)
     set(PARTY_BOARD_WINDOWS_RC ${CMAKE_CURRENT_BINARY_DIR}/partyboard.rc)
     set(PARTY_BOARD_WINDOWS_MANIFEST ${CMAKE_CURRENT_BINARY_DIR}/partyboard.manifest)
 
-    add_custom_command(
-            OUTPUT ${PARTY_BOARD_WINDOWS_ICON_ICO}
-            COMMAND powershell -ExecutionPolicy Bypass -File
-            ${PARTY_BOARD_WINDOWS_RESOURCE_DIR}/Create-IcoFromPng.ps1
-            -InputPng ${PARTY_BOARD_WINDOWS_ICON_PNG}
-            -OutputIco ${PARTY_BOARD_WINDOWS_ICON_ICO}
-            DEPENDS ${PARTY_BOARD_WINDOWS_ICON_PNG} ${PARTY_BOARD_WINDOWS_RESOURCE_DIR}/Create-IcoFromPng.ps1
-            VERBATIM
-            COMMENT "Generating Windows icon"
-    )
+    if (CMAKE_HOST_WIN32)
+        add_custom_command(
+                OUTPUT ${PARTY_BOARD_WINDOWS_ICON_ICO}
+                COMMAND powershell -ExecutionPolicy Bypass -File
+                ${PARTY_BOARD_WINDOWS_RESOURCE_DIR}/Create-IcoFromPng.ps1
+                -InputPng ${PARTY_BOARD_WINDOWS_ICON_PNG}
+                -OutputIco ${PARTY_BOARD_WINDOWS_ICON_ICO}
+                DEPENDS ${PARTY_BOARD_WINDOWS_ICON_PNG} ${PARTY_BOARD_WINDOWS_RESOURCE_DIR}/Create-IcoFromPng.ps1
+                VERBATIM
+                COMMENT "Generating Windows icon"
+        )
+    else ()
+        # N138: the MinGW cross build on Linux
+        find_package(Python3 REQUIRED COMPONENTS Interpreter)
+        add_custom_command(
+                OUTPUT ${PARTY_BOARD_WINDOWS_ICON_ICO}
+                COMMAND Python3::Interpreter ${PARTY_BOARD_WINDOWS_RESOURCE_DIR}/png2ico.py
+                ${PARTY_BOARD_WINDOWS_ICON_PNG} ${PARTY_BOARD_WINDOWS_ICON_ICO}
+                DEPENDS ${PARTY_BOARD_WINDOWS_ICON_PNG} ${PARTY_BOARD_WINDOWS_RESOURCE_DIR}/png2ico.py
+                VERBATIM
+                COMMENT "Generating Windows icon"
+        )
+    endif ()
 
     configure_file(${PARTY_BOARD_WINDOWS_RESOURCE_DIR}/partyboard.manifest.in ${PARTY_BOARD_WINDOWS_MANIFEST} @ONLY)
     configure_file(${PARTY_BOARD_WINDOWS_RESOURCE_DIR}/partyboard.rc.in ${PARTY_BOARD_WINDOWS_RC} @ONLY)

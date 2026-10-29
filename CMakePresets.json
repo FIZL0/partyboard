@@ -192,6 +192,28 @@
       ]
     },
     {
+      "name": "windows-mingw",
+      "displayName": "Windows x86_64 (MinGW cross build)",
+      "description": "N138: Windows release build cross-compiled on Linux with MinGW-w64 GCC, tools/build.sh windows. Needs x86_64-w64-mingw32-gcc/g++ and rustup's x86_64-pc-windows-gnu.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/x86_64-w64-mingw32.cmake",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/windows-mingw-install",
+        "BUILD_SHARED_LIBS": {
+          "type": "BOOL",
+          "value": false
+        },
+        "AURORA_NOD_PROVIDER": "vendor",
+        "Rust_CARGO_TARGET": "x86_64-pc-windows-gnu",
+        "CMAKE_DISABLE_FIND_PACKAGE_PkgConfig": {
+          "type": "BOOL",
+          "value": true
+        }
+      }
+    },
+    {
       "name": "macos-default",
       "displayName": "macOS (default)",
       "generator": "Ninja",
@@ -640,6 +662,12 @@
       "configurePreset": "windows-clang-relwithdebinfo",
       "description": "Windows (Clang) release build with debug info",
       "displayName": "Windows (Clang) RelWithDebInfo"
+    },
+    {
+      "name": "windows-mingw",
+      "configurePreset": "windows-mingw",
+      "description": "Windows x86_64 MinGW cross build, see tools/build.sh windows",
+      "displayName": "Windows x86_64 (MinGW)"
     },
     {
       "name": "x-linux-ci-gcc",

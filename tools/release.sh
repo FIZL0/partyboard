@@ -6,6 +6,7 @@
 # the shared FIZL0 source (github.com/FIZL0/apps) at once instead of within the hour.
 # Uploads (opentennis's names): partyboard-ios.ipa, altstore-source.json, SHA256SUMS. N137/N138 add
 # partyboard-linux-x86_64.tar.gz and partyboard-windows-x86_64.zip: their build, a line in `files` and a row below.
+# partyboard-windows-x86_64.zip: tools/build.sh windows (N138, MinGW cross build).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo=FIZL0/partyboard source=https://fizl0.github.io/apps/source.json
@@ -29,7 +30,9 @@ out=build/release
 rm -rf "$out" && mkdir -p "$out"
 tools/ios-ipa.sh "$out/partyboard-ios.ipa"
 tools/ios-source.sh "$version" "$out/partyboard-ios.ipa" >/dev/null
+tools/build.sh windows && cp build/dist/partyboard-windows-x86_64.zip "$out/"
 files=(partyboard-ios.ipa)
+files+=(partyboard-windows-x86_64.zip)
 (cd "$out" && sha256sum "${files[@]}" >SHA256SUMS)
 dl=https://github.com/$repo/releases/download/$tag
 body=$out/notes.md
@@ -42,6 +45,7 @@ body=$out/notes.md
     echo "| Platform | File | How to play |"
     echo "|---|---|---|"
     echo "| **iPhone** / **iPad** (iOS 15+) | [\`partyboard-ios.ipa\`]($dl/partyboard-ios.ipa) | Unsigned: sign and install it yourself (AltStore, SideStore, Feather, Sideloadly…), then put your disc image in Files → On My iPhone → Party Board. Easiest: add the source \`$source\` in AltStore, SideStore or Feather to install and get updates |"
+    echo "| **Windows** 10/11 (64-bit) | [\`partyboard-windows-x86_64.zip\`]($dl/partyboard-windows-x86_64.zip) | Unzip, run \`PartyBoard\\partyboard.exe\`, pick your disc image. Needs the [Microsoft Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe), which most PCs already have |"
     echo "| **Browser**, **Android** | build from source | see the [README](https://github.com/$repo#readme) |"
     echo
     echo "## What you need"

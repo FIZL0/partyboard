@@ -372,6 +372,19 @@ static const void *code_module(void (*fn)(void))
 {
 #if defined(_WIN32)
     HMODULE mod = NULL;
+    /* N138: GetModuleHandleExA(FROM_ADDRESS) takes NULL for the .exe: every dol process without a dtor was the menu's. */
+    if (fn == NULL) {
+        return NULL;
+    }
+    /* N138: a REL that takes a dol function's address without dllimport (all of the game's) gets its own import
+     * thunk, `jmp *__imp_fn(%rip)`, which lives in the REL: dol processes a REL created (HuPrcCreate(dolFn)) were
+     * taken for the menu's and killed. ELF has one canonical address. Follow the thunk to the IAT's target. */
+    const unsigned char *code = (const unsigned char *)(uintptr_t)fn;
+    if (code[0] == 0xFF && code[1] == 0x25) {
+        s32 disp;
+        memcpy(&disp, code + 2, sizeof(disp));
+        memcpy(&fn, code + 6 + disp, sizeof(fn));
+    }
     if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
             (LPCSTR)(uintptr_t)fn, &mod)) {
         return NULL;
@@ -553,7 +566,7 @@ typedef struct {
     size_t used_bytes;
     size_t scrubbed;
     BOOL scrub;
-} HeapWalk;
+} NetplayHeapWalk;
 
 static void fnv_word(u64 *h, u64 v)
 {
@@ -590,7 +603,7 @@ static u64 heap_num(uintptr_t num)
 
 static void heap_block(void *user, uintptr_t offset, s32 size, BOOL used, uintptr_t num, void *data, size_t data_size)
 {
-    HeapWalk *w = user;
+    NetplayHeapWalk *w = user;
     if (used) {
         fnv_word(&w->h, (u64)w->heap);
         fnv_word(&w->h, (u64)offset);
@@ -612,7 +625,7 @@ static u64 heap_walk(BOOL scrub, BOOL report)
     s32 heap;
     for (heap = 0; heap < HEAP_MAX; heap++) {
         void *ptr = HuMemHeapPtrGet((HeapID)heap);
-        HeapWalk w;
+        NetplayHeapWalk w;
         if (ptr == NULL) {
             continue;
         }
