@@ -15,8 +15,11 @@ const query = new URLSearchParams(location.search);
 const joinCode = query.get('code');
 const status = text => { $('status').textContent = text; };
 const fail = text => { $('error').textContent += text + '\n'; console.error(text); };
-// Safari's Error.stack has no message in it
-const describe = e => (e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+// Safari's Error.stack has no message in it. A wasm trap's stack (wasm-function[N] frames) goes along: the release
+// wasm has no names, N99's recipe names them.
+const describe = e => (e instanceof Error
+  ? `${e.name}: ${e.message}` + (e instanceof WebAssembly.RuntimeError && e.stack ? `\n${e.stack}` : '')
+  : String(e));
 const DISC_DIR = 'disc';
 
 // ?log=1: the console (the game's log included) on screen, for browsers without a reachable inspector (iOS Safari
