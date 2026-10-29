@@ -27,6 +27,7 @@
 #include "game/saveload.h"
 #include "msm/msmsys.h"
 #include "port/byteswap.h"
+#include "port/home_screen.h"
 #include "port/netplay.h"
 #include "port/port_version.h"
 #include "port/quick_continue.h"
@@ -180,9 +181,8 @@ void quick_continue_offer(BOOL on)
 
 void QuickContinueHold(void)
 {
-    while (pending.offered && ui_is_prelaunch_open()) {
-        HuPrcVSleep();
-    }
+    /* N141: the boot waits for the menu whether it offers Continue or not (its music plays meanwhile) */
+    port_home_screen_hold();
     pending.offered = FALSE;
 }
 

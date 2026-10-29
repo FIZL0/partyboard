@@ -94,6 +94,7 @@ set(PORT_FILES
         src/port/dolassets.cpp
         #        src/port/dvd.c
         src/port/fast_menus.c
+        src/port/home_screen.c
         src/port/file_select.cpp
         src/port/file_select.hpp
         src/port/imgui.cpp
@@ -135,6 +136,8 @@ set(PORT_FILES
         src/port/ui/event.cpp
         src/port/ui/event.hpp
         src/port/ui/graphics_tuner.cpp
+        src/port/ui/home_art.cpp
+        src/port/ui/home_art.hpp
         src/port/ui/graphics_tuner.hpp
         src/port/ui/input.cpp
         src/port/ui/input.hpp

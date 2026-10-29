@@ -1,0 +1,331 @@
+diff --git i/src/port/ui/n141_harness.cpp w/src/port/ui/n141_harness.cpp
+new file mode 100644
+index 00000000..3b18a3f2
+--- /dev/null
++++ w/src/port/ui/n141_harness.cpp
+@@ -0,0 +1,309 @@
++// N141 HARNESS (not committed: research/journal/2026-10-28-n141-home-screen/harness/): window size, shots, taps.
++//  PB_WIN=WxH            SDL_SetWindowSize at UI frame 3 (logical px)
++//  PB_SHOT_AT=f1,f2      aurora_capture_frame_ui -> $PB_SHOT_DIR/f<frame>.png, logs layout boxes + hit tests
++//  PB_TAPS=Label@f,...   a finger tap on the element whose text is Label, in iOS's order (SDL's touch-mouse copy first)
++//  PB_PAD=key@f,...      RmlUi key down/up (down|up|enter|escape)
++#include "ui.hpp"
++#include "document.hpp"
++
++#include <RmlUi/Core.h>
++#include <SDL3/SDL_events.h>
++#include <SDL3/SDL_mouse.h>
++#include <SDL3/SDL_timer.h>
++#include <SDL3/SDL_video.h>
++#include <aurora/frame_capture_ui.h>
++#include <aurora/rmlui.hpp>
++
++#include "aurora/lib/logging.hpp"
++#include "aurora/lib/window.hpp"
++
++#include <algorithm>
++#include <cstdio>
++#include <cstdlib>
++#include <string>
++#include <typeinfo>
++#include <vector>
++
++namespace partyboard::ui {
++namespace {
++    aurora::Module HLog { "n141" };
++
++    std::string text_of(Rml::Element *e)
++    {
++        std::string s = e->GetInnerRML();
++        std::string out;
++        bool tag = false;
++        for (char c : s) {
++            if (c == '<') tag = true;
++            else if (c == '>') tag = false;
++            else if (!tag) out += c;
++        }
++        while (!out.empty() && out.back() == ' ') out.pop_back();
++        while (!out.empty() && out.front() == ' ') out.erase(out.begin());
++        return out;
++    }
++
++    Rml::Element *find_text(Rml::Element *root, const std::string &label)
++    {
++        if (root == nullptr) return nullptr;
++        for (int i = root->GetNumChildren() - 1; i >= 0; --i) {
++            if (auto *f = find_text(root->GetChild(i), label)) return f;
++        }
++        const auto tag = root->GetTagName();
++        if (tag != "#text" && text_of(root).rfind(label, 0) == 0 && root->IsVisible(true)) {
++            return root;
++        }
++        return nullptr;
++    }
++
++    struct Pending {
++        unsigned frame;
++        std::string what;
++    };
++
++    std::vector<Pending> parse(const char *env)
++    {
++        std::vector<Pending> v;
++        if (env == nullptr) return v;
++        std::string s = env;
++        size_t p = 0;
++        while (p < s.size()) {
++            size_t c = s.find(',', p);
++            if (c == std::string::npos) c = s.size();
++            const auto item = s.substr(p, c - p);
++            const auto at = item.rfind('@');
++            if (at != std::string::npos) v.push_back({ unsigned(std::atoi(item.c_str() + at + 1)), item.substr(0, at) });
++            p = c + 1;
++        }
++        return v;
++    }
++
++    // context px -> window logical px (the context is the picture, fitted in the safe rect)
++    Rml::Vector2f to_window(Rml::Context *ctx, Rml::Vector2f p)
++    {
++        const auto ws = aurora::window::get_window_size();
++        const auto dim = ctx->GetDimensions();
++        const auto rect = aurora::window::present_rect(ws.native_fb_width, ws.native_fb_height);
++        const float fit = std::min(float(rect.width) / dim.x, float(rect.height) / dim.y);
++        const float l = rect.x + (rect.width - dim.x * fit) / 2, t = rect.y + (rect.height - dim.y * fit) / 2;
++        const float toWin = float(ws.width) / float(ws.native_fb_width);
++        return { (l + p.x * fit) * toWin, (t + p.y * fit) * toWin };
++    }
++
++    SDL_FingerID sFinger = 100;
++    struct Up {
++        unsigned frame;
++        Rml::Vector2f win;
++        SDL_FingerID id;
++    };
++    std::vector<Up> sUps;
++
++    void push_tap(Rml::Context *ctx, Rml::Element *e, unsigned frame)
++    {
++        const auto box = e->GetAbsoluteOffset(Rml::BoxArea::Border);
++        const auto size = e->GetBox().GetSize(Rml::BoxArea::Border);
++        const Rml::Vector2f c { box.x + size.x / 2, box.y + size.y / 2 };
++        auto *hit = ctx->GetElementAtPoint(c);
++        bool inside = false;
++        for (auto *n = hit; n; n = n->GetParentNode()) if (n == e) inside = true;
++        const auto w = to_window(ctx, c);
++        const auto ws = aurora::window::get_window_size();
++        HLog.info("tap '{}' at ctx {:.0f},{:.0f} (box {:.0f}x{:.0f} = {:.0f}x{:.0f}dp) win {:.0f},{:.0f}; hit-test {}",
++            text_of(e), c.x, c.y, size.x, size.y, size.x / ctx->GetDensityIndependentPixelRatio(),
++            size.y / ctx->GetDensityIndependentPixelRatio(), w.x, w.y, inside ? "ok" : "COVERED");
++        SDL_Event ev {};
++        ev.type = SDL_EVENT_MOUSE_MOTION;
++        ev.motion.which = SDL_TOUCH_MOUSEID;
++        ev.motion.windowID = SDL_GetWindowID(aurora::window::get_sdl_window());
++        ev.motion.x = w.x;
++        ev.motion.y = w.y;
++        SDL_PushEvent(&ev);
++        ev = {};
++        ev.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
++        ev.button.which = SDL_TOUCH_MOUSEID;
++        ev.button.windowID = SDL_GetWindowID(aurora::window::get_sdl_window());
++        ev.button.button = SDL_BUTTON_LEFT;
++        ev.button.down = true;
++        ev.button.clicks = 1;
++        ev.button.x = w.x;
++        ev.button.y = w.y;
++        SDL_PushEvent(&ev);
++        ev = {};
++        ev.type = SDL_EVENT_FINGER_DOWN;
++        ev.tfinger.touchID = 7;
++        ev.tfinger.fingerID = ++sFinger;
++        ev.tfinger.windowID = SDL_GetWindowID(aurora::window::get_sdl_window());
++        ev.tfinger.x = w.x / ws.width;
++        ev.tfinger.y = w.y / ws.height;
++        ev.tfinger.pressure = 1;
++        SDL_PushEvent(&ev);
++        sUps.push_back({ frame + 4, w, sFinger });
++    }
++
++    void dump(Rml::Context *ctx, unsigned frame)
++    {
++        const auto ws = aurora::window::get_window_size();
++        const auto in = safe_area_insets(ctx);
++        HLog.info("frame {}: window {}x{} scale {} native {}x{}; context {}x{} dp {}; insets l{} t{} r{} b{}; top doc {}",
++            frame, ws.width, ws.height, ws.scale, ws.native_fb_width, ws.native_fb_height, ctx->GetDimensions().x,
++            ctx->GetDimensions().y, ctx->GetDensityIndependentPixelRatio(), in.left, in.top, in.right, in.bottom,
++            top_document() ? typeid(*top_document()).name() : "none");
++        int visibleDocs = 0;
++        std::string titles;
++        for (int d = 0; d < ctx->GetNumDocuments(); ++d) {
++            auto *doc = ctx->GetDocument(d);
++            if (!doc->IsVisible()) continue;
++            ++visibleDocs;
++            titles += " " + doc->GetSourceURL();
++            if (auto *w = doc->GetElementById("window")) titles += "[window]";
++        }
++        HLog.info("  {} visible documents:{}", visibleDocs, titles);
++        for (int d = 0; d < ctx->GetNumDocuments(); ++d) {
++            auto *doc = ctx->GetDocument(d);
++            if (!doc->IsVisible()) continue;
++            Rml::ElementList buttons;
++            doc->GetElementsByTagName(buttons, "button");
++            for (auto *b : buttons) {
++                if (!b->IsVisible(true)) continue;
++                const auto o = b->GetAbsoluteOffset(Rml::BoxArea::Border);
++                const auto s = b->GetBox().GetSize(Rml::BoxArea::Border);
++                const Rml::Vector2f c { o.x + s.x / 2, o.y + s.y / 2 };
++                bool inside = false;
++                for (auto *n = ctx->GetElementAtPoint(c); n; n = n->GetParentNode()) if (n == b) inside = true;
++                const bool clipped = o.x < 0 || o.y < 0 || o.x + s.x > ctx->GetDimensions().x || o.y + s.y > ctx->GetDimensions().y;
++                const float dp = ctx->GetDensityIndependentPixelRatio();
++                HLog.info("  doc{} button '{}' {:.0f},{:.0f} {:.0f}x{:.0f}dp{}{}", d, text_of(b).substr(0, 40), o.x / dp, o.y / dp,
++                    s.x / dp, s.y / dp, inside ? "" : " COVERED", clipped ? " CLIPPED" : "");
++            }
++        }
++    }
++} // namespace
++
++void n141_harness_frame()
++{
++    static unsigned frame = 0;
++    ++frame;
++    auto *ctx = aurora::rmlui::get_context();
++    if (ctx == nullptr) return;
++    if (frame == 2) {
++        SDL_SetWindowMinimumSize(aurora::window::get_sdl_window(), 200, 200); // aurora's is 640x480
++    }
++    if (frame == 3) {
++        if (const char *win = std::getenv("PB_WIN")) {
++            int w = 0, h = 0;
++            if (std::sscanf(win, "%dx%d", &w, &h) == 2) {
++                SDL_SetWindowSize(aurora::window::get_sdl_window(), w, h);
++                HLog.info("window -> {}x{}", w, h);
++            }
++        }
++    }
++    if (const char *at = std::getenv("PB_SHOT_AT")) {
++        const std::string key = "," + std::to_string(frame) + ",";
++        if (("," + std::string(at) + ",").find(key) != std::string::npos) {
++            const std::string path = std::string(std::getenv("PB_SHOT_DIR")) + "/f" + std::to_string(frame) + ".png";
++            aurora_capture_frame_ui(path.c_str(), 0);
++            dump(ctx, frame);
++        }
++    }
++    static const auto taps = parse(std::getenv("PB_TAPS"));
++    for (const auto &t : taps) {
++        if (t.frame != frame) continue;
++        Rml::Element *e = nullptr;
++        for (int d = ctx->GetNumDocuments() - 1; d >= 0 && e == nullptr; --d) {
++            if (ctx->GetDocument(d)->IsVisible()) e = find_text(ctx->GetDocument(d), t.what);
++        }
++        if (e == nullptr) {
++            HLog.info("tap '{}': not found", t.what);
++            continue;
++        }
++        push_tap(ctx, e, frame);
++    }
++    // PB_SWIPE=x1;y1;x2;y2@f (context px): one finger, 10 moves over 10 frames
++    static const auto swipes = parse(std::getenv("PB_SWIPE"));
++    static struct { unsigned start = 0; float x1, y1, x2, y2; SDL_FingerID id; } sw;
++    for (const auto &t : swipes) {
++        if (t.frame != frame) continue;
++        std::sscanf(t.what.c_str(), "%f;%f;%f;%f", &sw.x1, &sw.y1, &sw.x2, &sw.y2);
++        sw.start = frame;
++        sw.id = ++sFinger;
++    }
++    if (sw.start != 0 && frame >= sw.start && frame <= sw.start + 11) {
++        const float k = std::min(1.0f, float(frame - sw.start) / 10.0f);
++        const auto w = to_window(ctx, { sw.x1 + (sw.x2 - sw.x1) * k, sw.y1 + (sw.y2 - sw.y1) * k });
++        const auto ws = aurora::window::get_window_size();
++        SDL_Event ev {};
++        ev.type = frame == sw.start ? SDL_EVENT_FINGER_DOWN : frame == sw.start + 11 ? SDL_EVENT_FINGER_UP : SDL_EVENT_FINGER_MOTION;
++        ev.tfinger.touchID = 7; ev.tfinger.fingerID = sw.id;
++        ev.tfinger.windowID = SDL_GetWindowID(aurora::window::get_sdl_window());
++        ev.tfinger.x = w.x / ws.width; ev.tfinger.y = w.y / ws.height; ev.tfinger.pressure = 1;
++        SDL_PushEvent(&ev);
++        if (frame == sw.start + 11) HLog.info("swipe done");
++    }
++    // PB_TAPXY=x;y@f (context px): what is there, then a tap
++    static const auto taps2 = parse(std::getenv("PB_TAPXY"));
++    for (const auto &t : taps2) {
++        if (t.frame != frame) continue;
++        float x = 0, y = 0;
++        std::sscanf(t.what.c_str(), "%f;%f", &x, &y);
++        auto *hit = ctx->GetElementAtPoint({ x, y });
++        HLog.info("tapxy {},{}: element <{}> id '{}' text '{}'", x, y, hit ? hit->GetTagName() : "", hit ? hit->GetId() : "",
++            hit ? text_of(hit).substr(0, 30) : "");
++        if (hit) {
++            // push_tap aims at the element's centre: aim here instead
++            const auto w = to_window(ctx, { x, y });
++            const auto ws = aurora::window::get_window_size();
++            SDL_Event ev {};
++            ev.type = SDL_EVENT_MOUSE_MOTION; ev.motion.which = SDL_TOUCH_MOUSEID;
++            ev.motion.windowID = SDL_GetWindowID(aurora::window::get_sdl_window()); ev.motion.x = w.x; ev.motion.y = w.y;
++            SDL_PushEvent(&ev);
++            ev = {}; ev.type = SDL_EVENT_MOUSE_BUTTON_DOWN; ev.button.which = SDL_TOUCH_MOUSEID;
++            ev.button.windowID = SDL_GetWindowID(aurora::window::get_sdl_window()); ev.button.button = SDL_BUTTON_LEFT;
++            ev.button.down = true; ev.button.clicks = 1; ev.button.x = w.x; ev.button.y = w.y;
++            SDL_PushEvent(&ev);
++            ev = {}; ev.type = SDL_EVENT_FINGER_DOWN; ev.tfinger.touchID = 7; ev.tfinger.fingerID = ++sFinger;
++            ev.tfinger.windowID = SDL_GetWindowID(aurora::window::get_sdl_window());
++            ev.tfinger.x = w.x / ws.width; ev.tfinger.y = w.y / ws.height; ev.tfinger.pressure = 1;
++            SDL_PushEvent(&ev);
++            sUps.push_back({ frame + 4, w, sFinger });
++        }
++    }
++    for (auto it = sUps.begin(); it != sUps.end();) {
++        if (it->frame != frame) {
++            ++it;
++            continue;
++        }
++        const auto ws = aurora::window::get_window_size();
++        SDL_Event ev {};
++        ev.type = SDL_EVENT_MOUSE_BUTTON_UP;
++        ev.button.which = SDL_TOUCH_MOUSEID;
++        ev.button.windowID = SDL_GetWindowID(aurora::window::get_sdl_window());
++        ev.button.button = SDL_BUTTON_LEFT;
++        ev.button.x = it->win.x;
++        ev.button.y = it->win.y;
++        SDL_PushEvent(&ev);
++        ev = {};
++        ev.type = SDL_EVENT_FINGER_UP;
++        ev.tfinger.touchID = 7;
++        ev.tfinger.fingerID = it->id;
++        ev.tfinger.windowID = SDL_GetWindowID(aurora::window::get_sdl_window());
++        ev.tfinger.x = it->win.x / ws.width;
++        ev.tfinger.y = it->win.y / ws.height;
++        SDL_PushEvent(&ev);
++        it = sUps.erase(it);
++        auto *f = aurora::rmlui::get_context()->GetFocusElement();
++        HLog.info("tap up; top doc now {}; focus <{}> '{}'", top_document() ? typeid(*top_document()).name() : "none",
++            f ? f->GetTagName() : "", f ? text_of(f).substr(0, 50) : "");
++    }
++    static const auto pads = parse(std::getenv("PB_PAD"));
++    for (const auto &p : pads) {
++        if (p.frame != frame) continue;
++        Rml::Input::KeyIdentifier k = p.what == "down" ? Rml::Input::KI_DOWN : p.what == "up" ? Rml::Input::KI_UP
++            : p.what == "enter" ? Rml::Input::KI_RETURN : Rml::Input::KI_ESCAPE;
++        ctx->ProcessKeyDown(k, 0);
++        ctx->ProcessKeyUp(k, 0);
++        auto *f = ctx->GetFocusElement();
++        HLog.info("key {}: focus '{}' top doc {}", p.what, f ? text_of(f).substr(0, 40) : "", top_document() ? typeid(*top_document()).name() : "none");
++    }
++}
++
++} // namespace partyboard::ui
+diff --git i/src/port/ui/ui.cpp w/src/port/ui/ui.cpp
+index 868ee6f3..1c29f1fe 100644
+--- i/src/port/ui/ui.cpp
++++ w/src/port/ui/ui.cpp
+@@ -406,8 +406,10 @@ Document *top_document() noexcept
+     return nullptr;
+ }
+ 
++void n141_harness_frame(); // N141 HARNESS
+ void update() noexcept
+ {
++    n141_harness_frame(); // N141 HARNESS
+     update_safe_area();
+     if (!aurora::rmlui::is_initialized()) {
+         return;
+# plus: files.cmake PORT_FILES += src/port/ui/n141_harness.cpp

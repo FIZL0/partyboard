@@ -7,6 +7,7 @@
 #include "../iso_validate.hpp"
 #include "port/quick_continue.h"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,8 +36,11 @@ private:
     void launch_game();
     void launch_online();
     void continue_game(const QuickContinueEntry &entry);
+    void apply_safe_area();
 
     bool mEntranceAnimationStarted = false;
+    bool mArtTried = false;
+    std::array<float, 4> mSafePadding { -1.0f, -1.0f, -1.0f, -1.0f };
     bool mOnlineAfterDisc = false;
     bool mRestartSuppressed = false;
     size_t mPlayButton = 0;

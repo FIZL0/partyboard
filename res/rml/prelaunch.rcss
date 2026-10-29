@@ -1,3 +1,9 @@
+/* N141: the Party Board home screen. One flex layout (no absolutely placed text), inside the safe area (#root's
+   padding, Prelaunch::update): desktop and landscape tablets put the logo over a column of big buttons on the left;
+   landscape phones (max-height 640dp) put the logo on the left and the buttons on the right; portrait stacks
+   everything in the middle. Behind it the disc's title backdrop drifts slowly (#art, home_art.cpp), or, without a disc,
+   the menu's own picture drifts (.plain). */
+
 *, *:before, *:after {
     box-sizing: border-box;
 }
@@ -9,48 +15,99 @@ body {
     font-weight: normal;
     font-size: 20dp;
     color: #FFFFFF;
+    background-color: #1d1035;
     filter: opacity(0);
     transition: filter 1s 0.2s linear-in-out;
     z-index: -1;
-}
-
-.gradient {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    /* The color gradient from the Figma bands really badly. A fully black gradient does as well, but not as badly. */
-    decorator: horizontal-gradient(#000000FF #00000000);
-}
-
-body.mirrored .gradient {
-    decorator: horizontal-gradient(#00000000 #000000FF);
-}
-
-.background {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    decorator: image(../prelaunch-bg.png cover left center);
-    opacity: 0;
-    transition: opacity 1s linear-in-out;
+    overflow: hidden;
 }
 
 body[open] {
     filter: opacity(1);
 }
 
-body[open] .background {
-    opacity: 1;
+/* Backdrops */
+@keyframes home-drift {
+    from { transform: scale(1.0) translateX(0dp); }
+    to { transform: scale(1.08) translateX(-24dp); }
 }
 
-body.disc-ready .background {
-    opacity: 0;
+/* the burst slowly comes closer, turning a little */
+@keyframes home-burst {
+    from { transform: scale(1.05) rotate(-3deg); }
+    to { transform: scale(1.25) rotate(3deg); }
 }
 
-content {
-    display: block;
+@keyframes home-pulse {
+    from { opacity: 0.55; }
+    to { opacity: 0.8; }
+}
+
+.plain {
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 100%;
     height: 100%;
+    decorator: image(../prelaunch-bg.png cover right center);
+    animation: 30s cubic-in-out infinite alternate home-drift;
+}
+
+#art {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    /* scaled 1.05 and more, so the edges stay out of sight as it turns */
+    animation: 40s sine-in-out infinite alternate home-burst;
+}
+
+body.has-art #art {
+    display: block;
+}
+
+body.has-art .plain {
+    display: none;
+}
+
+/* a soft light in the middle of the burst, breathing */
+.glow {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    decorator: radial-gradient(circle farthest-side at 60% 50%, #FFFFFF22, #FFFFFF00 60%);
+    animation: 6s sine-in-out infinite alternate home-pulse;
+}
+
+body.has-art .glow {
+    display: block;
+}
+
+/* darkens the side the menu is on, so the buttons read over any part of the picture */
+.shade {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    decorator: horizontal-gradient(#0b0518E6 #0b051800);
+}
+
+/* Layout */
+content {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    padding: 32dp 48dp;
     filter: opacity(0);
     transition: filter 0.2s linear-in-out;
 }
@@ -60,51 +117,32 @@ content[open] {
 }
 
 menu {
-    position: absolute;
-    left: 96dp;
-    right: auto;
-    top: 50%;
-    transform: translateY(-50%);
-    /* Scale based on a reference screen width, 428/1216 */
-    width: 35.230264vw;
-    min-width: 428dp;
-    max-width: 856dp;
-    height: auto;
     display: flex;
+    flex: 1 1 0;
     flex-direction: column;
-    gap: 48dp;
-}
-
-body.mirrored menu {
-    left: auto;
-    right: 96dp;
+    justify-content: center;
+    align-items: stretch;
+    gap: 32dp;
+    width: 36vw;
+    min-width: 380dp;
+    max-width: 560dp;
+    min-height: 0;
 }
 
 hero {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 8dp;
-}
-
-body.mirrored hero {
-    align-items: flex-end;
+    display: block;
+    flex: 0 0 auto;
 }
 
 hero img {
     width: 100%;
+    height: auto;
 }
 
 .eyebrow {
-    font-size: 24dp;
-}
-
-@media (min-width: 1216dp) {
-    .eyebrow {
-        /* Same logic as .menu, 24/1216 */
-        font-size: 1.973684vw;
-    }
+    margin-bottom: 8dp;
+    font-size: 22dp;
+    font-effect: shadow(0dp 2dp #00000080);
 }
 
 .eyebrow span {
@@ -113,91 +151,93 @@ hero img {
 
 #menu-list {
     display: flex;
+    flex: 0 1 auto;
     flex-direction: column;
     gap: 12dp;
-    align-items: flex-start;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 4dp;
 }
 
+/* Thumb-sized buttons: 64dp tall (48dp at least on small phones), the whole row is the target. */
 #menu-list button {
-    width: 428dp;
-    height: 54dp;
-    padding: 8dp 16dp;
-    border-radius: 8dp;
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 64dp;
+    padding: 14dp 24dp;
+    border-radius: 16dp;
+    border-width: 2dp;
+    border-color: #FFFFFF26;
+    background-color: #0b0518A6;
     text-align: left;
     text-transform: uppercase;
     font-size: 32dp;
     font-weight: normal;
+    font-effect: shadow(0dp 2dp #00000080);
     cursor: pointer;
-    /* Define a fully transparent gradient as the default state, otherwise a white flash occurs */
-    decorator: horizontal-gradient(#00000000 #00000000);
-}
-
-#menu-list button:disabled {
-    opacity: 0.75;
-    cursor: default;
-    decorator: horizontal-gradient(#00000000 #00000000);
 }
 
 #menu-list button.anim-done {
-    transition: decorator color opacity 0.1s linear-in-out;
+    transition: background-color border-color color transform 0.12s cubic-out;
 }
 
 #menu-list button:hover,
 #menu-list button:focus-visible {
-    color: black;
-    decorator: horizontal-gradient(#009ddaFF #009dda00);
+    color: #0b0518;
+    background-color: #009ddaF2;
+    border-color: #FFFFFFE6;
+    font-effect: none;
+    transform: scale(1.02);
 }
 
-body.mirrored #menu-list {
+#menu-list button:active {
+    background-color: #33b5e8;
+    transform: scale(0.98);
+}
+
+#menu-list button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* N132: Continue buttons carry their game (board, turn, players) under the label. */
+#menu-list button.continue {
+    background-color: #2a1460C0;
+    border-color: #ffd23f80;
+}
+
+#menu-list button.continue .continue-detail {
+    display: block;
+    margin-top: 2dp;
+    font-size: 16dp;
+    text-transform: none;
+    opacity: 0.85;
+}
+
+/* Status: the disc on the left, the version on the right, each a small pill */
+footer {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: space-between;
     align-items: flex-end;
+    gap: 16dp;
+    font-size: 18dp;
 }
 
-body.mirrored #menu-list button {
-    text-align: right;
-}
-
-body.mirrored #menu-list button:hover,
-body.mirrored #menu-list button:focus-visible {
-    decorator: horizontal-gradient(#009dda00 #009ddaFF);
-}
-
-disc-info {
-    position: absolute;
-    left: 96dp;
-    right: auto;
-    bottom: 72dp;
+disc-info,
+version-info {
     display: flex;
     flex-direction: column;
-    gap: 12dp;
-    font-size: 24dp;
-    font-effect: glow(0dp 4dp 0dp 4dp black);
-    text-align: left;
-}
-
-body.mirrored disc-info {
-    left: auto;
-    right: 96dp;
-    text-align: right;
+    gap: 4dp;
+    padding: 8dp 14dp;
+    border-radius: 12dp;
+    background-color: #0b0518A6;
 }
 
 version-info {
-    position: absolute;
-    right: 96dp;
-    left: auto;
-    bottom: 72dp;
-    display: flex;
-    flex-direction: column;
-    gap: 12dp;
     text-align: right;
-    font-size: 24dp;
-    font-effect: glow(0dp 4dp 0dp 4dp black);
-    text-align: right;
-}
-
-body.mirrored version-info {
-    right: auto;
-    left: 96dp;
-    text-align: left;
 }
 
 #disc-status {
@@ -232,11 +272,11 @@ body.mirrored version-info {
 
 #disc-status icon {
     display: none;
-    width: 24dp;
-    height: 24dp;
+    width: 22dp;
+    height: 22dp;
     font-family: "Material Symbols Rounded";
     font-weight: normal;
-    font-size: 24dp;
+    font-size: 22dp;
 }
 
 #disc-status[status] icon {
@@ -268,66 +308,17 @@ body.mirrored version-info {
 }
 
 #disc-version {
-    font-size: 20dp;
-}
-
-.update {
-    display: none;
-    color: #A6A09B;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8dp;
-    font-size: 20dp;
-}
-
-.update[state=checking],
-.update[state=failed] {
-    display: block;
-}
-
-.update[state=available] {
-    display: flex;
-}
-
-#update-download {
-    display: none;
-    margin: 0dp;
-    padding: 0dp;
-    border-width: 0dp;
-    background-color: transparent;
-    color: #D8F999;
-    cursor: pointer;
-    text-transform: uppercase;
-    font-weight: bold;
-    decorator: horizontal-gradient(#00000000 #00000000);
-}
-
-.update[state=available] #update-download {
-    display: flex;
-    align-items: center;
-    gap: 2dp;
-}
-
-#update-download icon {
-    display: block;
-    width: 18dp;
-    height: 18dp;
-    font-family: "Material Symbols Rounded";
-    font-weight: normal;
-    decorator: text("&#xe5c8;" center center);
+    font-size: 16dp;
 }
 
 .detail {
-    color: #A6A09B;
+    color: #C9C2D6;
 }
 
 #crash-note {
-    max-width: 720dp;
+    max-width: 640dp;
+    font-size: 16dp;
     word-break: break-word;
-}
-
-body.mirrored .update {
-    justify-content: flex-start;
 }
 
 /* Startup animation */
@@ -375,156 +366,114 @@ body.fast {
     transition: filter 0.25s linear-in-out;
 }
 
-body.fast .background {
-    transition: opacity 0.25s linear-in-out;
-}
-
 body.fast .intro-item {
     transition: opacity transform 0.15s 0s cubic-in-out;
 }
 
-/* Mobile layout */
-@media (max-height: 640dp) {
-    .gradient {
-        decorator: horizontal-gradient(#00000000 #000000FF);
+/* Landscape phones: the logo on the left, the buttons on the right (they scroll if Continue makes them too many). */
+@media (max-height: 640dp) and (orientation: landscape) {
+    content {
+        padding: 16dp 24dp;
     }
 
-    body.mirrored .gradient {
-        decorator: horizontal-gradient(#000000FF #00000000);
+    .shade {
+        decorator: horizontal-gradient(#0b051880 #0b0518E6);
     }
 
     menu {
-        left: 32dp;
-        right: 32dp;
-        width: auto;
-        min-width: 0;
-        max-width: none;
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
-        gap: 16dp;
-    }
-
-    body.mirrored menu {
-        left: 32dp;
-        right: 32dp;
-        flex-direction: row-reverse;
+        gap: 24dp;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
     }
 
     hero {
         flex: 1 1 0;
-        min-width: 0;
-        max-width: 48%;
-        margin-left: 32dp;
-    }
-
-    body.mirrored hero {
-        align-items: flex-end;
-    }
-
-    hero img {
-        width: 100%;
+        max-width: 46%;
     }
 
     #menu-list {
         flex: 1 1 0;
-        min-width: 0;
-        max-width: 52%;
-        align-items: flex-end;
+        max-width: 50%;
+        max-height: 100%;
+        gap: 8dp;
     }
 
     #menu-list button {
-        width: 100%;
-        max-width: 100%;
-        text-align: right;
+        min-height: 52dp;
+        padding: 11dp 20dp;
+        font-size: 26dp;
     }
 
-    #menu-list button:hover,
-    #menu-list button:focus-visible {
-        decorator: horizontal-gradient(#009dda00 #009ddaFF);
+    #menu-list button.continue .continue-detail {
+        font-size: 14dp;
     }
 
-    body.mirrored #menu-list {
-        align-items: flex-start;
+    footer {
+        font-size: 15dp;
     }
 
-    body.mirrored #menu-list button {
-        text-align: left;
-    }
-
-    body.mirrored #menu-list button:hover,
-    body.mirrored #menu-list button:focus-visible {
-        decorator: horizontal-gradient(#009ddaFF #009dda00);
+    #disc-version,
+    #crash-note {
+        font-size: 13dp;
     }
 
     .eyebrow {
         display: none;
     }
 
-    disc-info {
-        right: 32dp;
-        left: auto;
-        bottom: 32dp;
-        top: auto;
-        text-align: right;
-        font-size: 16dp;
+    disc-info,
+    version-info {
+        padding: 4dp 10dp;
+        border-radius: 10dp;
+    }
+}
+
+/* Portrait: logo, buttons and status in one centred column. */
+@media (orientation: portrait) {
+    content {
+        padding: 24dp 20dp;
+    }
+
+    .shade {
+        decorator: vertical-gradient(#0b051840 #0b0518E6);
+    }
+
+    menu {
+        align-self: center;
+        width: 100%;
+        min-width: 0;
+        max-width: 520dp;
+        gap: 24dp;
+    }
+
+    hero {
+        padding: 0 8%;
+    }
+
+    #menu-list button {
+        text-align: center;
+        min-height: 60dp;
+        font-size: 28dp;
+    }
+
+    footer {
+        flex-direction: column;
+        align-items: center;
+        gap: 8dp;
+        font-size: 15dp;
+    }
+
+    disc-info,
+    version-info {
+        align-items: center;
+        text-align: center;
     }
 
     #disc-status {
-        justify-content: flex-end;
+        justify-content: center;
     }
-
-    #disc-status icon {
-        font-size: 20dp;
-    }
-
-    #disc-version {
-        font-size: 16dp;
-    }
-
-    version-info {
-        right: 32dp;
-        left: auto;
-        bottom: auto;
-        top: 32dp;
-        text-align: right;
-        font-size: 16dp;
-    }
-
-    .update {
-        font-size: 16dp;
-    }
-
-    body.mirrored disc-info {
-        right: auto;
-        left: 32dp;
-        bottom: 32dp;
-        top: auto;
-        text-align: left;
-    }
-
-    body.mirrored version-info {
-        right: auto;
-        left: 32dp;
-        bottom: auto;
-        top: 32dp;
-        text-align: left;
-    }
-
-    body.mirrored #disc-status {
-        justify-content: flex-start;
-    }
-}
-
-/* N132: Continue buttons carry their game (board, turn, players) under the label. */
-#menu-list button.continue {
-    height: auto;
-    min-height: 54dp;
-}
-
-#menu-list button.continue .continue-detail {
-    display: block;
-    font-size: 16dp;
-    text-transform: none;
-    opacity: 0.8;
 }
