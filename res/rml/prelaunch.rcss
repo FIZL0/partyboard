@@ -159,6 +159,34 @@ hero img {
     padding: 4dp;
 }
 
+/* N146: the list's scrollbar. Unstyled, RmlUi's scrollbar element is as wide as the list, so once Continue made the list
+   overflow, the buttons were left ~0dp of content width (their labels ran on past a 44dp pill). */
+#menu-list scrollbarvertical {
+    width: 6dp;
+    margin: 4dp 0 4dp 0;
+}
+
+#menu-list scrollbarvertical sliderarrowdec,
+#menu-list scrollbarvertical sliderarrowinc {
+    width: 0;
+    height: 0;
+}
+
+#menu-list scrollbarvertical slidertrack {
+    width: 6dp;
+}
+
+#menu-list scrollbarvertical sliderbar {
+    width: 6dp;
+    min-height: 24dp;
+    border-radius: 3dp;
+    background-color: #FFFFFF66;
+}
+
+#menu-list scrollbarhorizontal {
+    height: 0;
+}
+
 /* Thumb-sized buttons: 64dp tall (48dp at least on small phones), the whole row is the target. */
 #menu-list button {
     display: block;
@@ -201,18 +229,43 @@ hero img {
     cursor: default;
 }
 
-/* N132: Continue buttons carry their game (board, turn, players) under the label. */
+/* N132: Continue buttons carry their game (turn, players, board) under the label. N146: on one line, which ends in an
+   ellipsis where it does not fit (never wrapped word by word); landscape phones put it beside the label. */
 #menu-list button.continue {
+    display: flex;
+    flex-direction: column;
     background-color: #2a1460C0;
     border-color: #ffd23f80;
 }
 
+/* N146: as specific as .continue, so a focused Continue turns blue like the others (it kept its purple, with dark text) */
+#menu-list button.continue:hover,
+#menu-list button.continue:focus-visible {
+    background-color: #009ddaF2;
+    border-color: #FFFFFFE6;
+}
+
+#menu-list button.continue:active {
+    background-color: #33b5e8;
+}
+
+#menu-list button.continue .continue-label {
+    display: block;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
 #menu-list button.continue .continue-detail {
     display: block;
+    flex: 0 1 auto;
+    min-width: 0;
     margin-top: 2dp;
     font-size: 16dp;
     text-transform: none;
     opacity: 0.85;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Status: the disc on the left, the version on the right, each a small pill */
@@ -370,7 +423,9 @@ body.fast .intro-item {
     transition: opacity transform 0.15s 0s cubic-in-out;
 }
 
-/* Landscape phones: the logo on the left, the buttons on the right (they scroll if Continue makes them too many). */
+/* Landscape phones: the logo on the left, the buttons on the right (they scroll if Continue makes them too many).
+   N146: both have definite widths (RmlUi gave a flex-basis 0 scroll list ~0 width once it overflowed), and the list
+   fills the column's height, centred by auto margins, which never go negative: a long list starts at its top. */
 @media (max-height: 640dp) and (orientation: landscape) {
     content {
         padding: 16dp 24dp;
@@ -382,24 +437,32 @@ body.fast .intro-item {
 
     menu {
         flex-direction: row;
-        align-items: center;
+        align-items: stretch;
         justify-content: space-between;
-        gap: 24dp;
+        gap: 0;
         width: 100%;
         min-width: 0;
         max-width: none;
     }
 
     hero {
-        flex: 1 1 0;
-        max-width: 46%;
+        flex: 0 0 auto;
+        align-self: center;
+        width: 44%;
     }
 
     #menu-list {
-        flex: 1 1 0;
-        max-width: 50%;
-        max-height: 100%;
+        flex: 0 0 auto;
+        width: 52%;
         gap: 8dp;
+    }
+
+    #menu-list button:first-child {
+        margin-top: auto;
+    }
+
+    #menu-list button:last-child {
+        margin-bottom: auto;
     }
 
     #menu-list button {
@@ -408,7 +471,15 @@ body.fast .intro-item {
         font-size: 26dp;
     }
 
+    #menu-list button.continue {
+        flex-direction: row;
+        align-items: center;
+        gap: 12dp;
+    }
+
     #menu-list button.continue .continue-detail {
+        flex: 1 1 auto;
+        margin-top: 0;
         font-size: 14dp;
     }
 

@@ -26,9 +26,20 @@ if (GIT_FOUND)
             OUTPUT_VARIABLE PARTY_BOARD_WC_REVISION
             OUTPUT_STRIP_TRAILING_WHITESPACE)
     # defines PARTY_BOARD_WC_DESCRIBE
-    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} describe --tags --long --dirty --match "v*"
+    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} describe --tags --long --match "v*"
             OUTPUT_VARIABLE PARTY_BOARD_WC_DESCRIBE
             OUTPUT_STRIP_TRAILING_WHITESPACE)
+    # N146: "-dirty" only for this repo's own changes. describe --dirty counts extern/aurora and extern/musyx, which
+    # configure patches (cmake/patches), so every build read "-dirty".
+    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} update-index -q --refresh
+            OUTPUT_QUIET ERROR_QUIET)
+    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMAND ${GIT_EXECUTABLE} diff-index --quiet --ignore-submodules HEAD --
+            RESULT_VARIABLE partyboard_git_dirty
+            OUTPUT_QUIET ERROR_QUIET)
+    if (PARTY_BOARD_WC_DESCRIBE AND NOT partyboard_git_dirty EQUAL 0)
+        string(APPEND PARTY_BOARD_WC_DESCRIBE "-dirty")
+    endif ()
 
     # remove the git hash, then collapse a clean "-0" suffix only
     string(REGEX REPLACE "-[^-]+(-dirty|)$" "\\1" PARTY_BOARD_WC_DESCRIBE "${PARTY_BOARD_WC_DESCRIBE}")

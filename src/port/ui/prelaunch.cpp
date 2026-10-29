@@ -614,7 +614,8 @@ bool is_restart_pending() noexcept
     return false;
 }
 
-// N132: what a Continue button shows of its game: the board and turn, then who plays (story: the player alone).
+// N132: what a Continue button shows of its game, on one line (N146: it ends in an ellipsis where it does not fit):
+// the turn, who plays (story: the player alone), then the board and the card file.
 static std::string continue_detail(const QuickContinueEntry &entry)
 {
     static constexpr std::array<const char *, 6> kBoards { "Toad's Midway Madness", "Goomba's Greedy Gala",
@@ -622,18 +623,18 @@ static std::string continue_detail(const QuickContinueEntry &entry)
     static constexpr std::array<const char *, 8> kCharacters { "Mario", "Luigi", "Peach", "Yoshi", "Wario",
         "Donkey Kong", "Daisy", "Waluigi" };
     const auto character = [](s32 c) { return c >= 0 && c < 8 ? kCharacters[c] : "?"; };
-    std::string text = entry.board >= 0 && entry.board < 6 ? kBoards[entry.board] : "Board";
-    text += fmt::format(", turn {}/{}", entry.turn, entry.max_turn);
-    if (entry.box >= 0) {
-        text += fmt::format(", file {}", entry.box + 1);
-    }
-    text += "\n";
+    std::string text = fmt::format("Turn {}/{} - ", entry.turn, entry.max_turn);
     if (entry.kind == QUICK_CONTINUE_STORY) {
         text += character(entry.character[0]);
     }
     else {
         text += fmt::format("{}, {}, {}, {}", character(entry.character[0]), character(entry.character[1]),
             character(entry.character[2]), character(entry.character[3]));
+    }
+    text += " - ";
+    text += entry.board >= 0 && entry.board < 6 ? kBoards[entry.board] : "Board";
+    if (entry.box >= 0) {
+        text += fmt::format(", file {}", entry.box + 1);
     }
     return text;
 }
@@ -677,12 +678,10 @@ Prelaunch::Prelaunch(bool relaunch)
                 mMenuButtons.push_back(std::make_unique<Button>(menuList, "Continue"));
                 auto *root = mMenuButtons.back()->root();
                 root->SetClass("continue", true);
-                std::string detail = escape(continue_detail(entry));
-                for (size_t at; (at = detail.find('\n')) != std::string::npos;) {
-                    detail.replace(at, 1, "<br/>");
-                }
-                root->SetInnerRML(fmt::format("{}<span class=\"continue-detail\">{}</span>",
-                    entry.kind == QUICK_CONTINUE_STORY ? "Continue Story" : "Continue", detail));
+                root->SetInnerRML(fmt::format(
+                    "<span class=\"continue-label\">{}</span><span class=\"continue-detail\">{}</span>",
+                    entry.kind == QUICK_CONTINUE_STORY ? "Continue Story" : "Continue",
+                    escape(continue_detail(entry))));
                 mMenuButtons.back()->on_pressed([this, entry] { continue_game(entry); });
                 apply_intro_animation(root, "delay-1");
             }
