@@ -122,7 +122,7 @@ function(pb_web_link target)
         set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/port/web/pbnet_rtc.js)
         # The lobby's C ABI for the page's scripts (tools/web_pair.mjs drives two tabs' lobbies with it).
         target_link_options(${target} PRIVATE
-                "-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_pbnet_lobby_host,_pbnet_lobby_join,_pbnet_lobby_answer,_pbnet_lobby_json,_pbnet_lobby_ready,_pbnet_lobby_start,_pbnet_lobby_leave,_pbnet_lobby_cpu,_pbnet_frame,_pbnet_waiting_on,_pbnet_recover_json,_pb_web_ui_focus,_pb_web_lottery_stick,_pb_web_plunger_pad")
+                "-sEXPORTED_FUNCTIONS=_main,_malloc,_free,_pbnet_lobby_host,_pbnet_lobby_join,_pbnet_lobby_answer,_pbnet_lobby_json,_pbnet_lobby_ready,_pbnet_lobby_start,_pbnet_lobby_leave,_pbnet_lobby_cpu,_pbnet_lan_browse,_pbnet_frame,_pbnet_waiting_on,_pbnet_recover_json,_pb_web_ui_focus,_pb_web_lottery_stick,_pb_web_plunger_pad")
     endif ()
     # The probe too (N90): with -g2 emcc links other builds of its ports (emdawnwebgpu), which inline otherwise, so
     # the probe's functions are partyboard's only with the same flags.

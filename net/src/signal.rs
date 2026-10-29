@@ -10,7 +10,7 @@
 //!   under the code again.
 //!
 //! The relay limits each address to a burst of ~10 requests and ~1 every 2 s after it (measured 2026-10-28; 429 with
-//! `retry-after` past it), shared by every tab and game on that address: hence [`POLL`] of 2 s, not 1.
+//! `retry-after` past it), shared by every tab and game on that address: hence [`POLL`] of 3 s (N139a), not 1.
 //!
 //! HTTP: reqwest on the desktop and phones, the page's `fetch` in the browser (polled, `src/port/web/pbnet_rtc.js`),
 //! and an in-process relay in tests (no request leaves the machine).
@@ -24,8 +24,10 @@ pub const SHORT: usize = 4;
 pub const STALE: u64 = 150;
 /// How often a host puts its offer again while it doesn't change (well inside [`STALE`]).
 pub const REPUBLISH: Duration = Duration::from_secs(60);
-/// How often a host asks for a guest's answer.
-pub const POLL: Duration = Duration::from_secs(2);
+/// How often a host asks for a guest's answer. N139a: 3 s, not 2: at 2 s one host takes the relay's whole refill
+/// rate for its address, and the LAN tab's records (`nearby.rs`) and the guest's own requests then meet 429s (a join
+/// from the list took 58 s, the host reading the answer after the guest's attempt had given up).
+pub const POLL: Duration = Duration::from_secs(3);
 /// The public pkarr relay.
 pub const PKARR: &str = "https://relay.pkarr.org";
 /// The biggest record a relay takes (BEP 44's `v`).

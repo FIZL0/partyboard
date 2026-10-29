@@ -397,8 +397,11 @@ async function lobbyByAbi(host, guests) {
   const hostLobby = async () => {
     if (!await host.evaluate(`__pb.call('_pbnet_lobby_host', ${JSON.stringify(setup('Host'))})`)) throw new Error('a: host refused');
     // N139: with the relay on, the short code once it is online (the offer shows first)
-    return until('the host\'s code', 30, async () => {
-      const c = (await host.evaluate('__pb.json()')).short;
+    let polls = 0;
+    return until('the host\'s code', 60, async () => {
+      const j = await host.evaluate('__pb.json()');
+      if (++polls % 40 === 0) say(`a: lobby ${j.state}, short ${JSON.stringify(j.short?.slice(0, 12))}, error ${JSON.stringify(j.error)}`);
+      const c = j.short;
       return c && (!wantShort || SHORT.test(c)) && c;
     });
   };

@@ -5,8 +5,12 @@
 //! - A WebRTC host (a browser, or a desktop's Host for Browsers) with a short code puts a record (its short code and
 //!   the LAN listing `lobby_c.rs` gives it: name, match id, open seats) under one of [`SLOTS`] keys named after its
 //!   address ([`name`]), every [`REPUBLISH`], and empties it when the lobby starts or closes.
-//! - A browser's LAN tab reads those keys (one every [`BROWSE_EVERY`]: every tab and game on the address share the
-//!   relay's ~0.5 requests a second) and lists the records written less than [`STALE`] ago; a tap joins the code.
+//! - A browser's LAN tab reads those keys (one every [`BROWSE_EVERY`], only the slots in use and the next) and lists
+//!   the records written less than [`STALE`] ago; a tap joins the code.
+//!
+//! Every tab and game on the address share the relay's ~0.5 requests a second, which a WebRTC host's answer poll
+//! (`signal::POLL`, 2 s) already fills: this module asks as little as it can (a host ~0.05/s, a browse 0.1/s), and
+//! a join from the list still meets 429s when the address is busy (`signal.rs` waits and asks again).
 //!
 //! Strangers behind the same address (a carrier's NAT) show up too: the tab says "on your network", not "yours".
 
@@ -20,10 +24,10 @@ use crate::signal;
 pub const SLOTS: u8 = 3;
 /// A record older than this is left out (its host closed, or its page went away).
 pub const STALE: Duration = Duration::from_secs(60);
-/// How often a host puts its record again (well inside [`STALE`], a PUT can take 25 s).
-pub const REPUBLISH: Duration = Duration::from_secs(20);
+/// How often a host puts its record again (inside [`STALE`] even with a 25 s PUT: the seq is the PUT's start).
+pub const REPUBLISH: Duration = Duration::from_secs(30);
 /// A browse reads one slot this often (after reading them all once at its start).
-pub const BROWSE_EVERY: Duration = Duration::from_millis(if cfg!(test) { 50 } else { 6000 });
+pub const BROWSE_EVERY: Duration = Duration::from_millis(if cfg!(test) { 50 } else { 10000 });
 /// A failed put is tried again after this.
 const RETRY: Duration = Duration::from_secs(15);
 
@@ -86,6 +90,8 @@ pub async fn host(mut now: impl FnMut() -> Option<HostNow>) {
     let mut at: Option<(Ipv4Addr, u8)> = None;
     let (mut text, mut put_at, mut seq) = (String::new(), None::<Instant>, 0i64);
     let mut next = Instant::now();
+    // puts since the slot was last read back (every other republish checks that it is still ours)
+    let mut unread = 0;
     loop {
         let Some(n) = now() else { break };
         let want = match (&n.code, &n.listing, n.ip) {
@@ -98,9 +104,10 @@ pub async fn host(mut now: impl FnMut() -> Option<HostNow>) {
                 // the slot is still ours (two hosts may have taken it at once), else the first free one
                 let mut slot = None;
                 if let Some((i, s)) = at.filter(|(i, _)| *i == ip) {
-                    if free(&signal::get(&name(i, s)).await, &code) {
+                    if unread == 0 || free(&signal::get(&name(i, s)).await, &code) {
                         slot = Some(s);
                     }
+                    unread = (unread + 1) % 2;
                 }
                 if slot.is_none() {
                     if let Some((i, s)) = at.take() {
@@ -232,8 +239,10 @@ pub async fn browse(found: Weak<Found>, ip: impl std::future::Future<Output = Re
         Some(f) => f.lock().ip = Some(ip),
         None => return,
     }
+    // the first round reads every slot; after it, the slots up to the next past the last one listed (hosts take the
+    // first free slot)
+    let mut s = 0u8;
     for round in 0u64.. {
-        let s = (round % SLOTS as u64) as u8;
         let got = signal::get(&name(ip, s)).await;
         {
             let Some(f) = found.upgrade() else { return };
@@ -248,6 +257,8 @@ pub async fn browse(found: Weak<Found>, ip: impl std::future::Future<Output = Re
                 Err(e) => eprintln!("pbnet: nearby: {e}"),
             }
         }
+        let used = found.upgrade().and_then(|f| f.lock().slots.iter().rposition(|x| x.as_ref().is_some_and(|(_, _, q)| fresh(*q)))).map_or(1, |i| i + 2);
+        s = if round + 1 < SLOTS as u64 { s + 1 } else { (s + 1) % used.min(SLOTS as usize) as u8 };
         // the first round reads every slot at once (inside the relay's burst)
         if round + 1 >= SLOTS as u64 {
             tokio::time::sleep(BROWSE_EVERY).await;
