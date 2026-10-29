@@ -176,7 +176,6 @@ button {
     border-radius: 14dp;
     box-shadow: rgba(146, 135, 91, 25%) 0 0 0 1dp;
     font-size: 16dp;
-    transition: background-color 0.1s linear-in-out, opacity 0.1s linear-in-out;
     cursor: pointer;
     focus: auto;
 }
@@ -185,6 +184,11 @@ button:not(:disabled):hover,
 button:not(:disabled):focus-visible {
     background-color: rgba(0, 157, 218, 20%);
     box-shadow: #00b4fa 0 0 0 2dp;
+}
+
+/* N147: only the mouse's hover fades; pad/keyboard focus moves in one step (see select-button) */
+button:not(:disabled):hover {
+    transition: background-color 0.1s linear-in-out, opacity 0.1s linear-in-out;
 }
 
 button:not(:disabled):selected {
@@ -212,7 +216,6 @@ select-button {
     padding: 8dp 16dp;
     border-radius: 14dp;
     box-shadow: rgba(146, 135, 91, 25%) 0 0 0 1dp;
-    transition: background-color 0.1s linear-in-out, opacity 0.1s linear-in-out;
     cursor: pointer;
     focus: auto;
 }
@@ -221,6 +224,12 @@ select-button:not(:disabled):hover,
 select-button:not(:disabled):focus-visible {
     background-color: rgba(0, 157, 218, 20%);
     box-shadow: #00b4fa 0 0 0 2dp;
+}
+
+/* N147: the fade is only the mouse's. RmlUi takes the transition from an element's new state: with it on every row,
+   the row losing focus faded out over the one gaining it, while the focus ring (box-shadow) jumped at once. */
+select-button:not(:disabled):hover {
+    transition: background-color 0.1s linear-in-out, opacity 0.1s linear-in-out;
 }
 
 select-button:not(:disabled):selected {
