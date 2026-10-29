@@ -533,6 +533,63 @@
           "value": true
         }
       }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux release (tools/linux-release.sh)",
+      "description": "N137: the partyboard-linux-x86_64.tar.gz build, run inside the Steam Runtime sniper SDK (glibc 2.31) by tools/linux-release.sh. SDL3 built from source as libSDL3.so.0 next to the binary (one SDL in the process), every other library fetched and linked in statically, libstdc++/libgcc static.",
+      "inherits": [
+        "relwithdebinfo",
+        "linux-default"
+      ],
+      "binaryDir": "${sourceDir}/build/linux-release",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/linux-release-install",
+        "BUILD_SHARED_LIBS": {
+          "type": "BOOL",
+          "value": false
+        },
+        "AURORA_SDL3_PROVIDER": "vendor",
+        "AURORA_SDL3_LINKAGE": "shared",
+        "PARTY_BOARD_GLIBC_COMPAT": {
+          "type": "BOOL",
+          "value": true
+        },
+        "FT_DISABLE_BZIP2": {
+          "type": "BOOL",
+          "value": true
+        },
+        "CMAKE_EXE_LINKER_FLAGS": "-static-libstdc++ -static-libgcc",
+        "CMAKE_SHARED_LINKER_FLAGS": "-static-libstdc++ -static-libgcc",
+        "CMAKE_DISABLE_FIND_PACKAGE_absl": {
+          "type": "BOOL",
+          "value": true
+        },
+        "ZLIB_USE_STATIC_LIBS": {
+          "type": "BOOL",
+          "value": true
+        },
+        "CMAKE_DISABLE_FIND_PACKAGE_PNG": {
+          "type": "BOOL",
+          "value": true
+        },
+        "CMAKE_DISABLE_FIND_PACKAGE_Freetype": {
+          "type": "BOOL",
+          "value": true
+        },
+        "CMAKE_DISABLE_FIND_PACKAGE_SQLite3": {
+          "type": "BOOL",
+          "value": true
+        },
+        "CMAKE_DISABLE_FIND_PACKAGE_zstd": {
+          "type": "BOOL",
+          "value": true
+        },
+        "CMAKE_DISABLE_FIND_PACKAGE_fmt": {
+          "type": "BOOL",
+          "value": true
+        }
+      }
     }
   ],
   "buildPresets": [
@@ -729,6 +786,15 @@
       "displayName": "Web (wasm32)",
       "targets": [
         "partyboard"
+      ]
+    },
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-release",
+      "description": "Linux release build, see tools/linux-release.sh",
+      "displayName": "Linux release",
+      "targets": [
+        "install"
       ]
     }
   ]

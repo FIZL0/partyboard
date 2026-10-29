@@ -181,6 +181,11 @@ target_include_directories(dol PRIVATE include extern extern/aurora/include exte
 target_link_libraries(dol PUBLIC aurora::core aurora::card aurora::dvd aurora::gx aurora::mtx aurora::os aurora::si aurora::vi aurora::pad musyx absl::flat_hash_map nlohmann_json::nlohmann_json fmt::fmt rmlui_debugger)
 include(cmake/pbnet.cmake)
 target_link_libraries(dol PRIVATE pbnet::pbnet)
+# N137: stand-ins for the newer glibc/libstdc++ symbols the prebuilt Dawn needs, for the glibc 2.31 Linux release
+option(PARTY_BOARD_GLIBC_COMPAT "Link src/port/glibc_compat.c into dol (tools/linux-release.sh)" OFF)
+if (PARTY_BOARD_GLIBC_COMPAT)
+    target_sources(dol PRIVATE src/port/glibc_compat.c)
+endif ()
 # TODO it doesn't work on Linux yet
 if (WIN32)
     if(USE_ASAN)
