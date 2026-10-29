@@ -1359,7 +1359,8 @@ pub struct LanGame {
 pub struct LanList {
     /// `binding` (no endpoint yet), `open` (listening) or `closed` (it couldn't bind: `error` says why).
     pub state: &'static str,
-    /// mDNS is on (false: this device can't hear the LAN, e.g. an iPhone without the multicast entitlement).
+    /// mDNS is on (false: this device can't hear the LAN, e.g. an iPhone without the multicast entitlement), or (N144,
+    /// the desktop) the WebRTC browse can list this network's browser lobbies.
     pub lan: bool,
     pub error: String,
     /// In endpoint ID order. Hosts whose record isn't a listing are left out.
@@ -1382,6 +1383,9 @@ pub struct Browse {
     rt: Handle,
     /// Locked while binding; None once taken.
     slot: Slot,
+    /// N144, the desktop: a WebRTC browse beside the endpoint ([`Browse::with_nearby`]): the lobbies hosted in a
+    /// browser or with Host for Browsers on this network (`nearby.rs`), which mDNS doesn't hear. None until bound.
+    nearby: Arc<Mutex<Option<crate::rtc::Transport>>>,
 }
 
 impl Browse {
@@ -1393,14 +1397,49 @@ impl Browse {
         let slot: Slot = Arc::new(tokio::sync::Mutex::new(None));
         let mut binding = slot.clone().try_lock_owned().expect("a new mutex is free");
         rt.spawn(async move { *binding = Some(bind.await) });
-        Browse { relay, rt: rt.clone(), slot }
+        Browse { relay, rt: rt.clone(), slot, nearby: Arc::default() }
+    }
+
+    /// N144: also lists the WebRTC lobbies the browse `bind` makes (`rtc::Transport::bind_browse`) finds.
+    pub fn with_nearby<B>(self, bind: B) -> Browse
+    where
+        B: Future<Output = Result<crate::rtc::Transport, String>> + Send + 'static,
+    {
+        // held by the task until bound only: once the browse is dropped or taken, so is the WebRTC one (its task ends)
+        let nearby = self.nearby.clone();
+        self.rt.spawn(async move {
+            match bind.await {
+                Ok(t) => *nearby.lock().unwrap_or_else(|e| e.into_inner()) = Some(t),
+                Err(e) => eprintln!("pbnet: LAN browse: no WebRTC browse: {e}"),
+            }
+        });
+        self
+    }
+
+    /// N144: the WebRTC lobbies found (short codes and listings), and whether that browse can find any.
+    fn nearby(&self) -> (bool, Vec<LanGame>) {
+        let n = self.nearby.lock().unwrap_or_else(|e| e.into_inner());
+        n.as_ref().map_or((false, vec![]), |t| {
+            let games = t.lan().into_iter().filter_map(|h| Some(LanGame { code: h.id, listing: serde_json::from_str(&h.listing).ok()? }));
+            (t.has_lan(), games.collect())
+        })
+    }
+
+    /// N144: `code` (a short code) is a WebRTC lobby this browse lists, so a join needs no lookup to know it.
+    pub fn lists_nearby(&self, code: &str) -> bool {
+        self.nearby().1.iter().any(|g| g.code == code)
     }
 
     /// The lobbies heard now. Never waits.
     pub fn list(&self) -> LanList {
         let (state, lan, error, games) = match self.slot.try_lock().as_deref() {
             Err(_) => ("binding", false, String::new(), vec![]),
-            Ok(Some(Ok(t))) => ("open", t.has_lan(), String::new(), lan_games(t.lan())),
+            // N144: mDNS's lobbies, then the WebRTC ones listed for this network
+            Ok(Some(Ok(t))) => {
+                let (near, mut games) = self.nearby();
+                games.splice(0..0, lan_games(t.lan()));
+                ("open", t.has_lan() || near, String::new(), games)
+            }
             Ok(Some(Err(e))) => ("closed", false, format!("Couldn't go online: {e}"), vec![]),
             Ok(None) => ("closed", false, "taken by a join".into(), vec![]),
         };
@@ -1552,9 +1591,12 @@ pub(crate) fn rejoin_global((s, relay): (Setup, Relay), r: Rejoin) -> bool {
 pub(crate) fn bind_join(relay: Relay, code: &str, browse: Option<Browse>) -> impl Future<Output = Result<Transport, String>> + Send + 'static {
     let offer = crate::rtc::codes::offer_in(code).is_some();
     let short = crate::signal::short_in(code).filter(|_| relay != Relay::Off);
+    // N144: a short code from the LAN tab's WebRTC list is one: no lookup either
+    let listed = short.as_ref().is_some_and(|c| browse.as_ref().is_some_and(|b| b.lists_nearby(c)));
     async move {
         // N139a: in the browser every lobby is WebRTC: no lookup (the relay's requests are few)
         let rtc = offer
+            || listed
             || cfg!(not(feature = "iroh"))
             || match short {
                 Some(c) => matches!(tokio::time::timeout(Duration::from_secs(8), crate::signal::get(&c)).await,
@@ -1817,7 +1859,11 @@ pub unsafe extern "C" fn pbnet_lan_browse(setup_json: *const c_char, buf: *mut c
     let mut b = browse();
     if b.as_ref().is_none_or(|b| b.relay != relay) {
         let r = relay.clone();
-        *b = Some(Browse::new(rt().handle(), relay, async move { Transport::bind_browse(&r).await }));
+        let browse = Browse::new(rt().handle(), relay.clone(), async move { Transport::bind_browse(&r).await });
+        // N144: the desktop hears browsers' lobbies (and Host for Browsers') by the network's public address too
+        #[cfg(feature = "iroh")]
+        let browse = browse.with_nearby(async move { Transport::bind_nearby(&relay).await });
+        *b = Some(browse);
     }
     let json = serde_json::to_string(&b.as_ref().map(Browse::list)).unwrap_or_default();
     // SAFETY: the caller's contract on `buf` and `cap`.

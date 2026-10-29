@@ -516,8 +516,9 @@ OnlineWindow::OnlineWindow()
                       "waits for players. Games are found by your network's internet address, so on a phone's mobile "
                       "data, strangers' games may show up too. If a game doesn't, ask the host for the code and use Join.");
 #else
-        left.add_text("A lobby hosted on this network shows up here while it waits for players. If it doesn't, ask "
-                      "the host for the code and use Join.");
+        // N144: browsers' lobbies too (net/src/nearby.rs, by the network's public address)
+        left.add_text("A lobby hosted on this network (here, in a browser, or with Host for Browsers) shows up here "
+                      "while it waits for players. If it doesn't, ask the host for the code and use Join.");
 #endif
         left.finalize();
     });
