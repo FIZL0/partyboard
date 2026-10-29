@@ -9,6 +9,7 @@
 #include "../quick_continue_card.hpp"
 #include "port/main.h"
 #include "port/settings.h"
+#include "home_art.hpp"
 #include "modal.hpp"
 #include "online.hpp"
 #include "settings.hpp"
@@ -24,6 +25,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <exception>
 #include <filesystem>
 #include <optional>
@@ -41,33 +43,38 @@ namespace partyboard::ui {
 namespace {
     aurora::Module PrelaunchLog { "partyboard::ui::prelaunch" };
 
+    // N141: the home screen (prelaunch.rcss): backdrops, then the logo and the buttons, then the status pills.
     const Rml::String kDocumentSource = R"RML(
 <rml>
 <head>
     <link type="text/rcss" href="res/rml/prelaunch.rcss" />
 </head>
 <body>
-    <div class="gradient" />
-    <div class="background" />
+    <div class="plain" />
+    <div id="art" />
+    <div class="glow" />
+    <div class="shade" />
     <content id="root" open>
         <menu>
             <hero class="intro-item delay-0">
-                <div class="eyebrow"><span>Mario Party R&D</span> presents</div>
+                <div class="eyebrow"><span>Mario Party R&amp;D</span> presents</div>
                 <img src="res/logo.png" />
             </hero>
             <div id="menu-list" />
         </menu>
-        <disc-info class="intro-item delay-5">
-            <div id="disc-status">
-                <icon />
-                <span id="disc-status-label" />
-            </div>
-            <span id="disc-version" class="detail" />
-        </disc-info>
-        <version-info class="intro-item delay-6">
-            <div class="version">Version <span id="version-text"></span></div>
-            <div id="crash-note" class="detail" />
-        </version-info>
+        <footer>
+            <disc-info class="intro-item delay-5">
+                <div id="disc-status">
+                    <icon />
+                    <span id="disc-status-label" />
+                </div>
+                <span id="disc-version" class="detail" />
+            </disc-info>
+            <version-info class="intro-item delay-6">
+                <div class="version">Version <span id="version-text"></span></div>
+                <div id="crash-note" class="detail" />
+            </version-info>
+        </footer>
     </content>
 </body>
 </rml>
@@ -882,6 +889,17 @@ void Prelaunch::update()
     // Launched before this update: launchUILoop has ended and this update runs from the game's loop (heaps set up).
     const bool gameRunning = PartyBoard_IsGameLaunched;
     mDocument->SetClass("disc-ready", PartyBoard_IsGameLaunched);
+    // N141: the disc's title backdrop once the game (and so the disc) is up; the menu's own picture until then
+    if (gameRunning && !mArtTried) {
+        mArtTried = true;
+        if (const auto src = home_art_title_background(); !src.empty()) {
+            if (auto *art = mDocument->GetElementById("art")) {
+                art->SetProperty("decorator", fmt::format("image({} cover center center)", src));
+                mDocument->SetClass("has-art", true);
+            }
+        }
+    }
+    apply_safe_area();
     if (canLaunchConfiguredDisc) {
         PartyBoard_IsGameLaunched = true;
     }
@@ -951,6 +969,26 @@ void Prelaunch::update()
     }
 
     Document::update();
+}
+
+// N141: the layout keeps inside the safe area (N130) on top of its own margins; the backdrops go edge to edge.
+void Prelaunch::apply_safe_area()
+{
+    if (mRoot == nullptr) {
+        return;
+    }
+    const Insets insets = safe_area_insets(mDocument->GetContext());
+    const std::array<float, 4> padding { std::round(insets.top), std::round(insets.right), std::round(insets.bottom),
+        std::round(insets.left) };
+    if (padding == mSafePadding) {
+        return;
+    }
+    mSafePadding = padding;
+    // the layout box's edges (it is placed absolutely); the stylesheet's padding comes on top
+    mRoot->SetProperty(Rml::PropertyId::Top, Rml::Property(padding[0], Rml::Unit::PX));
+    mRoot->SetProperty(Rml::PropertyId::Right, Rml::Property(padding[1], Rml::Unit::PX));
+    mRoot->SetProperty(Rml::PropertyId::Bottom, Rml::Property(padding[2], Rml::Unit::PX));
+    mRoot->SetProperty(Rml::PropertyId::Left, Rml::Property(padding[3], Rml::Unit::PX));
 }
 
 bool Prelaunch::focus()
