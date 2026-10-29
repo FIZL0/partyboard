@@ -206,7 +206,14 @@ hero img {
     cursor: pointer;
 }
 
+/* N147: the fade is the mouse's (a hovered button). Pad and keyboard moves take no transition, so the highlight jumps in
+   one step: RmlUi takes an element's transition from its new state, and a button losing focus faded out over the one
+   gaining it (two half-lit buttons with grey text for 0.12 s). 'none' replaces the intro's delayed transitions. */
 #menu-list button.anim-done {
+    transition: none;
+}
+
+#menu-list button.anim-done:hover {
     transition: background-color border-color color transform 0.12s cubic-out;
 }
 

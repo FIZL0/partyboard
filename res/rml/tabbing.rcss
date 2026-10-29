@@ -22,8 +22,12 @@ tab-bar tab {
     line-height: 64dp;
     white-space: nowrap;
     decorator: vertical-gradient(#00b4fa00 #00b4fa00);
-    transition: decorator 0.1s linear-in-out, opacity 0.1s linear-in-out;
     cursor: pointer;
+}
+
+/* N147: only the mouse's hover fades; a pad/keyboard focus move is one step (see window.rcss select-button) */
+tab-bar tab:hover {
+    transition: decorator 0.1s linear-in-out, opacity 0.1s linear-in-out;
 }
 
 tab-bar tab:selected {
@@ -64,8 +68,11 @@ tab-bar[closable] close {
     color: rgba(224, 219, 200, 70%);
     border-radius: 6dp;
     decorator: text("&#xe5cd;" center center);
-    transition: color background-color 0.12s linear-in-out;
     cursor: pointer;
+}
+
+tab-bar[closable] close:hover {
+    transition: color background-color 0.12s linear-in-out;
 }
 
 tab-bar[closable] close:hover,

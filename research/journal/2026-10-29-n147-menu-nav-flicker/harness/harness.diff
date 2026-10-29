@@ -1,0 +1,261 @@
+diff --git i/files.cmake w/files.cmake
+index f89a178d..794e8140 100644
+--- i/files.cmake
++++ w/files.cmake
+@@ -158,6 +158,7 @@ set(PORT_FILES
+         src/port/ui/menu_bar.cpp
+         src/port/ui/menu_bar.hpp
+         src/port/ui/prelaunch.cpp
++        src/port/ui/n147_harness.cpp
+         src/port/ui/prelaunch.hpp
+         src/port/ui/preset.cpp
+         src/port/ui/preset.hpp
+diff --git i/src/port/ui/n147_harness.cpp w/src/port/ui/n147_harness.cpp
+new file mode 100644
+index 00000000..23859bb0
+--- /dev/null
++++ w/src/port/ui/n147_harness.cpp
+@@ -0,0 +1,211 @@
++// N147 HARNESS (not committed: research/journal/2026-10-29-n147-menu-nav-flicker/harness/): per-frame focus trace.
++//  PB_PAD=key@f,...      what a pad press does (input.cpp): ProcessMouseLeave, key down, key up a frame later
++//                        keys: down up left right next prior enter escape f1
++//  PB_MOUSE=x;y@f,...    mouse move to context px (x<0: mouse leave)
++//  PB_TRACE=a-b          log every frame in [a,b]: focus, then each visible button/tab/select-button with
++//                        its pseudo classes, computed background/border/colour alpha and transform
++//  PB_SHOTS=a-b,c-d      aurora_capture_frame_ui every frame in the ranges -> $PB_SHOT_DIR/fNNNNN.png
++//  PB_WIN=WxH            SDL_SetWindowSize at frame 3
++#include "ui.hpp"
++#include "document.hpp"
++
++#include <RmlUi/Core.h>
++#include <SDL3/SDL_video.h>
++#include <aurora/frame_capture_ui.h>
++#include <aurora/rmlui.hpp>
++
++#include "aurora/lib/logging.hpp"
++#include "aurora/lib/window.hpp"
++
++#include <cstdio>
++#include <cstdlib>
++#include <string>
++#include <vector>
++
++namespace partyboard::ui {
++namespace {
++    aurora::Module HLog { "n147" };
++
++    std::string text_of(Rml::Element *e)
++    {
++        std::string s = e->GetInnerRML();
++        std::string out;
++        bool tag = false;
++        for (char c : s) {
++            if (c == '<') tag = true;
++            else if (c == '>') tag = false;
++            else if (!tag) out += c;
++        }
++        while (!out.empty() && out.back() == ' ') out.pop_back();
++        while (!out.empty() && out.front() == ' ') out.erase(out.begin());
++        return out.substr(0, 24);
++    }
++
++    struct Pending {
++        unsigned frame;
++        std::string what;
++    };
++
++    std::vector<Pending> parse(const char *env)
++    {
++        std::vector<Pending> v;
++        if (env == nullptr) return v;
++        std::string s = env;
++        size_t p = 0;
++        while (p < s.size()) {
++            size_t c = s.find(',', p);
++            if (c == std::string::npos) c = s.size();
++            const auto item = s.substr(p, c - p);
++            const auto at = item.rfind('@');
++            if (at != std::string::npos) v.push_back({ unsigned(std::atoi(item.c_str() + at + 1)), item.substr(0, at) });
++            p = c + 1;
++        }
++        return v;
++    }
++
++    bool in_ranges(const char *env, unsigned frame)
++    {
++        if (env == nullptr) return false;
++        std::string s = env;
++        size_t p = 0;
++        while (p < s.size()) {
++            size_t c = s.find(',', p);
++            if (c == std::string::npos) c = s.size();
++            unsigned a = 0, b = 0;
++            if (std::sscanf(s.substr(p, c - p).c_str(), "%u-%u", &a, &b) == 2 && frame >= a && frame <= b) return true;
++            p = c + 1;
++        }
++        return false;
++    }
++
++    Rml::Input::KeyIdentifier key_of(const std::string &k)
++    {
++        if (k == "down") return Rml::Input::KI_DOWN;
++        if (k == "up") return Rml::Input::KI_UP;
++        if (k == "left") return Rml::Input::KI_LEFT;
++        if (k == "right") return Rml::Input::KI_RIGHT;
++        if (k == "next") return Rml::Input::KI_NEXT;
++        if (k == "prior") return Rml::Input::KI_PRIOR;
++        if (k == "enter") return Rml::Input::KI_RETURN;
++        if (k == "f1") return Rml::Input::KI_F1;
++        return Rml::Input::KI_ESCAPE;
++    }
++
++    void trace(Rml::Context *ctx, unsigned frame)
++    {
++        auto *f = ctx->GetFocusElement();
++        std::string line = "F" + std::to_string(frame) + " focus=<" + (f ? f->GetTagName() : "") + ">'"
++            + (f ? text_of(f) : "") + "' |";
++        for (int d = 0; d < ctx->GetNumDocuments(); ++d) {
++            auto *doc = ctx->GetDocument(d);
++            if (!doc->IsVisible()) continue;
++            for (const char *tag : { "button", "tab", "select-button" }) {
++                Rml::ElementList els;
++                doc->GetElementsByTagName(els, tag);
++                for (auto *e : els) {
++                    if (!e->IsVisible(true)) continue;
++                    const auto &cv = e->GetComputedValues();
++                    const auto bg = cv.background_color();
++                    const auto bc = cv.border_top_color();
++                    const auto co = cv.color();
++                    std::string ps;
++                    if (e->IsPseudoClassSet("focus")) ps += "F";
++                    if (e->IsPseudoClassSet("focus-visible")) ps += "V";
++                    if (e->IsPseudoClassSet("hover")) ps += "H";
++                    if (e->IsPseudoClassSet("active")) ps += "A";
++                    if (e->IsPseudoClassSet("selected")) ps += "S";
++                    std::string deco, shadow;
++                    if (auto *p = e->GetProperty(Rml::PropertyId::Decorator)) deco = p->ToString();
++                    if (auto *p = e->GetProperty(Rml::PropertyId::BoxShadow)) shadow = p->ToString();
++                    char buf[768];
++                    std::string tr;
++                    if (auto *p = e->GetLocalProperty(Rml::PropertyId::Transform)) tr = p->ToString();
++                    else if (auto *p2 = e->GetProperty(Rml::PropertyId::Transform)) tr = p2->ToString();
++                    std::snprintf(buf, sizeof buf, " %s'%s'[%s] bg%02x%02x%02x%02x bd%02x co%02x%02x%02x op%.2f tf{%s} dc{%s} sh{%s} st%.0f;", tag,
++                        text_of(e).c_str(), ps.c_str(), bg.red, bg.green, bg.blue, bg.alpha, bc.alpha, co.red, co.green,
++                        co.blue, cv.opacity(), tr.c_str(), deco.c_str(), shadow.c_str(), e->GetAbsoluteOffset(Rml::BoxArea::Border).y);
++                    line += buf;
++                }
++            }
++        }
++        HLog.info("{}", line);
++    }
++
++    std::vector<Pending> sUps;
++} // namespace
++
++void n147_harness_frame()
++{
++    static unsigned frame = 0;
++    ++frame;
++    auto *ctx = aurora::rmlui::get_context();
++    if (ctx == nullptr) return;
++    if (frame == 2) {
++        SDL_SetWindowMinimumSize(aurora::window::get_sdl_window(), 200, 200); // aurora's is 640x480
++    }
++    if (frame == 3) {
++        if (const char *win = std::getenv("PB_WIN")) {
++            int w = 0, h = 0;
++            if (std::sscanf(win, "%dx%d", &w, &h) == 2) {
++                SDL_SetWindowSize(aurora::window::get_sdl_window(), w, h);
++                HLog.info("window -> {}x{}", w, h);
++            }
++        }
++    }
++    // the state drawn last frame (this runs before this frame's Context::Update)
++    if (in_ranges(std::getenv("PB_TRACE"), frame)) {
++        trace(ctx, frame);
++    }
++    if (in_ranges(std::getenv("PB_SHOTS"), frame)) {
++        char path[512];
++        std::snprintf(path, sizeof path, "%s/f%05u.png", std::getenv("PB_SHOT_DIR"), frame);
++        aurora_capture_frame_ui(path, 0);
++    }
++    for (auto it = sUps.begin(); it != sUps.end();) {
++        if (it->frame == frame) {
++            ctx->ProcessKeyUp(key_of(it->what), 0);
++            it = sUps.erase(it);
++        } else {
++            ++it;
++        }
++    }
++    static const auto pads = parse(std::getenv("PB_PAD"));
++    for (const auto &p : pads) {
++        if (p.frame != frame) continue;
++        ctx->ProcessMouseLeave();
++        ctx->ProcessKeyDown(key_of(p.what), 0);
++        sUps.push_back({ frame + 1, p.what });
++        auto *f = ctx->GetFocusElement();
++        HLog.info("F{} key {}: focus <{}> '{}'", frame, p.what, f ? f->GetTagName() : "", f ? text_of(f) : "");
++    }
++    static const auto mice = parse(std::getenv("PB_MOUSE"));
++    for (const auto &m : mice) {
++        if (m.frame != frame) continue;
++        float x = 0, y = 0;
++        std::sscanf(m.what.c_str(), "%f;%f", &x, &y);
++        if (!m.what.empty() && m.what[0] == '=') { // =Label: the centre of the visible button whose text starts so
++            for (int d = 0; d < ctx->GetNumDocuments(); ++d) {
++                Rml::ElementList els;
++                if (!ctx->GetDocument(d)->IsVisible()) continue;
++                ctx->GetDocument(d)->GetElementsByTagName(els, "button");
++                for (auto *e : els) {
++                    if (e->IsVisible(true) && text_of(e).rfind(m.what.substr(1), 0) == 0) {
++                        const auto o = e->GetAbsoluteOffset(Rml::BoxArea::Border);
++                        const auto sz = e->GetBox().GetSize(Rml::BoxArea::Border);
++                        x = o.x + sz.x / 2;
++                        y = o.y + sz.y / 2;
++                    }
++                }
++            }
++        }
++        if (x < 0) {
++            ctx->ProcessMouseLeave();
++        } else {
++            ctx->ProcessMouseMove(int(x), int(y), 0);
++        }
++        auto *h = ctx->GetHoverElement();
++        HLog.info("F{} mouse {},{}: hover <{}> '{}'", frame, x, y, h ? h->GetTagName() : "", h ? text_of(h) : "");
++    }
++}
++
++} // namespace partyboard::ui
+diff --git i/src/port/ui/prelaunch.cpp w/src/port/ui/prelaunch.cpp
+index 575759b2..4347477d 100644
+--- i/src/port/ui/prelaunch.cpp
++++ w/src/port/ui/prelaunch.cpp
+@@ -682,6 +682,12 @@ Prelaunch::Prelaunch(bool relaunch)
+         // N132: Continue first, one per game in progress (a small pick list), none when nothing is in progress.
+         if (activeDiscLoaded) {
+             auto entries = quick_continue::scan(state.activeDiscInfo.isPal);
++            if (const char *fake = std::getenv("PB_FAKE_CONTINUE")) { // N147 HARNESS
++                for (int i = 0; i < std::atoi(fake); ++i) {
++                    entries.push_back({ i == 2 ? QUICK_CONTINUE_STORY : QUICK_CONTINUE_PARTY, i == 0 ? -1 : i - 1,
++                        i == 0, (i * 2 + 4) % 6, 5 + i, 20 + 10 * i, { 3, 4, 2, 1 } });
++                }
++            }
+             if (entries.size() > 3) {
+                 entries.resize(3);
+             }
+diff --git i/src/port/ui/ui.cpp w/src/port/ui/ui.cpp
+index 0fee06c7..843eb5da 100644
+--- i/src/port/ui/ui.cpp
++++ w/src/port/ui/ui.cpp
+@@ -424,8 +424,10 @@ Document *top_document() noexcept
+     return nullptr;
+ }
+ 
++void n147_harness_frame(); // N147 HARNESS
+ void update() noexcept
+ {
++    n147_harness_frame(); // N147 HARNESS
+     update_safe_area();
+     if (!aurora::rmlui::is_initialized()) {
+         return;
