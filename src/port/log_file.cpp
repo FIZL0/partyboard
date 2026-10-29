@@ -232,7 +232,15 @@ void start_tee()
 {
     fflush(stdout);
     fflush(stderr);
+#if PB_LOG_WIN32
+    // N145: after attach_std_streams' freopen, stdout/stderr may sit on fds other than 1 and 2.
+    const int fds[2] = { _fileno(stdout), _fileno(stderr) };
+    if (fds[0] < 0 || fds[1] < 0) {
+        return;
+    }
+#else
     const int fds[2] = { 1, 2 };
+#endif
     const bool shared = same_file(1, 2);
     g_teeCount = shared ? 1 : 2;
     for (int i = 0; i < g_teeCount; i++) {
@@ -262,8 +270,8 @@ void start_tee()
     }
 #if PB_LOG_WIN32
     // Rust's eprintln and other non-CRT writers use the Win32 std handles, not fds 1 and 2.
-    SetStdHandle(STD_OUTPUT_HANDLE, reinterpret_cast<HANDLE>(_get_osfhandle(1)));
-    SetStdHandle(STD_ERROR_HANDLE, reinterpret_cast<HANDLE>(_get_osfhandle(2)));
+    SetStdHandle(STD_OUTPUT_HANDLE, reinterpret_cast<HANDLE>(_get_osfhandle(fds[0])));
+    SetStdHandle(STD_ERROR_HANDLE, reinterpret_cast<HANDLE>(_get_osfhandle(fds[1])));
 #endif
     // A pipe would make stdout fully buffered: keep it per line, so a crash keeps the tail.
     setvbuf(stdout, nullptr, _IOLBF, BUFSIZ);
@@ -729,6 +737,31 @@ std::string os_version()
 }
 
 } // namespace
+
+void attach_std_streams()
+{
+#if PB_LOG_WIN32
+    // A stream without a handle has fd -2 (the CRT's "no console"); a redirect or a console exe has real ones.
+    const bool hasOut = _fileno(stdout) >= 0;
+    const bool hasErr = _fileno(stderr) >= 0;
+    if (hasOut && hasErr) {
+        return;
+    }
+    // Started from cmd or PowerShell: write there (they don't wait for a GUI exe, so it lands after their prompt).
+    const bool console = AttachConsole(ATTACH_PARENT_PROCESS) != 0;
+    const char* to = console ? "CONOUT$" : "NUL";
+    if (!hasOut) {
+        freopen(to, "w", stdout);
+    }
+    if (!hasErr) {
+        freopen(to, "w", stderr);
+    }
+    if (console) {
+        SetStdHandle(STD_OUTPUT_HANDLE, reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(stdout))));
+        SetStdHandle(STD_ERROR_HANDLE, reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(stderr))));
+    }
+#endif
+}
 
 bool supported()
 {
