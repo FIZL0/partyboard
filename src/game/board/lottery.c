@@ -1036,6 +1036,20 @@ static s32 loseMotTbl[] = { DATA_MAKE_NUM(DATADIR_MARIOMOT, 51), DATA_MAKE_NUM(D
     DATA_MAKE_NUM(DATADIR_YOSHIMOT, 51), DATA_MAKE_NUM(DATADIR_WARIOMOT, 51), DATA_MAKE_NUM(DATADIR_DONKEYMOT, 51),
     DATA_MAKE_NUM(DATADIR_DAISYMOT, 51), DATA_MAKE_NUM(DATADIR_WALUIGIMOT, 51) };
 
+#ifdef TARGET_PC
+/* The scratch layer's pixels are edited in place; the PC texture cache needs a new data version to re-upload them. */
+static void TicketTexRefresh(ANIMBMP *bmp)
+{
+    s32 i;
+
+    for (i = 0; i < sizeof(bmp->texData) / sizeof(bmp->texData[0]); i++) {
+        if (bmp->texData[i].tex_initialized) {
+            GXInitTexObjData(&bmp->texData[i].tex_obj, bmp->data);
+        }
+    }
+}
+#endif
+
 static void ExecScratchTicket(s32 arg0)
 {
     Vec sp24;
@@ -1109,6 +1123,9 @@ static void ExecScratchTicket(s32 arg0)
             var_r23 = TicketGetPixel(temp_r31->sizeX, var_r29, var_r28);
             temp_r25[var_r23] = 0;
         }
+#ifdef TARGET_PC
+        TicketTexRefresh(temp_r31);
+#endif
         HuPrcVSleep();
     }
     KillLotteryWin();
@@ -1564,6 +1581,9 @@ static s32 TicketUpdate(ANIMBMP *arg0, Vec *arg1, s32 arg2)
         }
     }
     DCFlushRange(arg0->data, (u32)(arg0->sizeX * arg0->sizeY * 2) >> 3);
+#ifdef TARGET_PC
+    TicketTexRefresh(arg0);
+#endif
     handLastPos = *arg1;
     return 0;
 }
