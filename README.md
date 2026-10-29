@@ -17,6 +17,7 @@ Everything below "Overview" is upstream's README; the port itself is their work.
 - **Party Board in the browser**: `tools/web.sh` builds `build/web/` (Emscripten, WebGPU through emdawnwebgpu),
   about 6.6 MB to download (brotli). No game data is in it: the player picks their disc image in the page, which keeps
   it in the browser's private storage. Checked in Chromium, Firefox and WebKit (Playwright on Linux).
+  Play it at <https://fizl0.github.io/partyboard/> (`tools/web-pages.sh` publishes `build/web/` there).
 - **Online play in the browser** over WebRTC (codes, join links, mid-match redial, 2-4 browsers), and **desktop and
   browser in one match**: the desktop's Host > Host for Browsers speaks the browser's WebRTC (N96).
 - **Autosave and Continue**: an online match saves a checkpoint at every player's turn and after every minigame on
