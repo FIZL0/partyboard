@@ -113,6 +113,7 @@ async function storeDisc(file) {
 }
 
 // What keeps the game from drawing here, or null. aurora renders with WebGPU only (no WebGL path).
+let gpuWarning = null;
 async function webgpuProblem() {
   const ua = navigator.userAgent;
   const hint = /iPhone|iPad|Macintosh/.test(ua) && !/Chrome|Firefox|FxiOS|CriOS/.test(ua)
@@ -128,8 +129,15 @@ async function webgpuProblem() {
           'chrome://flags/#enable-unsafe-webgpu and chrome://flags/#enable-vulkan.';
   if (!navigator.gpu) return `This browser has no WebGPU, which Party Board draws with. ${hint}`;
   try {
-    if (!await navigator.gpu.requestAdapter()) {
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) {
       return `This browser has WebGPU but offers no graphics adapter (the GPU or its driver may be blocklisted). ${hint}`;
+    }
+    // A software adapter (Chrome's SwiftShader, e.g. Linux without the flags) plays, but at a few frames a second.
+    const info = adapter.info ?? {};
+    if (info.isFallbackAdapter || adapter.isFallbackAdapter
+        || /swiftshader/i.test(`${info.vendor} ${info.architecture} ${info.description}`)) {
+      gpuWarning = `WebGPU is running in software here, not on your GPU, so the game will be very slow. ${hint}`;
     }
   } catch (e) {
     return `WebGPU failed: ${describe(e)}. ${hint}`;
@@ -301,6 +309,7 @@ addEventListener('unhandledrejection', e => fail(describe(e.reason)));
 
 const gpuCheck = webgpuProblem();
 gpuCheck.then(problem => {
+  if (gpuWarning) $('error').textContent += gpuWarning + '\n';
   if (!problem) return;
   // nothing to pick a disc for; a stored one can still be forgotten
   fail(problem);
