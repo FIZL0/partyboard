@@ -100,6 +100,7 @@ set(PORT_FILES
         src/port/io.cpp
         src/port/iso_validate.cpp
         src/port/lifecycle.cpp
+        src/port/controller_watch.cpp
         src/port/log_file.cpp
         src/port/msm.c
         src/port/netplay.c

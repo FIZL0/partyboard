@@ -10,13 +10,18 @@
 #include <port/lifecycle.h>
 
 #include <aurora/aurora.h>
+#include <aurora/frame_capture_ui.h>
 #include <aurora/gfx.h>
 #include <aurora/lib/logging.hpp>
 #include <fmt/format.h>
 #include <port/config.hpp>
+#include <port/controller_watch.h>
 #include <port/pbnet.h>
+#include <dolphin/pad.h>
 
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_gamepad.h>
+#include <SDL3/SDL_joystick.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
 
@@ -26,6 +31,8 @@
 #include <vector>
 
 extern AuroraInfo auroraInfo;
+extern "C" u16 HuPadBtn[4];
+extern "C" s8 HuPadErr[4];
 
 namespace {
 aurora::Module Log("partyboard::lifecycle");
@@ -45,7 +52,10 @@ uint32_t s_heldLoops = 0;
 // push the iOS/Android app events, hide/show/min/restore: the window, stall: the game thread sleeps 8 s, pause: bg,
 // 8 s asleep and fg in one go, as Android's onPause blocks the game thread inside SDL's event pump, lose: the GPU device
 // is lost as in a driver reset, shot: the game frame to $PB_LIFECYCLE_SHOT/loopNNNNN.png, N118). Desktop checks of the
-// hold (journal N110).
+// hold (journal N110). N143 controller hotplug: padon/padoff attach/detach an SDL virtual Xbox pad, pada/padrel press
+// and release its A (south) button (paddown/paddownrel: d-pad down), padlog logs the ports aurora gave the pads and what the game reads from them,
+// padlost attaches the pad and drops its SDL_EVENT_GAMEPAD_ADDED (a lost add), rescan restarts SDL's controllers,
+// uishot: the frame with the RmlUi menus to $PB_LIFECYCLE_SHOT/uiNNNNN.png.
 // aurora_update sleeps in SDL_WaitEvent while the window is paused (hidden): a timer wakes it 20 times a second while
 // steps are left, so the loop count goes on.
 struct TestStep {
@@ -54,6 +64,50 @@ struct TestStep {
 };
 std::vector<TestStep> s_testSteps;
 uint32_t s_loops = 0;
+// padon's virtual pad (N143), open so that pada/padrel can set its button.
+SDL_Joystick* s_testPad = nullptr;
+
+void test_pad_on()
+{
+    if (s_testPad != nullptr) {
+        return;
+    }
+    SDL_VirtualJoystickDesc desc;
+    SDL_INIT_INTERFACE(&desc);
+    desc.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+    desc.vendor_id = 0x045e; // an Xbox Series X|S pad, as the user's
+    desc.product_id = 0x0b13;
+    desc.naxes = SDL_GAMEPAD_AXIS_COUNT;
+    desc.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+    desc.name = "N143 virtual pad";
+    const SDL_JoystickID id = SDL_AttachVirtualJoystick(&desc);
+    if (id == 0) {
+        Log.warn("test: can't attach a virtual pad: {}", SDL_GetError());
+        return;
+    }
+    s_testPad = SDL_OpenJoystick(id);
+}
+
+void test_pad_off()
+{
+    if (s_testPad == nullptr) {
+        return;
+    }
+    const SDL_JoystickID id = SDL_GetJoystickID(s_testPad);
+    SDL_CloseJoystick(s_testPad);
+    s_testPad = nullptr;
+    SDL_DetachVirtualJoystick(id);
+}
+
+void test_pad_log()
+{
+    std::string ports;
+    for (u32 port = 0; port < 4; ++port) {
+        ports += fmt::format(" port{}: index {} native {} game btn {:04x} err {}", port + 1, PADGetIndexForPort(port),
+                             PADGetNativeButtonPressed(port), HuPadBtn[port], HuPadErr[port]);
+    }
+    Log.info("test: {} pads,{}", PADCount(), ports);
+}
 
 void push_app_event(SDL_EventType type)
 {
@@ -96,6 +150,33 @@ void run_test_steps()
             push_app_event(SDL_EVENT_DID_ENTER_FOREGROUND);
         } else if (step.action == "lose") {
             aurora_force_device_loss();
+        } else if (step.action == "padon") {
+            test_pad_on();
+        } else if (step.action == "padlost") {
+            test_pad_on();
+            SDL_FlushEvent(SDL_EVENT_GAMEPAD_ADDED);
+        } else if (step.action == "rescan") {
+            if (s_testPad != nullptr) {
+                SDL_CloseJoystick(s_testPad); // SDL's restart detaches the virtual pad
+                s_testPad = nullptr;
+            }
+            port_controller_watch_rescan("test step");
+        } else if (step.action == "padoff") {
+            test_pad_off();
+        } else if (step.action == "pada" || step.action == "padrel") {
+            if (s_testPad != nullptr) {
+                SDL_SetJoystickVirtualButton(s_testPad, SDL_GAMEPAD_BUTTON_SOUTH, step.action == "pada");
+            }
+        } else if (step.action == "paddown" || step.action == "paddownrel") {
+            if (s_testPad != nullptr) {
+                SDL_SetJoystickVirtualButton(s_testPad, SDL_GAMEPAD_BUTTON_DPAD_DOWN, step.action == "paddown");
+            }
+        } else if (step.action == "padlog") {
+            test_pad_log();
+        } else if (step.action == "uishot") {
+            const char* dir = std::getenv("PB_LIFECYCLE_SHOT");
+            const std::string path = fmt::format("{}/ui{:05}.png", dir != nullptr ? dir : ".", s_loops);
+            aurora_capture_frame_ui(path.c_str(), 0);
         } else if (step.action == "shot") {
             const char* dir = std::getenv("PB_LIFECYCLE_SHOT");
             const std::string path = fmt::format("{}/loop{:05}.png", dir != nullptr ? dir : ".", s_loops);
@@ -165,6 +246,11 @@ bool SDLCALL watch(void*, SDL_Event* event)
     case SDL_EVENT_LOW_MEMORY:
         Log.warn("low memory");
         break;
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+        if (s_testPad != nullptr) {
+            Log.info("test: pad {} button {} down", event->gbutton.which, event->gbutton.button);
+        }
+        break;
     default:
         break;
     }
@@ -203,6 +289,7 @@ extern "C" void port_lifecycle_init(void)
 extern "C" bool port_lifecycle_hold(void)
 {
     run_test_steps();
+    port_controller_watch_frame();
     if (s_saveDue.exchange(false)) {
         // the app may be killed in the background: the settings as they are now. A party's state is in its autosave
         // (N47), written at every turn's start.

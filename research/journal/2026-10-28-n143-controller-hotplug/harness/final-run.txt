@@ -1,0 +1,44 @@
+[INFO | partyboard::lifecycle] test: 20 steps from PB_LIFECYCLE_TEST
+[INFO | partyboard::lifecycle] test: padon at loop 300
+[INFO | aurora::input] Added controller 'N143 virtual pad' (instance 6, vid 045e, pid 0b13, type 3)
+[INFO | partyboard::controllers] 1 controller(s); ports 1: 'N143 virtual pad', 2: -, 3: -, 4: -
+[INFO | partyboard::lifecycle] test: pada at loop 450
+[INFO | partyboard::lifecycle] test: padlog at loop 460
+[INFO | partyboard::lifecycle] test: 1 pads, port1: index 0 native 0 game btn 0000 err 0
+[INFO | partyboard::lifecycle] test: padrel at loop 470
+[INFO | partyboard::lifecycle] test: padoff at loop 600
+[INFO | aurora::input] Removed controller 'N143 virtual pad' (instance 6)
+[INFO | partyboard::controllers] 0 controller(s); ports 1: -, 2: -, 3: -, 4: -
+[INFO | partyboard::lifecycle] test: padlog at loop 700
+[INFO | partyboard::lifecycle] test: 0 pads, port1: index -1 native -1 game btn 0000 err -1
+[INFO | partyboard::lifecycle] test: padlost at loop 800
+[INFO | partyboard::lifecycle] test: padlog at loop 830
+[INFO | partyboard::lifecycle] test: 0 pads, port1: index -1 native -1 game btn 0000 err -1
+[WARNING | partyboard::controllers] gamepad 7 'N143 virtual pad' is connected but was never added: adding it now
+[INFO | aurora::input] Added controller 'N143 virtual pad' (instance 7, vid 045e, pid 0b13, type 3)
+[INFO | partyboard::controllers] 1 controller(s); ports 1: 'N143 virtual pad', 2: -, 3: -, 4: -
+[INFO | partyboard::lifecycle] test: padlog at loop 1000
+[INFO | partyboard::lifecycle] test: 1 pads, port1: index 0 native -1 game btn 0000 err 0
+[INFO | partyboard::lifecycle] test: pada at loop 1050
+[INFO | partyboard::lifecycle] test: padlog at loop 1060
+[INFO | partyboard::lifecycle] test: 1 pads, port1: index 0 native 0 game btn 0100 err 0
+[INFO | partyboard::lifecycle] test: padrel at loop 1070
+[INFO | partyboard::lifecycle] test: rescan at loop 1200
+[WARNING | partyboard::controllers] re-scanning controllers: test step
+[INFO | aurora::input] Removed controller 'N143 virtual pad' (instance 7)
+[INFO | partyboard::controllers] rescan: SDL lists 0 gamepad(s)
+[INFO | partyboard::controllers] 0 controller(s); ports 1: -, 2: -, 3: -, 4: -
+[INFO | partyboard::lifecycle] test: padlog at loop 1300
+[INFO | partyboard::lifecycle] test: 0 pads, port1: index -1 native -1 game btn 0000 err -1
+[INFO | partyboard::lifecycle] test: padon at loop 1400
+[INFO | aurora::input] Added controller 'N143 virtual pad' (instance 8, vid 045e, pid 0b13, type 3)
+[INFO | partyboard::controllers] 1 controller(s); ports 1: 'N143 virtual pad', 2: -, 3: -, 4: -
+[INFO | partyboard::lifecycle] test: pada at loop 1500
+[INFO | partyboard::lifecycle] test: padlog at loop 1510
+[INFO | partyboard::lifecycle] test: 1 pads, port1: index 0 native 0 game btn 0100 err 0
+[INFO | partyboard::lifecycle] test: padrel at loop 1520
+[INFO | partyboard::lifecycle] test: padoff at loop 1700
+[INFO | aurora::input] Removed controller 'N143 virtual pad' (instance 8)
+[INFO | partyboard::controllers] 0 controller(s); ports 1: -, 2: -, 3: -, 4: -
+[INFO | partyboard::lifecycle] test: padlog at loop 1800
+[INFO | partyboard::lifecycle] test: 0 pads, port1: index -1 native -1 game btn 0000 err -1

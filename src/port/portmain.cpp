@@ -29,6 +29,7 @@
 #include <port/config.hpp>
 #include <port/dolassets.h>
 #include <port/lifecycle.h>
+#include <port/controller_watch.h>
 #include <port/log_file.hpp>
 #include <port/main.h>
 #include <port/settings.h>
@@ -449,6 +450,7 @@ extern "C" int port_main(int argc, char* argv[]) {
         auroraInfo = aurora_initialize(argc, argv, &config);
     }
     port_lifecycle_init();
+    port_controller_watch_init();
 
 #ifdef PARTY_BOARD_DISCORD
     partyboard::discord::initialize();
