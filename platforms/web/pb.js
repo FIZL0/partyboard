@@ -6,7 +6,7 @@
 // Query: ?args=... passes command-line arguments to the game (space-separated, e.g. "--script /res/x --turbo");
 // ?autoplay=1 starts with the stored disc without a click; ?fetch=a,b puts test/a and test/b (from the server) in
 // the game's /test (tools/web_check.mjs); ?env=K=V,K2 sets environment variables for the game; ?opfs=worker stores the
-// disc as browsers without createWritable do (tools/web_pw.mjs).
+// disc as browsers without createWritable do (tools/web_pw.mjs); ?log=1 shows the console on the page.
 // N98: ?code=rtco... is a join link (the host's Online lobby copies one): the game starts with the stored disc (or
 // once one is picked) and joins that lobby.
 'use strict';
@@ -18,6 +18,23 @@ const fail = text => { $('error').textContent += text + '\n'; console.error(text
 // Safari's Error.stack has no message in it
 const describe = e => (e instanceof Error ? `${e.name}: ${e.message}` : String(e));
 const DISC_DIR = 'disc';
+
+// ?log=1: the console (the game's log included) on screen, for browsers without a reachable inspector (iOS Safari
+// without a Mac). The last 300 lines.
+if (query.get('log')) {
+  const box = $('log'), lines = [];
+  box.hidden = false;
+  for (const level of ['log', 'info', 'warn', 'error']) {
+    const orig = console[level].bind(console);
+    console[level] = (...a) => {
+      orig(...a);
+      lines.push((level === 'log' || level === 'info' ? '' : level + ': ') + a.map(String).join(' '));
+      if (lines.length > 300) lines.shift();
+      box.textContent = lines.join('\n');
+      box.scrollTop = box.scrollHeight;
+    };
+  }
+}
 
 fetch('version.txt').then(r => r.ok ? r.text() : '').then(v => { $('build').textContent = v.trim(); }, () => {});
 
