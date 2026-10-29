@@ -26,7 +26,6 @@ popup {
     height: 64dp;
     background-color: rgba(37, 59, 156, 100%);
     border-bottom: 2dp #009dda;
-    backdrop-filter: blur(5dp);
     transform: translateY(-64dp);
     transition: transform 0.2s cubic-in-out;
 }

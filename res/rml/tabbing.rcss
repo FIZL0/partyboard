@@ -62,7 +62,6 @@ tab-bar[closable] close {
     font-weight: normal;
     font-size: 20dp;
     color: rgba(224, 219, 200, 70%);
-    backdrop-filter: blur(2dp);
     border-radius: 6dp;
     decorator: text("&#xe5cd;" center center);
     transition: color background-color 0.12s linear-in-out;
