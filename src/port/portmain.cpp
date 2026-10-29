@@ -413,6 +413,7 @@ extern "C" int port_main(int argc, char* argv[]) {
     }
     mainCalled = true;
 
+    partyboard::logfile::attach_std_streams();
     partyboard::registerSettings();
     partyboard::config::FinishRegistration();
 

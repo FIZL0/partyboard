@@ -8,6 +8,10 @@
 
 namespace partyboard::logfile {
 
+// Windows (N145): the release exe is a GUI-subsystem program, which starts without stdout/stderr unless its parent
+// passed some (a redirect). Then they go to the console it was started from, if any, else to NUL, so the log file's
+// tee still has streams to take over. Call first thing in main. Nothing elsewhere.
+void attach_std_streams();
 // Rotates the old logs, notes whether the last run crashed, and (when the setting is on) sends everything written to
 // stdout/stderr to the log file as well. Installs the crash handler either way. Call once, after the settings load.
 void start(const std::filesystem::path& userDir, bool writeLogFile);

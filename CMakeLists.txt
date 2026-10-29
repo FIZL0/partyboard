@@ -404,6 +404,12 @@ if (WIN32)
 
     target_sources(partyboard PRIVATE ${PARTY_BOARD_WINDOWS_ICON_ICO} ${PARTY_BOARD_WINDOWS_RC})
     #    set_target_properties(partyboard PROPERTIES WIN32_EXECUTABLE TRUE)
+    if (MINGW)
+        # N145: a GUI-subsystem exe (-mwindows), so no console window opens behind the game. SDL's WinMain is the
+        # entry either way; output goes to logs/partyboard.log, a redirect, or the console it was started from
+        # (logfile::attach_std_streams).
+        set_target_properties(partyboard PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif ()
 
     if (MSVC)
         target_link_options(partyboard PRIVATE /MANIFEST:NO)
