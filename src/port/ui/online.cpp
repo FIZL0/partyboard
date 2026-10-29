@@ -399,11 +399,12 @@ OnlineWindow::OnlineWindow()
 #ifndef __EMSCRIPTEN__
         // N96: browsers speak WebRTC, not this build's own online play
         help(left, right, left.add_button("Host for Browsers").on_pressed([this] { host_browsers(); }),
-            "Open a lobby that friends playing in a web browser can join.<br/><br/>Its code works in the browser "
-            "version (and in this one): each friend who joins gets an answer to send back to you, which you paste "
-            "with <b>Paste Answer</b> in the lobby. The code then changes for the next friend.<br/><br/>With "
-            "Relay set to Public, the game asks a public STUN server for your address, so friends on other "
-            "networks may connect; Off is this network only.");
+            "Open a lobby that friends playing in a web browser can join.<br/><br/>Its short code works in the "
+            "browser version (and in this one): friends enter it and are in, with nothing to send back.<br/><br/>"
+            "With Relay set to Public, the game asks a public STUN server for your address, so friends on other "
+            "networks may connect. With Relay Off (this network only), or when the code server can't be reached, "
+            "the code is a long one instead: each friend who joins with it gets an answer to send back to you, "
+            "which you paste with <b>Paste Answer</b> in the lobby.");
 #endif
         left.finalize();
     });
@@ -946,7 +947,7 @@ void update_online_match()
         title = "Reconnecting";
         // N98: the host takes this guest back by its answer, as when it joined
         body = "Lost the connection to the host. The match holds until you are back.<br/><br/>";
-        body += answer.empty() ? "Getting ready to reconnect..."
+        body += answer.empty() ? "Reconnecting..."
                                : "Send the host your answer: press <b>Copy Answer</b> and send it to them. They paste it "
                                  "with <b>Paste Answer</b> on their waiting screen, and you are back.";
         if (!answer.empty()) {
@@ -1094,13 +1095,17 @@ LobbyWindow::LobbyWindow()
                                  "their browser and joins (or they paste it under <b>Online &gt; Join</b>).");
 #else
                     pane.add_rml(mView.webrtc
-                            ? "Send this code to a friend; they paste it under <b>Online &gt; Join</b> (in the "
+                            ? "Send this code to your friends; they enter it under <b>Online &gt; Join</b> (in the "
                               "browser version or this one). Press to copy it."
                             : "Send this code to your friends; they enter it under <b>Online &gt; Join</b>. "
                               "Press to copy it.");
 #endif
                     if (mView.shortCode.empty() && !mView.error.empty()) {
                         pane.add_rml("<br/>" + escape(mView.error) + "<br/>Copy the long code instead.");
+                    }
+                    // N139: a WebRTC lobby's code is its long one while the short code's server can't be reached
+                    else if (mView.webrtc && !mView.error.empty()) {
+                        pane.add_rml("<br/>" + escape(mView.error));
                     }
                 });
             if (!mView.webrtc) {
@@ -1113,6 +1118,15 @@ LobbyWindow::LobbyWindow()
                     });
             }
             else {
+                // N139: the long code (the WebRTC offer itself) for when the short code's server can't be reached
+                control(left.add_child<ActionButton>("Copy Long Code", [this] { return mView.code.empty(); }).on_pressed([this] {
+                    copy_text(mView.code, "Long code");
+                }),
+                    [](Pane &pane) {
+                        pane.add_rml("The long code works without the short-code service. A friend who joins with it "
+                                     "gets an answer to send back to you, for <b>Paste Answer</b>. It changes after "
+                                     "each friend who joins.");
+                    });
                 // N92: a browser's code is a WebRTC offer; the guest's answer comes back to be pasted here (N96: a
                 // desktop's WebRTC lobby too).
                 control(left.add_child<ActionButton>("Paste Answer", [this] { return mView.state != Open; }).on_pressed([this] {
@@ -1120,13 +1134,13 @@ LobbyWindow::LobbyWindow()
                 }),
                     [this](Pane &pane) {
 #ifdef __EMSCRIPTEN__
-                        pane.add_rml("A friend who joins with your code gets an answer to send back to you. Copy it, "
-                                     "press Ctrl+V on this page, then press here to let them in. The code then changes: "
-                                     "send the new one to the next friend.");
+                        pane.add_rml("Only for a friend who joined with the long code: they get an answer to send back "
+                                     "to you. Copy it, press Ctrl+V on this page, then press here to let them in. The "
+                                     "long code then changes: send the new one to the next friend.");
 #else
-                        pane.add_rml("A friend who joins with your code gets an answer to send back to you. Copy it, "
-                                     "then press here to let them in. The code then changes: send the new one to the "
-                                     "next friend.");
+                        pane.add_rml("Only for a friend who joined with the long code: they get an answer to send back "
+                                     "to you. Copy it, then press here to let them in. The long code then changes: send "
+                                     "the new one to the next friend.");
 #endif
                         if (!mView.error.empty()) {
                             pane.add_rml("<br/>" + escape(mView.error));
@@ -1141,8 +1155,10 @@ LobbyWindow::LobbyWindow()
                 copy_text(mView.answer, "Answer");
             }),
                 [](Pane &pane) {
-                    pane.add_rml("Send this answer back to the host: they paste it in their lobby with "
-                                 "<b>Paste Answer</b>, and you are in. Press to copy it.");
+                    pane.add_rml("Joining with a short code needs nothing sent back: wait here. With a long code (or "
+                                 "when the code server can't be reached), an answer shows here: send it back to the "
+                                 "host, they paste it in their lobby with <b>Paste Answer</b>, and you are in. Press to "
+                                 "copy it.");
                 });
         }
 

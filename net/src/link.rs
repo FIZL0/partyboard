@@ -224,7 +224,7 @@ impl Transport {
 
 /// `code` (or a link with it) is a browser host's WebRTC offer.
 pub fn is_rtc_code(code: &str) -> bool {
-    rtc::codes::code_in(code).is_some()
+    rtc::codes::offer_in(code).is_some()
 }
 
 /// A WebRTC guest's answer for its host while it waits (empty otherwise).

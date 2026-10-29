@@ -24,6 +24,13 @@
 // pb_web_paste, copies -> navigator.clipboard; the browser's clipboard permission granted over CDP), and a guest's
 // mid-match drop and redial (PAIR_DROP).
 //
+// N139: a WebRTC host with the relay on puts its offers under a short code on relay.pkarr.org (net/src/signal.rs):
+// the guests join with those 4 symbols (or the ?code= link) and nothing goes back by hand. PAIR_RELAY (the ABI
+// lobby's relay setting, default off: offer and answer codes as before; n0: the short code); the menu's profile is n0
+// already. PAIR_BLOCK_RELAY=1 blocks relay.pkarr.org in every tab (the fallback: long codes and answers again).
+// PAIR_FREEZE=S freezes guest b's page (CDP Page.setWebLifecycleState, as a phone switching apps) for S seconds once
+// its answer is on the code server, then wakes it: it must still be seated.
+//
 // Usage: node tools/web_pair.mjs DISC OUT [SECS]
 //   SECS: how long the match runs after the start (default 120). OUT gets a.txt / b.txt (each tab's console),
 //   shots a-*.png / b-*.png, lobby-*.json, and pair.txt (the run's log: codes, frames, waits, verdict).
@@ -289,6 +296,11 @@ async function tab(name, target, origin, url) {
   await send('Runtime.enable');
   await send('Log.enable');
   await send('Page.enable');
+  // N139: the fallback: the short codes' relay unreachable from this tab
+  if (process.env.PAIR_BLOCK_RELAY === '1') {
+    await send('Network.enable');
+    await send('Network.setBlockedURLs', { urls: ['*relay.pkarr.org*'] });
+  }
   await send('Page.addScriptToEvaluateOnNewDocument', { source: PAD });
   // N98: the clipboard for the menu's copies and Ctrl+V (as a player who allowed it), and every tab "focused" (the
   // async clipboard API needs a focused document; only one tab of a window would be)
@@ -375,13 +387,21 @@ const until = async (what, secs, f) => {
 
 // The lobby through the exported C ABI (N92): the host's code and each guest's answer copied by this script.
 async function lobbyByAbi(host, guests) {
-  const setup = name => JSON.stringify({ build: 'web-pair', disc: 'GMPE01-01', relay: 'off', short: true,
+  const setup = name => JSON.stringify({ build: 'web-pair', disc: 'GMPE01-01', relay: process.env.PAIR_RELAY ?? 'off', short: true,
     players: [{ name, key: `key-${name}` }] });
   if (!await host.evaluate(`__pb.call('_pbnet_lobby_host', ${JSON.stringify(setup('Host'))})`)) throw new Error('a: host refused');
-  let code = await until('the host\'s code', 30, async () => (await host.evaluate('__pb.json()')).short);
+  // N139: with the relay on, the short code once it is online (the offer shows first)
+  let code = await until('the host\'s code', 30, async () => {
+    const c = (await host.evaluate('__pb.json()')).short;
+    return c && (!wantShort || SHORT.test(c)) && c;
+  });
   say(`a: hosting, code ${code.length} chars: ${code}`);
   for (const [i, g] of guests.entries()) {
     if (!await g.evaluate(`__pb.call('_pbnet_lobby_join', ${JSON.stringify(setup(`Guest${i + 1}`))}, ${JSON.stringify(code)})`)) throw new Error(`${g.name}: join refused`);
+    if (SHORT.test(code)) {
+      await joinedByShort(host, g, i, code, t => t.evaluate('__pb.json()'));
+      continue;
+    }
     const answer = await until(`${g.name}'s answer`, 30, async () => (await g.evaluate('__pb.json()')).answer);
     say(`${g.name}: answer ${answer.length} chars: ${answer}`);
     const why = await host.evaluate(`__pb.why('_pbnet_lobby_answer', ${JSON.stringify(answer)})`);
@@ -405,6 +425,31 @@ async function lobbyByAbi(host, guests) {
   say(`a: started (${started})`);
 }
 
+// N139: short codes: the 4 symbols, and whether the run waits for one (the relay on and not blocked)
+const SHORT = /^[2-9A-HJ-NP-Z]{4}$/;
+const wantShort = process.env.PAIR_BLOCK_RELAY !== '1' && (menu || (process.env.PAIR_RELAY ?? 'off') !== 'off');
+
+// N139: guest `g` (the i-th) joined by the short code: no answer to copy; seated by itself. Guest b's page is frozen
+// for PAIR_FREEZE seconds once its answer is on the code server. The host's code stays the same.
+async function joinedByShort(host, g, i, code, json) {
+  const freeze = +(process.env.PAIR_FREEZE ?? 0);
+  if (freeze && g.name === 'b') {
+    await until('b: its answer on the code server', 60, async () => g.lines.some(l => l.includes('answer put on the code server')));
+    await g.send('Page.setWebLifecycleState', { state: 'frozen' });
+    say(`b: answer on the code server; page frozen for ${freeze} s`);
+    await sleep(freeze * 1000);
+    say(`a: lobby while b was frozen: ${JSON.stringify((await json(host)).error ?? '')}`);
+    await g.send('Page.setWebLifecycleState', { state: 'active' });
+    say('b: page active again');
+  }
+  await until(`${g.name} is seated`, 90, async () => (await json(g)).room?.seats?.filter(Boolean).length === i + 2);
+  const j = await json(g);
+  if (j.answer) throw new Error(`${g.name}: shows an answer to send back after a short-code join`);
+  say(`${g.name}: seated by the short code alone (nothing sent back)`);
+  const now = (await json(host)).short;
+  if (now !== code) throw new Error(`a: the code changed from ${code} to ${now}`);
+}
+
 // N98: the lobby through the Online menu, keys only; the codes go through the clipboard as a player copies them.
 // `linkTab` (a guest that opens the invite link) is created here once the link exists.
 async function lobbyByMenu(host, guests, linkTab) {
@@ -418,10 +463,10 @@ async function lobbyByMenu(host, guests, linkTab) {
   };
   await openOnline(host);
   await host.press('Host Game');
-  await until('a: hosting', 30, async () => (await json(host)).short);
-  await host.find('Code rtco');
+  const shown = await until('a: hosting', 30, async () => { const c = (await json(host)).short; return c && (!wantShort || SHORT.test(c)) && c; });
+  await host.find(`Code ${shown.slice(0, 4)}`);
   await host.key('Enter');
-  const link = await until('the invite link on the clipboard', 10, async () => { const c = await host.clipboard(); return c.includes('?code=rtco') && c; });
+  const link = await until('the invite link on the clipboard', 10, async () => { const c = await host.clipboard(); return c.includes(`?code=${shown.slice(0, 8)}`) && c; });
   say(`a: copied the invite link (${link.length} chars): ${link.slice(0, 60)}...`);
   let code = link;
   for (const [i, g] of [...guests, ...(linkTab ? [null] : [])].entries()) {
@@ -450,6 +495,10 @@ async function lobbyByMenu(host, guests, linkTab) {
       if (field.includes('(none)')) throw new Error(`${t.name}: Paste Code left the code empty`);
       say(`${t.name}: [${field}]`);
       await t.press('Join Game');
+    }
+    if (SHORT.test(shown)) {
+      await joinedByShort(host, t, i, shown, json);
+      continue;
     }
     const answer = await until(`${t.name}'s answer`, 60, async () => (await json(t)).answer);
     say(`${t.name}: answer ${answer.length} chars`);
@@ -519,6 +568,19 @@ async function dropAndRedial(host, b) {
   const closed = await b.evaluate('(__pbPcs.filter(pc => pc.connectionState === "connected").forEach(pc => pc.close()), __pbPcs.length)');
   say(`b: dropped its peer connections at frame ${frame} (${closed} made so far)`);
   await until('b: reconnecting', 30, async () => (await recover(b)).reconnecting);
+  // N139: joined by a short code, the redial's answer goes through the code server: nothing to copy or paste
+  if (wantShort) {
+    await b.shot('dropped');
+    await until('b: back by the short code', 90, async () => !(await recover(b)).reconnecting);
+    if ((await json(b)).answer) throw new Error('b: shows an answer to send back after a short-code redial');
+    const back = await b.evaluate('pbModule._pbnet_frame()');
+    say(`b: back in the match by the short code (frame ${back}); host log: ${host.lines.filter(l => l.includes('rejoin of') || l.includes('by the short code')).slice(-1)[0] ?? 'no rejoin line'}`);
+    for (const t of peers) {
+      for (let i = 0; i < 3 && (await t.focus()) !== ''; i++) await t.key('Escape');
+    }
+    for (const t of peers) await t.evaluate('window.__pbMash = true');
+    return back;
+  }
   const answer = await until('b: its redial answer', 30, async () => (await json(b)).answer);
   say(`b: reconnecting, its answer ${answer.length} chars`);
   await until('b: Copy Answer on the hold screen', 20, async () => { await b.press('Copy Answer'); return (await b.clipboard()) === answer; });

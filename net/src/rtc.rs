@@ -21,6 +21,12 @@
 //!   *spare* offer of its own over the connection ([`REDIAL`] + the code, not JSON, so the lobby never sees it). A
 //!   guest whose connection dropped redials that one instead of its code; its answer goes back to the host as a new
 //!   guest's would (the hold screen's Copy Answer / Paste Answer), and the host sends a new spare once it is back.
+//! - N139, **one code**: with the relay setting on, the host also puts each offer under a short code on a pkarr relay
+//!   (`signal.rs`) and polls the code's answer key; a guest that joins with the short code gets the offer there and
+//!   puts its answer back there, so nobody pastes anything. The offer and answer codes and Paste Answer stay for when
+//!   the relay can't be reached (and with the relay Off). A guest whose connection didn't open answers the host's
+//!   current offer again until [`ANSWER_WAIT`] is up, so a join survives the guest's page being frozen a while (a
+//!   phone switching apps).
 
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
@@ -40,8 +46,19 @@ pub const OFFER: &str = "rtco";
 pub const ANSWER: &str = "rtca";
 /// How long a guest waits for the host to paste its answer.
 const ANSWER_WAIT: Duration = Duration::from_secs(600);
-/// How long a pasted answer has to connect.
-const OPEN_WAIT: Duration = Duration::from_secs(30);
+/// How long a pasted answer has to connect (N139: 30 s was too short for a guest whose phone switched apps while
+/// it joined: its page is frozen until it is back).
+const OPEN_WAIT: Duration = Duration::from_secs(90);
+/// N139: how long a guest that joined by short code waits for its answer to connect before it answers the host's
+/// offer again (time the page runs: a frozen page's minute away counts a second).
+const ATTEMPT: Duration = Duration::from_secs(20);
+/// N139: how long a host shows no code while its first short code is being put; the long code after that.
+const SHORT_WAIT: Duration = Duration::from_secs(10);
+/// N139: after the relay failed, the host tries it again this much later.
+const RELAY_RETRY: Duration = Duration::from_secs(15);
+/// N139: how long after its last put the host keeps showing its short code while renewing the record fails (the
+/// record goes stale at `signal::STALE`, 150 s).
+const KEEP_UP: Duration = Duration::from_secs(120);
 /// How often the connections' JavaScript queues are read (each frame's pump runs the timers that are due).
 const POLL: Duration = Duration::from_millis(2);
 /// N98: a control message on the reliable channel, from the host: the guest's spare offer for a redial.
@@ -281,6 +298,8 @@ pub mod codes {
     use super::{Sig, ANSWER, OFFER};
     use std::time::Duration;
 
+    pub use crate::signal::is_short;
+
     /// How often the host's lobby asks for its code ([`super::Transport::publish_code`]): a spent offer is
     /// replaced by a fresh one, so the code shown is the next guest's.
     pub const REPUBLISH: Duration = Duration::from_millis(500);
@@ -295,8 +314,13 @@ pub mod codes {
         Sig::parse(code, ANSWER).is_some()
     }
 
-    /// The join code in pasted or typed text: the code itself, or a link's `?code=`.
+    /// The join code in pasted or typed text: an offer or (N139) a short code, bare or a link's `?code=`.
     pub fn code_in(text: &str) -> Option<String> {
+        offer_in(text).or_else(|| crate::signal::short_in(text))
+    }
+
+    /// The host's offer in pasted or typed text: the code itself, or a link's `?code=`.
+    pub fn offer_in(text: &str) -> Option<String> {
         let t = text.trim();
         let t = t.split_once("code=").map_or(t, |(_, c)| c.split(['&', '#']).next().unwrap_or("")).trim();
         is_code(t).then(|| t.to_string())
@@ -600,17 +624,22 @@ impl Conn {
         }
     }
 
-    /// Waits for both channels to open (Err: the connection failed, or `wait` passed).
+    /// Waits for both channels to open (Err: the connection failed, or `wait` passed). N139: `wait` is time this
+    /// side ran: a step longer than a second (a frozen page, a phone away in another app) counts a second, so a
+    /// guest back from a minute away still sees the connection open.
     async fn open(&self, wait: Duration) -> Result<(), String> {
-        let until = tokio::time::Instant::now() + wait;
+        let (mut left, mut last) = (wait, tokio::time::Instant::now());
         loop {
             match js::state(self.0) {
                 js::State::Open => return Ok(()),
                 js::State::Closed => return Err("Couldn't connect to the other player.".into()),
-                js::State::Connecting if tokio::time::Instant::now() >= until => {
-                    return Err("Couldn't connect to the other player (timed out).".into())
+                js::State::Connecting if left.is_zero() => return Err("Couldn't connect to the other player (timed out).".into()),
+                js::State::Connecting => {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    let now = tokio::time::Instant::now();
+                    left = left.saturating_sub(now.duration_since(last).min(Duration::from_secs(1)));
+                    last = now;
                 }
-                js::State::Connecting => tokio::time::sleep(Duration::from_millis(20)).await,
             }
         }
     }
@@ -766,6 +795,11 @@ struct Hosting {
     /// Why the last pasted answer didn't connect, or "" once one did; taken by the lobby ([`Transport::take_error`]).
     error: Option<String>,
     closed: bool,
+    /// N139: the short code the offers are put under, while the relay takes them.
+    short: Option<String>,
+    /// N139: until then no code shows while the first short code is being put (rather than the long code, then the
+    /// short one); None once the relay failed, or with the relay Off.
+    short_wait: Option<tokio::time::Instant>,
 }
 
 /// The hosting transport, for `pbnet_lobby_answer`.
@@ -819,6 +853,11 @@ impl Transport {
         if let Err(e) = self.fresh_offer().await {
             locked(&self.hosting).error = Some(e);
         }
+        // N139: no relay, no server at all: offer and answer codes only
+        if self.relay != Relay::Off {
+            locked(&self.hosting).short_wait = Some(tokio::time::Instant::now() + SHORT_WAIT);
+            tokio::spawn(relay_host(self.hosting.clone()));
+        }
     }
 
     /// An offer for the next guest, unless one is shown.
@@ -838,10 +877,16 @@ impl Transport {
         Ok(code)
     }
 
-    /// The host's code now (as `transport.rs`'s short code, asked for every [`codes::REPUBLISH`]): the shown offer,
-    /// or a fresh one once a guest took it. Err: no offer could be made.
+    /// The host's code now (as `transport.rs`'s short code, asked for every [`codes::REPUBLISH`]): N139: the short
+    /// code while the relay has the offers, else the shown offer (a fresh one once a guest took it). Err: no offer
+    /// could be made.
     pub async fn publish_code(&self, _first: Option<String>) -> Result<String, String> {
-        self.fresh_offer().await
+        let offer = self.fresh_offer().await?;
+        let h = locked(&self.hosting);
+        if h.short.is_none() && h.short_wait.is_some_and(|t| tokio::time::Instant::now() < t) {
+            return Ok(String::new());
+        }
+        Ok(h.short.clone().unwrap_or(offer))
     }
 
     /// Hosting: why the last pasted answer didn't connect (Some("") once one did), if that changed since last asked.
@@ -869,13 +914,14 @@ impl Transport {
                             self.send_spare(id, p.conn.clone());
                             return Some(p);
                         }
+                        // N139: a guest that came by the short code tries again by itself
                         js::State::Closed => {
                             h.connecting.remove(i);
-                            h.error = Some("A player's answer didn't connect: send them the new code.".into());
+                            h.error = Some(if h.short.is_some() { "A player's connection didn't open: their game tries again." } else { "A player's answer didn't connect: send them the new code." }.into());
                         }
                         js::State::Connecting if now.duration_since(*at) > OPEN_WAIT => {
                             h.connecting.remove(i);
-                            h.error = Some("A player's connection timed out: send them the new code.".into());
+                            h.error = Some(if h.short.is_some() { "A player's connection timed out: their game tries again." } else { "A player's connection timed out: send them the new code." }.into());
                         }
                         js::State::Connecting => i += 1,
                     }
@@ -912,6 +958,9 @@ impl Transport {
     /// Joins the host whose offer is `code`: makes the answer (the lobby shows it, [`answer_code`]) and waits for
     /// the host to take it.
     pub async fn dial<T: Serialize + DeserializeOwned + Send + 'static>(&self, code: &str) -> Result<Peer<T>, String> {
+        if let Some(short) = crate::signal::short_in(code) {
+            return self.dial_short(&short).await;
+        }
         let mut offer = Sig::parse(code, OFFER).ok_or("That code isn't a lobby code.")?;
         // N98: a redial (the code's offer is spent) answers the spare offer this host sent
         if let Some(spare) = locked(&self.spare).as_ref().filter(|s| s.id == offer.id) {
@@ -934,6 +983,71 @@ impl Transport {
         drop(shown);
         r.map_err(|e| if e.contains("timed out") { "The host didn't take your answer in time.".into() } else { e })?;
         Ok(Peer::new(conn, PeerId(offer.id), Some(self.spare.clone())))
+    }
+
+    /// N139: joins the host whose offers are under the short `code`: gets the offer from the relay, puts the answer
+    /// back there for the host to take, and answers the host's offer again while it didn't connect (until
+    /// [`ANSWER_WAIT`]). If the relay won't take the answer, it is shown to be sent back by hand, as with a long code.
+    async fn dial_short<T: Serialize + DeserializeOwned + Send + 'static>(&self, code: &str) -> Result<Peer<T>, String> {
+        use crate::signal;
+        let until = tokio::time::Instant::now() + ANSWER_WAIT;
+        let mut answer_seq = 0;
+        for attempt in 0.. {
+            let later = attempt > 0;
+            // N98: a redial first answers the spare offer the host sent (it is taken once: later rounds get the
+            // host's offer for new guests, whose lobby seats the guest again by its rejoin token)
+            let spare = if later { None } else { locked(&self.spare).clone() };
+            let offer = match spare {
+                Some(s) => s,
+                None => match signal::get(code).await {
+                    Ok(Some((t, seq))) if signal::fresh(seq) => match Sig::parse(&t, OFFER) {
+                        Some(s) => s,
+                        None => return Err(format!("{code} is a lobby of the desktop game for desktop players: ask the host to open one with Host for Browsers.")),
+                    },
+                    Ok(_) if !later => return Err(format!("No open lobby has the code {code}: check it against the host's screen.")),
+                    Err(e) if !later => return Err(format!("Couldn't look up {code}: {e}. Ask the host for the long code instead.")),
+                    r => {
+                        if tokio::time::Instant::now() >= until {
+                            return Err(format!("The lobby {code} stopped answering: {}", r.err().unwrap_or_else(|| "it is closed".into())));
+                        }
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
+                },
+            };
+            let conn = Conn::new(&self.relay)?;
+            js::answer(conn.0, &offer.sdp(true));
+            let mut sig = conn.local(self.id.0).await?;
+            sig.to = offer.ufrag.clone();
+            let answer = sig.code(ANSWER);
+            struct Shown;
+            impl Drop for Shown {
+                fn drop(&mut self) {
+                    locked(&ANSWERING).clear();
+                }
+            }
+            let _shown = Shown;
+            let by_hand = match signal::put(&signal::answer_name(code), &answer, answer_seq).await {
+                Ok(seq) => {
+                    answer_seq = seq;
+                    eprintln!("pbnet: lobby {code}: answer put on the code server, waiting for the host");
+                    false
+                }
+                // the host can still paste it
+                Err(e) => {
+                    eprintln!("pbnet: lobby {code}: the answer isn't online ({e}); shown to send back by hand");
+                    *locked(&ANSWERING) = answer;
+                    true
+                }
+            };
+            match conn.open(if by_hand { ANSWER_WAIT } else { ATTEMPT }).await {
+                Ok(()) => return Ok(Peer::new(conn, PeerId(offer.id), Some(self.spare.clone()))),
+                Err(e) if by_hand => return Err(if e.contains("timed out") { "The host didn't take your answer in time.".into() } else { e }),
+                Err(e) if tokio::time::Instant::now() >= until => return Err(e),
+                Err(e) => eprintln!("pbnet: lobby {code}: {e}; answering the host's offer again"),
+            }
+        }
+        unreachable!()
     }
 
     /// N96: as the desktop's `link.rs` picks a lobby's transport (in the browser always this one).
@@ -974,9 +1088,85 @@ pub fn answer_code() -> String {
 /// The host takes a guest's `answer` for the offer it shows. Err: why not (no lobby hosting, not an answer, or for
 /// an older offer).
 pub fn take_answer(answer: &str) -> Result<(), String> {
-    let a = Sig::parse(answer, ANSWER).ok_or("That isn't a player's answer.")?;
     let h = locked(&HOSTING).clone().ok_or("Not hosting a lobby.")?;
-    let mut h = locked(&h);
+    take_answer_in(&h, answer)
+}
+
+/// N139: the host's short code: its offer put under it (again whenever a guest took it, and every
+/// [`crate::signal::REPUBLISH`]), and the guests' answers read from it ([`crate::signal::POLL`]) and taken as pasted
+/// ones. Ends when the hosting closes. While the relay fails the offer is the code ([`Hosting::short`] None).
+async fn relay_host(hosting: Arc<Mutex<Hosting>>) {
+    use crate::signal;
+    use tokio::time::Instant;
+    let mut code: Option<String> = None;
+    let (mut put_offer, mut put_at, mut offer_seq) = (String::new(), None::<Instant>, 0i64);
+    // answers written before this lobby (the code's last one) are not for it
+    let mut answer_seq = signal::unix_micros();
+    let (mut next_put, mut next_poll) = (Instant::now(), Instant::now());
+    loop {
+        let offer = {
+            let h = locked(&hosting);
+            if h.closed {
+                return;
+            }
+            h.offer.as_ref().map(|p| p.sig.code(OFFER))
+        };
+        let now = Instant::now();
+        let due = |o: &String| *o != put_offer || put_at.is_none_or(|t| now.duration_since(t) >= signal::REPUBLISH);
+        if let Some(offer) = offer.filter(|o| due(o) && now >= next_put) {
+            let r = match &code {
+                None => signal::roll(&offer).await.map(|(c, seq)| {
+                    code = Some(c);
+                    seq
+                }),
+                Some(c) => signal::put(c, &offer, offer_seq).await,
+            };
+            let mut h = locked(&hosting);
+            match r {
+                Ok(seq) => {
+                    (offer_seq, put_offer, put_at) = (seq, offer, Some(now));
+                    if h.short.is_none() {
+                        h.short = code.clone();
+                        h.error = Some(String::new());
+                    }
+                }
+                // N139: a keep-alive that failed leaves the code up while its record is fresh (a PUT can take 30 s)
+                Err(e) if offer == put_offer && put_at.is_some_and(|t| now.duration_since(t) < KEEP_UP) => {
+                    eprintln!("pbnet: lobby {}: the code's record wasn't renewed ({e}); again in {} s", code.as_deref().unwrap_or(""), RELAY_RETRY.as_secs());
+                    next_put = Instant::now() + RELAY_RETRY;
+                }
+                Err(e) => {
+                    eprintln!("pbnet: the short code isn't online: {e}");
+                    next_put = Instant::now() + RELAY_RETRY;
+                    h.short_wait = None;
+                    if h.short.take().is_some() || put_at.is_none() {
+                        h.error = Some(format!("The short code isn't online ({e}). Send the long code: your friend gets an answer to send back for Paste Answer."));
+                    }
+                }
+            }
+        }
+        if let Some(c) = code.as_ref().filter(|_| Instant::now() >= next_poll) {
+            next_poll = Instant::now() + signal::POLL;
+            match signal::get(&signal::answer_name(c)).await {
+                Ok(Some((a, seq))) if seq > answer_seq => {
+                    answer_seq = seq;
+                    match take_answer_in(&hosting, &a) {
+                        Ok(()) => eprintln!("pbnet: lobby {c}: a guest's answer came by the short code"),
+                        Err(e) => eprintln!("pbnet: lobby {c}: an answer by the short code: {e}"),
+                    }
+                }
+                Ok(_) => {}
+                Err(e) => eprintln!("pbnet: lobby {c}: answers: {e}"),
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+}
+
+/// [`take_answer`] for the hosting `h`.
+fn take_answer_in(h: &Mutex<Hosting>, answer: &str) -> Result<(), String> {
+    let a = Sig::parse(answer, ANSWER).ok_or("That isn't a player's answer.")?;
+    let mut h = locked(h);
     if h.closed {
         return Err("Not hosting a lobby.".into());
     }
@@ -1024,7 +1214,10 @@ mod tests {
         assert_eq!(Sig::parse(&a.code(ANSWER), ANSWER), Some(a));
         assert!(codes::is_code(&c) && !codes::is_answer(&c));
         assert_eq!(codes::code_in(&format!("  {c}\n")), Some(c.clone()));
-        assert_eq!(codes::code_in("ABCD"), None);
+        // N139: a short code joins over WebRTC too
+        assert_eq!(codes::code_in("abcd"), Some("ABCD".into()));
+        assert_eq!(codes::offer_in("ABCD"), None);
+        assert_eq!(codes::offer_in(&c), Some(c.clone()));
         for n in 0..10 {
             let b: Vec<u8> = (0..n).map(|i| (i * 37 + 5) as u8).collect();
             assert_eq!(unb64(&b64(&b)), Some(b));
@@ -1050,6 +1243,112 @@ mod tests {
         assert_eq!(Relay::Off.ice_servers(), "[]");
         assert!(Relay::N0.ice_servers().contains(STUN));
         assert!(Relay::parse("own", "turn:me.example:3478").ice_servers().contains("turn:me.example"));
+    }
+
+    /// The tests that host, one at a time (`take_answer` goes to the process's one hosting lobby).
+    static SERIAL: Mutex<()> = Mutex::new(());
+
+    fn test_setup(name: &str, relay: &str) -> crate::lobby_c::Setup {
+        serde_json::from_value(serde_json::json!({
+            "build": "0.1.0 test", "disc": "GMPE01-00", "relay": relay, "id": "m1",
+            "players": [crate::lobby::Player { name: name.into(), key: format!("key-{name}") }],
+        }))
+        .unwrap()
+    }
+
+    fn no_start() -> crate::lobby_c::Starter {
+        Arc::new(|_, _| {})
+    }
+
+    /// A WebRTC lobby's transport with a relay setting that isn't Off (so the short code is used) and no ICE
+    /// servers (nothing leaves the machine; the pkarr relay is `signal.rs`'s fake in tests).
+    #[cfg(feature = "iroh")]
+    fn bind_own() -> impl std::future::Future<Output = Result<crate::link::Transport, String>> + Send + 'static {
+        async { crate::link::Transport::bind_rtc(&crate::transport::Relay::Own(String::new())).await }
+    }
+    #[cfg(not(feature = "iroh"))]
+    fn bind_own() -> impl std::future::Future<Output = Result<Transport, String>> + Send + 'static {
+        async { Transport::bind(&Relay::Own(String::new())).await }
+    }
+
+    async fn until(what: &str, secs: u64, mut f: impl FnMut() -> bool) {
+        for _ in 0..secs * 100 {
+            if f() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("timed out: {what}");
+    }
+
+    /// N139: two guests join a WebRTC host by its short code alone: the offer and the answers go through the
+    /// (fake) pkarr relay, nothing is pasted, and the code stays the same for the second guest.
+    #[test]
+    fn lobby_by_short_code() {
+        use crate::lobby_c::Lobby;
+        let _serial = locked(&SERIAL);
+        let rt = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+        rt.block_on(async {
+            let h = tokio::runtime::Handle::current();
+            let host = Lobby::host(&h, bind_own(), test_setup("h", "own"), no_start());
+            until("the short code", 10, || codes::is_short(&host.snapshot().short)).await;
+            let code = host.snapshot().short;
+            let offer = host.snapshot().code;
+            assert!(offer.starts_with(OFFER), "the long code is the offer: {offer}");
+            let g1 = Lobby::join(&h, bind_own(), test_setup("g", "own"), &format!("https://x.example/?code={}", code.to_lowercase()), no_start());
+            until("the first guest seated", 20, || g1.snapshot().room.is_some_and(|r| r.seats.iter().flatten().count() == 2)).await;
+            assert!(g1.snapshot().answer.is_empty(), "nothing to send back");
+            until("a fresh offer under the same code", 10, || host.snapshot().code != offer && !host.snapshot().code.is_empty()).await;
+            assert_eq!(host.snapshot().short, code);
+            let g2 = Lobby::join(&h, bind_own(), test_setup("k", "own"), &code, no_start());
+            until("the second guest seated", 20, || g2.snapshot().room.is_some_and(|r| r.seats.iter().flatten().count() == 3)).await;
+            assert_eq!(host.snapshot().short, code);
+            // a guest with a code nobody hosts is told so
+            let lost = Lobby::join(&h, bind_own(), test_setup("l", "own"), "ZZZZ", no_start());
+            until("no lobby", 10, || lost.snapshot().error.contains("No open lobby")).await;
+        });
+    }
+
+    /// N139: with the relay unreachable the host's code is its offer and the guest's answer is pasted back, as
+    /// before; a guest with a short code is told to ask for the long code.
+    #[test]
+    fn short_code_falls_back_to_answers() {
+        use crate::lobby_c::Lobby;
+        let _serial = locked(&SERIAL);
+        let rt = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+        rt.block_on(async {
+            crate::signal::fake::set_down(true);
+            let h = tokio::runtime::Handle::current();
+            let host = Lobby::host(&h, bind_own(), test_setup("h", "own"), no_start());
+            until("the host's error", 10, || host.snapshot().error.contains("isn't online")).await;
+            let code = host.snapshot().short;
+            assert!(code.starts_with(OFFER), "{code}");
+            let guest = Lobby::join(&h, bind_own(), test_setup("g", "own"), &code, no_start());
+            until("the guest's answer", 10, || !guest.snapshot().answer.is_empty()).await;
+            take_answer(&guest.snapshot().answer).unwrap();
+            until("seated", 20, || guest.snapshot().room.is_some_and(|r| r.seats.iter().flatten().count() == 2)).await;
+            let short = Lobby::join(&h, bind_own(), test_setup("s", "own"), "ABCD", no_start());
+            until("the lookup's failure", 10, || short.snapshot().error.contains("long code")).await;
+            crate::signal::fake::set_down(false);
+        });
+    }
+
+    /// N139: a desktop joining a short code whose record is a WebRTC offer joins over WebRTC.
+    #[cfg(feature = "iroh")]
+    #[test]
+    fn desktop_joins_a_short_code_over_webrtc() {
+        use crate::lobby_c::Lobby;
+        let _serial = locked(&SERIAL);
+        let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
+        rt.block_on(async {
+            let h = tokio::runtime::Handle::current();
+            let host = Lobby::host(&h, bind_own(), test_setup("h", "own"), no_start());
+            until("the short code", 10, || codes::is_short(&host.snapshot().short)).await;
+            let code = host.snapshot().short;
+            let t = crate::lobby_c::bind_join(crate::transport::Relay::Own(String::new()), &code, None).await.unwrap();
+            assert!(t.is_rtc());
+            t.close().await;
+        });
     }
 
     /// Two lobbies in one process on the fake page: the host's code, the guest's answer pasted back, seated, ready,
@@ -1098,6 +1397,7 @@ mod tests {
             panic!("timed out: {what}");
         }
 
+        let _serial = locked(&SERIAL);
         let rt = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
         rt.block_on(async {
             let h = tokio::runtime::Handle::current();
