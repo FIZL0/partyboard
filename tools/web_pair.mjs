@@ -31,6 +31,11 @@
 // PAIR_FREEZE=S freezes guest b's page (CDP Page.setWebLifecycleState, as a phone switching apps) for S seconds once
 // its answer is on the code server, then wakes it: it must still be seated.
 //
+// N139a: PAIR_NEARBY=1: the guests find the host in their LAN list (records under the tabs' public address,
+// net/src/nearby.rs) and join it from there, no code copied. ABI lobby: `pbnet_lan_browse` until the host's short code
+// is listed; the host then leaves, b times how long its lobby stays listed, the host opens a new lobby, and the guests
+// join the new code from the list. With PAIR_MENU: Online > LAN, the game's button. Needs the relay on (PAIR_RELAY=n0).
+//
 // Usage: node tools/web_pair.mjs DISC OUT [SECS]
 //   SECS: how long the match runs after the start (default 120). OUT gets a.txt / b.txt (each tab's console),
 //   shots a-*.png / b-*.png, lobby-*.json, and pair.txt (the run's log: codes, frames, waits, verdict).
@@ -389,14 +394,37 @@ const until = async (what, secs, f) => {
 async function lobbyByAbi(host, guests) {
   const setup = name => JSON.stringify({ build: 'web-pair', disc: 'GMPE01-01', relay: process.env.PAIR_RELAY ?? 'off', short: true,
     players: [{ name, key: `key-${name}` }] });
-  if (!await host.evaluate(`__pb.call('_pbnet_lobby_host', ${JSON.stringify(setup('Host'))})`)) throw new Error('a: host refused');
-  // N139: with the relay on, the short code once it is online (the offer shows first)
-  let code = await until('the host\'s code', 30, async () => {
-    const c = (await host.evaluate('__pb.json()')).short;
-    return c && (!wantShort || SHORT.test(c)) && c;
-  });
+  const hostLobby = async () => {
+    if (!await host.evaluate(`__pb.call('_pbnet_lobby_host', ${JSON.stringify(setup('Host'))})`)) throw new Error('a: host refused');
+    // N139: with the relay on, the short code once it is online (the offer shows first)
+    let polls = 0;
+    return until('the host\'s code', 60, async () => {
+      const j = await host.evaluate('__pb.json()');
+      if (++polls % 40 === 0) say(`a: lobby ${j.state}, short ${JSON.stringify(j.short?.slice(0, 12))}, error ${JSON.stringify(j.error)}`);
+      const c = j.short;
+      return c && (!wantShort || SHORT.test(c)) && c;
+    });
+  };
+  let code = await hostLobby();
   say(`a: hosting, code ${code.length} chars: ${code}`);
+  if (nearby) {
+    // N139a: listed for b's network, gone once the host leaves, the next lobby listed in its place
+    const t0 = Date.now();
+    await until(`b: ${code} in the LAN list`, 120, async () => (await lanList(guests[0], setup('Guest1'))).games?.some(g => g.code === code));
+    say(`b: the LAN list has ${code} ${((Date.now() - t0) / 1000).toFixed(1)} s after the code showed: ${JSON.stringify((await lanList(guests[0], setup('Guest1'))).games)}`);
+    await host.evaluate('pbModule._pbnet_lobby_leave(), true');
+    const t1 = Date.now();
+    await until(`b: ${code} gone from the LAN list`, 75, async () => !(await lanList(guests[0], setup('Guest1'))).games?.some(g => g.code === code));
+    say(`b: ${code} left the LAN list ${((Date.now() - t1) / 1000).toFixed(1)} s after the host left`);
+    code = await hostLobby();
+    say(`a: hosting again, code ${code}`);
+  }
   for (const [i, g] of guests.entries()) {
+    if (nearby) {
+      const t0 = Date.now();
+      const game = await until(`${g.name}: ${code} in the LAN list`, 120, async () => (await lanList(g, setup(`Guest${i + 1}`))).games?.find(x => x.code === code));
+      say(`${g.name}: joins from the LAN list ${((Date.now() - t0) / 1000).toFixed(1)} s later: ${JSON.stringify(game)}`);
+    }
     if (!await g.evaluate(`__pb.call('_pbnet_lobby_join', ${JSON.stringify(setup(`Guest${i + 1}`))}, ${JSON.stringify(code)})`)) throw new Error(`${g.name}: join refused`);
     if (SHORT.test(code)) {
       await joinedByShort(host, g, i, code, t => t.evaluate('__pb.json()'));
@@ -424,6 +452,12 @@ async function lobbyByAbi(host, guests) {
   });
   say(`a: started (${started})`);
 }
+
+// N139a: the LAN list (`pbnet_lan_browse`) of tab `t`
+const nearby = process.env.PAIR_NEARBY === '1';
+const lanList = (t, setup) => t.evaluate(`(() => { const s = __pb.str(${JSON.stringify(setup)}); const n = pbModule._pbnet_lan_browse(s, 0, 0);
+  const b = pbModule._malloc(n + 1); pbModule._pbnet_lan_browse(s, b, n + 1); const j = pbModule.UTF8ToString(b); pbModule._free(b);
+  pbModule._free(s); return JSON.parse(j) ?? {}; })()`);
 
 // N139: short codes: the 4 symbols, and whether the run waits for one (the relay on and not blocked)
 const SHORT = /^[2-9A-HJ-NP-Z]{4}$/;
@@ -463,7 +497,7 @@ async function lobbyByMenu(host, guests, linkTab) {
   };
   await openOnline(host);
   await host.press('Host Game');
-  const shown = await until('a: hosting', 30, async () => { const c = (await json(host)).short; return c && (!wantShort || SHORT.test(c)) && c; });
+  const shown = await until('a: hosting', 90, async () => { const c = (await json(host)).short; return c && (!wantShort || SHORT.test(c)) && c; });
   await host.find(`Code ${shown.slice(0, 4)}`);
   await host.key('Enter');
   const link = await until('the invite link on the clipboard', 10, async () => { const c = await host.clipboard(); return c.includes(`?code=${shown.slice(0, 8)}`) && c; });
@@ -483,6 +517,22 @@ async function lobbyByMenu(host, guests, linkTab) {
       await t.evaluate(DEFINE_PB);
       say(`${t.name}: page address after the start: ${await t.evaluate('location.href')}`);
       await until(`${t.name}: the lobby from the link`, 120, async () => ['connecting', 'open'].includes((await json(t)).state) && (await t.focus()) !== '');
+    } else if (nearby) {
+      // N139a: Online > LAN, the host's game in the list (its button says the open seats), pressed
+      await openOnline(t);
+      await t.key('PageDown');
+      await t.key('PageDown');
+      const t0 = Date.now();
+      const f = await until(`${t.name}: the game in the LAN tab`, 120, async () => {
+        for (let k = 0; k < 6; k++) {
+          const f = await t.focus();
+          if (/seats? open/.test(f)) return f;
+          await t.key('ArrowDown');
+        }
+      });
+      await t.shot('lan');
+      say(`${t.name}: LAN tab shows [${f}] after ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+      await t.key('Enter');
     } else {
       // the friend copies the code (the clipboard is the browser's, shared by the tabs), presses Ctrl+V on the page
       // (pb.js reads the clipboard into SDL's), then Online > Join > Paste Code > Join Game

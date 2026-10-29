@@ -401,6 +401,7 @@ OnlineWindow::OnlineWindow()
         help(left, right, left.add_button("Host for Browsers").on_pressed([this] { host_browsers(); }),
             "Open a lobby that friends playing in a web browser can join.<br/><br/>Its short code works in the "
             "browser version (and in this one): friends enter it and are in, with nothing to send back.<br/><br/>"
+            "Browsers on your network also find it in their <b>LAN</b> tab.<br/><br/>"
             "With Relay set to Public, the game asks a public STUN server for your address, so friends on other "
             "networks may connect. With Relay Off (this network only), or when the code server can't be reached, "
             "the code is a long one instead: each friend who joins with it gets an answer to send back to you, "
@@ -486,7 +487,12 @@ OnlineWindow::OnlineWindow()
         mLanKey = lan_key(mLan);
         mLanButtons.clear();
 
+#ifdef __EMSCRIPTEN__
+        // N139a: found by the network's public address (net/src/nearby.rs), so others behind it may show up too
+        left.add_section("Games on Your Network");
+#else
         left.add_section("Games on This Network");
+#endif
         left.add_child<WatchedText>([this] { return lan_status(); }, [this] {
             mLanOpen = false;
             mLanLeft = nullptr;
@@ -505,8 +511,14 @@ OnlineWindow::OnlineWindow()
                 fmt::format("<b>{}</b>'s lobby: {}.<br/><br/>Press to join it.", escape(name), seats));
             mLanButtons.emplace_back(game.code, &button);
         }
+#ifdef __EMSCRIPTEN__
+        left.add_text("A lobby hosted on your network (in a browser, or with Host for Browsers) shows up here while it "
+                      "waits for players. Games are found by your network's internet address, so on a phone's mobile "
+                      "data, strangers' games may show up too. If a game doesn't, ask the host for the code and use Join.");
+#else
         left.add_text("A lobby hosted on this network shows up here while it waits for players. If it doesn't, ask "
                       "the host for the code and use Join.");
+#endif
         left.finalize();
     });
 
@@ -841,7 +853,12 @@ std::string OnlineWindow::lan_status() const
         return "Looking for games...";
     }
     if (!mLan.lan) {
+#ifdef __EMSCRIPTEN__
+        // N139a: no public address from STUN (Relay Off, or no internet)
+        return "Can't find your network's address (Relay is Off, or no internet). Ask the host for the code and use Join.";
+#else
         return "This device can't look for games on the network. Ask the host for the code and use Join.";
+#endif
     }
     if (mLan.games.empty()) {
         return "No games found yet.";

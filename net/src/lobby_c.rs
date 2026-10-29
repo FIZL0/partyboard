@@ -1553,7 +1553,9 @@ pub(crate) fn bind_join(relay: Relay, code: &str, browse: Option<Browse>) -> imp
     let offer = crate::rtc::codes::offer_in(code).is_some();
     let short = crate::signal::short_in(code).filter(|_| relay != Relay::Off);
     async move {
+        // N139a: in the browser every lobby is WebRTC: no lookup (the relay's requests are few)
         let rtc = offer
+            || cfg!(not(feature = "iroh"))
             || match short {
                 Some(c) => matches!(tokio::time::timeout(Duration::from_secs(8), crate::signal::get(&c)).await,
                     Ok(Ok(Some((t, seq)))) if crate::signal::fresh(seq) && t.starts_with(crate::rtc::OFFER)),
@@ -1799,6 +1801,8 @@ struct RelaySetup {
 /// `cap` writable bytes, used during the call only. Thread-safe.
 #[no_mangle]
 pub unsafe extern "C" fn pbnet_lan_browse(setup_json: *const c_char, buf: *mut c_char, cap: i32) -> i32 {
+    // N139a: the browser's browse is a task (`nearby.rs`): run it on the menu's polls too
+    pump();
     // SAFETY: the caller's contract on `setup_json`.
     let relay = match unsafe { arg(setup_json) } {
         None => Relay::parse("", ""),
@@ -1813,7 +1817,7 @@ pub unsafe extern "C" fn pbnet_lan_browse(setup_json: *const c_char, buf: *mut c
     let mut b = browse();
     if b.as_ref().is_none_or(|b| b.relay != relay) {
         let r = relay.clone();
-        *b = Some(Browse::new(rt().handle(), relay, async move { Transport::bind(&r).await }));
+        *b = Some(Browse::new(rt().handle(), relay, async move { Transport::bind_browse(&r).await }));
     }
     let json = serde_json::to_string(&b.as_ref().map(Browse::list)).unwrap_or_default();
     // SAFETY: the caller's contract on `buf` and `cap`.

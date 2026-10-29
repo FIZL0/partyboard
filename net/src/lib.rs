@@ -19,6 +19,8 @@ pub mod lobby;
 pub mod lobby_c;
 pub mod lockstep;
 pub mod lockstep_c;
+// N139a: lobbies on the same network (public address) for the browser's LAN tab, through the pkarr relay.
+pub mod nearby;
 pub mod recover;
 // N96: on every build: the browser's transport, and the desktop's way to meet browsers (`rtc/native.rs`).
 pub mod rtc;
