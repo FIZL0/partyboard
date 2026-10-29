@@ -80,6 +80,14 @@ namespace {
 </rml>
 )RML";
 
+#if PB_DISC_FROM_FOLDER
+    constexpr const char *kNoDiscLabel = "Look for Disc";
+    constexpr const char *kNoDiscStatus = "Put your disc image in Files > On My iPhone > Party Board.";
+#else
+    constexpr const char *kNoDiscLabel = "Select Disc Image";
+    constexpr const char *kNoDiscStatus = "No disc image found.";
+#endif
+
     constexpr std::array<SDL_DialogFileFilter, 2> kDiscFileFilters { {
         { "Game Disc Images", "iso;gcm;ciso;gcz;nfs;rvz;wbfs;wia;tgc" },
         { "All Files", "*" },
@@ -595,6 +603,13 @@ void ensure_initialized() noexcept
 void open_iso_picker() noexcept
 {
     ensure_initialized();
+#if PB_DISC_FROM_FOLDER
+    // no picker: look in the app's folder again (the status line says where the image goes)
+    if (sDiscVerificationTask == nullptr) {
+        begin_disc_verification(iso::find_disc_in(PartyBoard_ConfigPath));
+    }
+    return;
+#endif
     ShowFileSelect(
         &file_dialog_callback, nullptr, aurora::window::get_sdl_window(), kDiscFileFilters.data(), kDiscFileFilters.size(), nullptr, false);
 }
@@ -687,7 +702,7 @@ Prelaunch::Prelaunch(bool relaunch)
             }
         }
         mPlayButton = mMenuButtons.size();
-        mMenuButtons.push_back(std::make_unique<Button>(menuList, activeDiscLoaded ? "Play" : "Select Disc Image"));
+        mMenuButtons.push_back(std::make_unique<Button>(menuList, activeDiscLoaded ? "Play" : kNoDiscLabel));
         mMenuButtons.back()->on_pressed([this] {
             if (prelaunch_state().activeDiscPath.empty()) {
                 open_iso_picker();
@@ -875,6 +890,18 @@ void Prelaunch::hide(bool close)
 void Prelaunch::update()
 {
     ensure_initialized();
+#if PB_DISC_FROM_FOLDER
+    // A disc dropped into the app's folder (Files) while the menu shows is picked up without a restart.
+    // (one that failed its check is not checked again until it is replaced)
+    if (static unsigned frames = 0; prelaunch_state().activeDiscPath.empty() && sDiscVerificationTask == nullptr
+        && ++frames % 120 == 0) {
+        static std::string tried;
+        if (auto found = iso::find_disc_in(PartyBoard_ConfigPath); found != tried) {
+            tried = found;
+            begin_disc_verification(std::move(found));
+        }
+    }
+#endif
 
     if (top_document() == this) {
         try_push_verification_modal(*this);
@@ -917,7 +944,7 @@ void Prelaunch::update()
     }
 
     if (mPlayButton < mMenuButtons.size()) {
-        mMenuButtons[mPlayButton]->set_text(activeDiscLoaded ? "Play" : "Select Disc Image");
+        mMenuButtons[mPlayButton]->set_text(activeDiscLoaded ? "Play" : kNoDiscLabel);
     }
 
     const auto discStatusLabel = mDiscStatus->GetElementById("disc-status-label");
@@ -925,7 +952,7 @@ void Prelaunch::update()
     if (mDiscStatus != nullptr && discStatusLabel != nullptr) {
         if (!activeDiscLoaded) {
             mDiscStatus->RemoveAttribute("status");
-            discStatusLabel->SetInnerRML("No disc image found.");
+            discStatusLabel->SetInnerRML(kNoDiscStatus);
         }
         else if (discRestartPending) {
             mDiscStatus->SetAttribute("status", "pending");

@@ -6,7 +6,9 @@
 #include <nod.h>
 #include <xxhash.h>
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <memory>
 #include <os.h>
 #include <stdexcept>
@@ -273,4 +275,26 @@ void log_verification_state(std::string_view path, DiscVerificationState state) 
     // OSReport(
     //     "Disc verification status: {} (path: {})", verification_state_name(state), pathText);
 }
+std::string find_disc_in(const std::filesystem::path& dir) {
+    static constexpr std::array<std::string_view, 9> kExtensions{".iso", ".gcm", ".ciso", ".gcz", ".nfs", ".rvz", ".wbfs",
+                                                                 ".wia", ".tgc"};
+    std::vector<std::filesystem::path> candidates;
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+        if (entry.is_regular_file(ec) && std::ranges::find(kExtensions, ext) != kExtensions.end()) {
+            candidates.push_back(entry.path());
+        }
+    }
+    std::ranges::sort(candidates);
+    for (const auto& path : candidates) {
+        DiscInfo info{};
+        if (inspect(path.string().c_str(), info) == ValidationError::Success) {
+            return path.string();
+        }
+    }
+    return {};
+}
+
 }  // namespace partyboard::iso

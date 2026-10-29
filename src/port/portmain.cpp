@@ -518,13 +518,14 @@ extern "C" int port_main(int argc, char* argv[]) {
     if (const char* disc = getenv("PB_DISC"); disc && *disc) {
         partyboard::getSettings().backend.isoPath.setValue(disc);
     }
-#if defined(__APPLE__) && TARGET_OS_IOS && !TARGET_OS_MACCATALYST
-    // N100: the picker opens the ISO in place; get its security scope back, or follow the container to this install.
-    if (const std::string saved = partyboard::getSettings().backend.isoPath; !saved.empty()) {
-        char restored[4096];
-        if (PartyBoard_iOS_RestoreFileAccess(saved.c_str(), restored, sizeof restored) && saved != restored) {
-            PartyBoardMainLog.info("Saved DVD image path moved: {} -> {}", saved, restored);
-            partyboard::getSettings().backend.isoPath.setValue(restored);
+#if PB_DISC_FROM_FOLDER
+    // iOS: the disc is the image in the app's folder (Files > On My iPhone > Party Board), looked up at every start.
+    if (const char* disc = getenv("PB_DISC"); disc == nullptr || *disc == '\0') {
+        const std::string found = partyboard::iso::find_disc_in(PartyBoard_ConfigPath);
+        if (found != partyboard::getSettings().backend.isoPath.getValue()) {
+            PartyBoardMainLog.info("DVD image in the app's folder: {}", found.empty() ? "none" : found);
+            partyboard::getSettings().backend.isoPath.setValue(found);
+            partyboard::getSettings().backend.isoVerification.setValue(partyboard::DiscVerificationState::Unknown);
         }
     }
 #endif
