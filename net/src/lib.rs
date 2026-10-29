@@ -23,6 +23,8 @@ pub mod recover;
 // N96: on every build: the browser's transport, and the desktop's way to meet browsers (`rtc/native.rs`).
 pub mod rtc;
 pub mod save;
+// N139: WebRTC offers and answers through a pkarr relay under one short code.
+pub mod signal;
 #[cfg(feature = "iroh")]
 pub mod transport;
 // N96: a desktop lobby's transport, iroh or WebRTC (`link.rs`); the lobby uses it as `crate::link`.

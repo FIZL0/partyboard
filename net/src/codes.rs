@@ -142,7 +142,7 @@ async fn lookup_for(dht: &Dht, code: &str, secs: u64) -> Result<Option<(String, 
     r.unwrap_or_else(|_| Err(format!("the DHT didn't answer in {secs} s")))
 }
 
-fn client() -> reqwest::Client {
+pub(crate) fn client() -> reqwest::Client {
     let _ = rustls::crypto::ring::default_provider().install_default();
     static C: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
     // N16: on Android reqwest's own verifier panics without its JNI init, so the TLS settings come from `android.rs`.

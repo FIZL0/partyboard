@@ -7,8 +7,8 @@
 // ?autoplay=1 starts with the stored disc without a click; ?fetch=a,b puts test/a and test/b (from the server) in
 // the game's /test (tools/web_check.mjs); ?env=K=V,K2 sets environment variables for the game; ?opfs=worker stores the
 // disc as browsers without createWritable do (tools/web_pw.mjs).
-// N98: ?code=rtco... is a join link (the host's Online lobby copies one): the game starts with the stored disc (or
-// once one is picked) and joins that lobby.
+// N98: ?code=rtco... (N139: or a short code, ?code=K7MQ) is a join link (the host's Online lobby copies one): the
+// game starts with the stored disc (or once one is picked) and joins that lobby.
 'use strict';
 const $ = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);

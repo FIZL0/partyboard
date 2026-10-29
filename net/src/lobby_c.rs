@@ -1006,6 +1006,11 @@ async fn keep_code(t: Arc<Transport>, sh: std::sync::Weak<Mutex<Shared>>) {
                         s.short = c.clone();
                         s.bump();
                     }
+                    // N139: a WebRTC host's long code is its offer now (the fallback to a short code's)
+                    if t.is_rtc() && s.ticket != t.ticket() {
+                        s.ticket = t.ticket();
+                        s.bump();
+                    }
                     code = Some(c);
                 }
                 // N92: no offer could be made (no WebRTC, no network)
@@ -1535,10 +1540,31 @@ pub(crate) fn rejoin_global((s, relay): (Setup, Relay), r: Rejoin) -> bool {
         old.leave();
     }
     let code = r.code.clone();
-    let rtc = crate::rtc::codes::code_in(&code).is_some();
-    let l = Lobby::rejoin(rt().handle(), async move { Transport::bind_for(&relay, false, &code).await }, s, r, global_starter()).webrtc(rtc);
+    let rtc = crate::rtc::codes::offer_in(&code).is_some();
+    let l = Lobby::rejoin(rt().handle(), bind_join(relay, &code, None), s, r, global_starter()).webrtc(rtc);
     *global() = Some(hooked(l));
     true
+}
+
+/// N139: the transport that joins `code`: WebRTC for a browser host's offer, or for a short code whose record on
+/// the pkarr relay is one (a browser's lobby or a desktop's Host for Browsers: `signal.rs`); else the browse's
+/// endpoint if it has `relay`, or a new one. The relay is asked for 8 s at most: no answer, no WebRTC.
+pub(crate) fn bind_join(relay: Relay, code: &str, browse: Option<Browse>) -> impl Future<Output = Result<Transport, String>> + Send + 'static {
+    let offer = crate::rtc::codes::offer_in(code).is_some();
+    let short = crate::signal::short_in(code).filter(|_| relay != Relay::Off);
+    async move {
+        let rtc = offer
+            || match short {
+                Some(c) => matches!(tokio::time::timeout(Duration::from_secs(8), crate::signal::get(&c)).await,
+                    Ok(Ok(Some((t, seq)))) if crate::signal::fresh(seq) && t.starts_with(crate::rtc::OFFER)),
+                None => false,
+            };
+        if rtc {
+            drop(browse);
+            return Transport::bind_for(&relay, true, "").await;
+        }
+        Browse::or_bind(browse, relay).await
+    }
 }
 
 fn setup(json: &str) -> Option<(Setup, Relay)> {
@@ -1581,12 +1607,13 @@ pub unsafe extern "C" fn pbnet_lobby_join(setup_json: *const c_char, code: *cons
     let (s, code) = unsafe { (arg(setup_json), arg(code)) };
     let (Some((s, relay)), Some(code)) = (s.and_then(setup), code.filter(|c| !c.trim().is_empty())) else { return 0 };
     // N96: a browser host's offer is joined over WebRTC (the browse's endpoint is iroh's)
-    let l = if crate::rtc::codes::code_in(code).is_some() {
+    let l = if crate::rtc::codes::offer_in(code).is_some() {
         browse().take();
         let c = code.to_string();
         Lobby::join(rt().handle(), async move { Transport::bind_for(&relay, true, &c).await }, s, code, global_starter()).webrtc(true)
     } else {
-        Lobby::join(rt().handle(), Browse::or_bind(browse().take(), relay), s, code, global_starter())
+        // N139: a short code may be a WebRTC lobby's
+        Lobby::join(rt().handle(), bind_join(relay, code, browse().take()), s, code, global_starter())
     };
     *global() = Some(hooked(l));
     1

@@ -6,6 +6,8 @@ addToLibrary({
   $PBRTC: {
     next: 1,
     conns: {},
+    // N139: fetches in flight or done, by number
+    http: {},
     // ICE gathering waits at most this long (host candidates take well under a second; STUN may not answer).
     GATHER_MS: 3000,
     gathered(pc) {
@@ -147,6 +149,44 @@ addToLibrary({
   pbnet_js_rtc_rtt__deps: ['$PBRTC'],
   pbnet_js_rtc_rtt: function (id) {
     return PBRTC.conns[id]?.rtt ?? -1;
+  },
+
+  // N139: HTTP for the short codes' pkarr relay (net/src/signal.rs): a fetch, started here and polled.
+  pbnet_js_http_start__deps: ['$PBRTC', '$UTF8ToString'],
+  pbnet_js_http_start: function (method, url, body, len) {
+    const id = PBRTC.next++;
+    const r = { status: -2, body: null };
+    PBRTC.http[id] = r;
+    fetch(UTF8ToString(url), { method: UTF8ToString(method), body: len > 0 ? HEAPU8.slice(body, body + len) : undefined, cache: 'no-store' })
+      .then(async res => {
+        r.body = new Uint8Array(await res.arrayBuffer());
+        r.status = res.status;
+      })
+      .catch(e => {
+        console.error('pbnet: code server:', e);
+        r.status = -1;
+      });
+    return id;
+  },
+
+  // -2 while in flight, -1 if it failed, else the HTTP status.
+  pbnet_js_http_poll__deps: ['$PBRTC'],
+  pbnet_js_http_poll: function (id) {
+    return PBRTC.http[id]?.status ?? -1;
+  },
+
+  // The body's length; copied into buf if it fits (cap bytes). -1: no such request.
+  pbnet_js_http_body__deps: ['$PBRTC'],
+  pbnet_js_http_body: function (id, buf, cap) {
+    const b = PBRTC.http[id]?.body;
+    if (!b) return -1;
+    if (b.length <= cap) HEAPU8.set(b, buf);
+    return b.length;
+  },
+
+  pbnet_js_http_drop__deps: ['$PBRTC'],
+  pbnet_js_http_drop: function (id) {
+    delete PBRTC.http[id];
   },
 
   pbnet_js_rtc_close__deps: ['$PBRTC'],

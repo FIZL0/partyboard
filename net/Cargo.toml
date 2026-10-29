@@ -45,6 +45,9 @@ netdev = { version = "0.46", optional = true }
 data-encoding = { version = "2", optional = true }
 socket2 = { version = "0.6", optional = true }
 libc = { version = "0.2", optional = true }
+# N139: signs the pkarr records of WebRTC short codes (`signal.rs`) on every build, the browser's too; the version
+# iroh already builds.
+ed25519-dalek = { version = "3", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
