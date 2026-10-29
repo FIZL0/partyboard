@@ -76,6 +76,7 @@ Document &push_document(std::unique_ptr<Document> doc, bool show = true, bool pa
 void show_top_document() noexcept;
 bool any_document_visible() noexcept;
 bool is_prelaunch_open() noexcept;
+bool is_online_open() noexcept;
 Document *top_document() noexcept;
 
 std::filesystem::path resource_path(const std::filesystem::path &filename) noexcept;

@@ -28,6 +28,7 @@
 #include "msm/msmsys.h"
 #include "port/byteswap.h"
 #include "port/netplay.h"
+#include "port/pbnet.h"
 #include "port/port_version.h"
 #include "port/quick_continue.h"
 #include "port/ui.h"
@@ -43,6 +44,8 @@ static struct {
     s32 box;
     BOOL loaded;
     BOOL offered;
+    BOOL online_offered; /* N142 */
+    BOOL online;
 } pending;
 
 /* The checksum SLCheckSumCheck tests: SLCheckSumGet's, stored big-endian after the data. */
@@ -180,10 +183,11 @@ void quick_continue_offer(BOOL on)
 
 void QuickContinueHold(void)
 {
-    while (pending.offered && ui_is_prelaunch_open()) {
+    while ((pending.offered || pending.online_offered) && ui_is_prelaunch_open()) {
         HuPrcVSleep();
     }
     pending.offered = FALSE;
+    pending.online_offered = FALSE;
 }
 
 void quick_continue_request(s32 kind, s32 box)
@@ -510,4 +514,33 @@ void QuickContinueStart(void)
         saveExecF = 0;
         story_continue();
     }
+}
+
+void quick_online_offer(BOOL on)
+{
+    pending.online_offered = on;
+}
+
+void quick_online_request(void)
+{
+    pending.online = TRUE;
+}
+
+BOOL QuickOnlineTake(void)
+{
+    BOOL online = pending.online;
+
+    pending.online = FALSE;
+    return online;
+}
+
+BOOL QuickOnlineHeld(void)
+{
+    static s32 idle;
+
+    if (ui_is_online_open() || pbnet_lobby_state() != PBNET_LOBBY_NONE || netplay_match_running()) {
+        idle = 0;
+        return TRUE;
+    }
+    return ++idle < 30;
 }

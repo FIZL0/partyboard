@@ -29,6 +29,7 @@
 #include "aurora/lib/logging.hpp"
 #include "aurora/lib/window.hpp"
 #include "input.hpp"
+#include "online.hpp"
 #include "prelaunch.hpp"
 #include "touch_pad.hpp"
 #include "window.hpp"
@@ -393,6 +394,16 @@ bool is_prelaunch_open() noexcept
     return std::any_of(sDocumentStack.begin(), sDocumentStack.end(), [](const auto &doc) {
         const auto *prelaunch = dynamic_cast<const Prelaunch *>(doc.get());
         return prelaunch != nullptr && !prelaunch->pending_close() && !prelaunch->closed();
+    });
+}
+
+// N142: bootDll's lobby backdrop (QuickOnlineHeld) stays while one of these is open.
+bool is_online_open() noexcept
+{
+    return std::any_of(sDocumentStack.begin(), sDocumentStack.end(), [](const auto &doc) {
+        const bool online = dynamic_cast<const OnlineWindow *>(doc.get()) != nullptr ||
+                            dynamic_cast<const LobbyWindow *>(doc.get()) != nullptr;
+        return online && !doc->pending_close() && !doc->closed();
     });
 }
 

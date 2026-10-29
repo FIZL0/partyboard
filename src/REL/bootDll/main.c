@@ -173,6 +173,28 @@ void ObjectSetup(void)
      initLanguageF = TRUE;
  }
 
+ /* N142: Party Board menu > Online: while the lobby is set up, a quiet backdrop with the card select's music
+  * (filesel.c's seq 43) instead of the logos and the title. The match start (MatchStartProc) kills this process and
+  * fades the music. Left without a match (the Online window closed), the boot goes on to the title (no logos). */
+ static void BootLobbyExec(void)
+ {
+     s32 seq;
+
+     Hu3DBGColorSet(16, 24, 48);
+     WipeCreate(WIPE_MODE_IN, WIPE_TYPE_NORMAL, 30);
+     seq = HuAudSeqPlay(43);
+     while (QuickOnlineHeld()) {
+         HuPrcVSleep();
+     }
+     OSReport("boot: left the Online menu without a match, on to the title\n");
+     HuAudSeqFadeOut(seq, 500);
+     WipeCreate(WIPE_MODE_OUT, WIPE_TYPE_NORMAL, 30);
+     while (WipeStatGet()) {
+         HuPrcVSleep();
+     }
+     Hu3DBGColorSet(0, 0, 0);
+ }
+
  /* N131: Fast Menus skips the logos on the first boot: their setup (and the 3 s waits around it) runs at once. */
  static void BootInitForFastMenus(s16 group)
  {
@@ -209,6 +231,8 @@ void ObjectSetup(void)
      OSTick tick_prev;
      Process *curr = HuPrcCurrentGet();
 #ifdef TARGET_PC
+     BOOL lobby_left = FALSE; /* N142: straight to the title, as from the mode select */
+
      if (omovlevtno == 0) {
          QuickContinueHold();
      }
@@ -256,6 +280,14 @@ void ObjectSetup(void)
              HuPrcVSleep();
          } while (1);
      }
+     if (omovlevtno == 0 && QuickOnlineTake()) {
+         for (i = 0; i < 4; i++) {
+             GWPlayerCfg[i].pad_idx = i;
+         }
+         BootInitForSkippedSequence();
+         BootLobbyExec();
+         lobby_left = TRUE;
+     }
      if (omovlevtno == 0 && partyboard_settings_skipBootSequence()) {
          for (i = 0; i < 4; i++) {
              GWPlayerCfg[i].pad_idx = i;
@@ -287,7 +319,11 @@ void ObjectSetup(void)
 #endif
      HuSprPosSet(group, 0, 288, 240);
      HuSprAttrSet(group, 0, HUSPR_ATTR_DISPOFF);
+#ifdef TARGET_PC
+     if (omovlevtno != 0 || lobby_left) {
+#else
      if (omovlevtno != 0) {
+#endif
          HuAudSndGrpSetSet(0);
          data = HuSprAnimReadFile(TITLE_ANM_VER_ADJUSTED(TITLE_HUDSON_ANM));
          sprite_hudson = HuSprCreate(data, 0, 0);

@@ -1,0 +1,3 @@
+130 tap Play
+230 shot @D@/play-0230-efb.png
+2000 quit

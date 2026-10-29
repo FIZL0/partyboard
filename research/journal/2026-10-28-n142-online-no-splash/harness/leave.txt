@@ -1,0 +1,7 @@
+130 tap Online
+300 shotui @D@/leave-0300-ui.png
+400 key 41
+420 dump
+1100 shot @D@/leave-1100-efb.png
+1100 shotui @D@/leave-1100-ui.png
+1200 quit
