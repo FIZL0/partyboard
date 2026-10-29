@@ -18,11 +18,11 @@
   button:disabled { opacity: .4; cursor: default; }
   [hidden] { display: none !important; }
   #status { min-height: 1.5em; margin: 1em 0; color: #aaa; }
-  #error { max-width: 34em; margin: 0 auto; padding: 0 1em; color: #f88; white-space: pre-wrap; text-align: center; }
+  #error { -webkit-user-select: text; user-select: text; max-width: 34em; margin: 0 auto; padding: 0 1em; color: #f88; white-space: pre-wrap; text-align: center; }
   /* an error after Play would sit under the canvas: show it on top */
   body.playing #error:not(:empty) { position: fixed; inset: 0 0 auto 0; max-width: none; z-index: 2; padding: 1em;
     background: #000d; text-align: left; }
-  #log { position: fixed; inset: auto 0 0 0; max-height: 45vh; overflow: auto; margin: 0; padding: .5em; z-index: 3;
+  #log { -webkit-user-select: text; user-select: text; position: fixed; inset: auto 0 0 0; max-height: 45vh; overflow: auto; margin: 0; padding: .5em; z-index: 3;
     background: #000c; color: #ccc; font: 11px ui-monospace, monospace; white-space: pre-wrap; pointer-events: none; }
   small { color: #888; }
 </style>

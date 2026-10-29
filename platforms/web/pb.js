@@ -15,7 +15,22 @@ const $ = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);
 const joinCode = query.get('code');
 const status = text => { $('status').textContent = text; };
-const fail = text => { $('error').textContent += text + '\n'; console.error(text); };
+let failText = '';
+const fail = text => {
+  const box = $('error');
+  box.append(text + '\n');
+  failText += text + '\n';
+  console.error(text);
+  // after a crash the log can be selected (it lets touches through to the game while it runs), and one button copies
+  // the error with it
+  $('log').style.pointerEvents = 'auto';
+  if (!box.querySelector('button')) {
+    const copy = Object.assign(document.createElement('button'), { textContent: 'Copy' });
+    copy.onclick = () => navigator.clipboard?.writeText(`${failText}\n${$('log').textContent}`)
+      .then(() => { copy.textContent = 'Copied'; }, () => { copy.textContent = 'Copy failed'; });
+    box.prepend(copy, document.createElement('br'));
+  }
+};
 // Safari's Error.stack has no message in it. A wasm trap's stack (wasm-function[N] frames) goes along: the release
 // wasm has no names, N99's recipe names them.
 const describe = e => (e instanceof Error
