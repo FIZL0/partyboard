@@ -1,12 +1,13 @@
 // N87: Party Board's page. The player picks their disc image; it is kept in the origin's private storage (OPFS) for
-// the next visit, read into memory and handed to the game as a file in Emscripten's in-memory FS (PB_DISC). The
-// game's user dir (config, memory card saves) is SDL's /libsdl, kept in IndexedDB (IDBFS) and saved there 200 ms after
-// the game writes to it.
+// the next visit and handed to the game as a file in Emscripten's FS (PB_DISC) whose reads read just that part of it
+// (N140; it was read into memory whole). The game's user dir (config, memory card saves) is SDL's /libsdl, kept in
+// IndexedDB (IDBFS) and saved there 200 ms after the game writes to it.
 //
 // Query: ?args=... passes command-line arguments to the game (space-separated, e.g. "--script /res/x --turbo");
 // ?autoplay=1 starts with the stored disc without a click; ?fetch=a,b puts test/a and test/b (from the server) in
 // the game's /test (tools/web_check.mjs); ?env=K=V,K2 sets environment variables for the game; ?opfs=worker stores the
-// disc as browsers without createWritable do (tools/web_pw.mjs); ?log=1 shows the console on the page.
+// disc as browsers without createWritable do (tools/web_pw.mjs); ?log=1 shows the console on the page; ?disc=memory
+// reads the whole disc into memory as before N140.
 // N98: ?code=rtco... is a join link (the host's Online lobby copies one): the game starts with the stored disc (or
 // once one is picked) and joins that lobby.
 'use strict';
@@ -223,6 +224,78 @@ function watchUserDir(FS) {
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save(); });
 }
 
+// N140: the disc is read on demand, a block at a time, not held in memory whole (iOS Safari killed the tab holding a
+// 600 MB image). The game reads it synchronously, from inside nod (Rust), whose frames Asyncify can't unwind (they
+// have wasm exception handling), so a read can't wait for a promise; a synchronous XHR of a slice of the File (a blob
+// URL) can, on the page's thread too: as text in x-user-defined, one char per byte (the page can't ask a synchronous
+// XHR for an ArrayBuffer). Returns read(position, length, buffer, offset): copies up to length bytes at position into
+// buffer (a Uint8Array) at offset, returns how many (fewer at the end), or throws.
+function discBlockReader(file) {
+  const BLOCK = 1 << 20, KEEP = 16; // 16 MB of the most recently used blocks
+  const cache = new Map(); // block -> bytes, least recently used first
+  const fetchBlock = n => {
+    const start = n * BLOCK, size = Math.min(BLOCK, file.size - start);
+    const url = URL.createObjectURL(file.slice(start, start + size));
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, false);
+      xhr.overrideMimeType('text/plain; charset=x-user-defined');
+      xhr.send();
+      const text = xhr.responseText;
+      if (text.length !== size) throw new Error(`disc block ${n}: ${text.length} of ${size} bytes (${xhr.status})`);
+      const bytes = new Uint8Array(size);
+      for (let i = 0; i < size; i++) bytes[i] = text.charCodeAt(i); // U+F780-F7FF for 0x80-0xFF: the low byte
+      xhr.abort(); // drops the browser's copy of the text now, not at the next full GC
+      return bytes;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+  const block = n => {
+    let bytes = cache.get(n);
+    if (bytes) {
+      cache.delete(n);
+    } else {
+      bytes = fetchBlock(n);
+      if (cache.size >= KEEP) cache.delete(cache.keys().next().value);
+    }
+    cache.set(n, bytes);
+    return bytes;
+  };
+  return (position, length, buffer, offset) => {
+    const total = Math.max(0, Math.min(length, file.size - position));
+    for (let done = 0; done < total;) {
+      const at = position + done, bytes = block(Math.floor(at / BLOCK)), from = at % BLOCK;
+      const piece = bytes.subarray(from, Math.min(bytes.length, from + total - done));
+      buffer.set(piece, offset + done);
+      done += piece.length;
+    }
+    return total;
+  };
+}
+
+// A read-only file in the game's FS whose reads go to read (discBlockReader's; MEMFS's node otherwise: stat, seek).
+function createReaderFile(FS, dir, name, size, read) {
+  const node = FS.createFile(dir, name, {}, true, false);
+  node.usedBytes = size; // stat's size and SEEK_END
+  node.stream_ops = {
+    ...node.stream_ops, // MEMFS's, shared by all its files
+    read: (stream, buffer, offset, length, position) => {
+      try {
+        // Emscripten reads into HEAP8; set() between element types converts each byte, a Uint8Array view copies
+        const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.length);
+        return read(position, length, bytes, offset);
+      } catch (e) {
+        console.error(`reading the disc: ${describe(e)}`);
+        throw new FS.ErrnoError(29); // EIO
+      }
+    },
+    write: () => { throw new FS.ErrnoError(69); }, // EROFS
+    mmap: () => { throw new FS.ErrnoError(43); }, // ENODEV: nothing maps the disc
+  };
+  return node;
+}
+
 let started = false;
 async function play(disc) {
   if (started) return;
@@ -231,14 +304,27 @@ async function play(disc) {
     const problem = await gpuCheck;
     if (problem) throw new Error(problem);
     status(`Reading ${disc.name}...`);
-    let bytes;
-    try {
-      // the whole image: the game reads it synchronously, which a File can't be from the page
-      bytes = new Uint8Array(await disc.arrayBuffer());
-    } catch (e) {
-      throw new Error(`Could not read ${disc.name} (${(disc.size / 1048576).toFixed(0)} MB) into memory: ${describe(e)}. ` +
-        'The whole image is held in memory; a compressed one (.rvz or .ciso) needs less.');
+    // N140: read on demand (discBlockReader); the whole image in memory only where a synchronous read of the File
+    // fails (or ?disc=memory, to compare).
+    let read = null, bytes;
+    if (query.get('disc') !== 'memory') {
+      try {
+        read = discBlockReader(disc);
+        read(0, 32, new Uint8Array(32), 0);
+      } catch (e) {
+        console.warn(`can't read ${disc.name} on demand, reading it into memory: ${describe(e)}`);
+        read = null;
+      }
     }
+    if (!read) {
+      try {
+        bytes = new Uint8Array(await disc.arrayBuffer());
+      } catch (e) {
+        throw new Error(`Could not read ${disc.name} (${(disc.size / 1048576).toFixed(0)} MB) into memory: ${describe(e)}. ` +
+          'The whole image is held in memory; a compressed one (.rvz or .ciso) needs less.');
+      }
+    }
+    console.log(`disc: ${disc.name}, ${disc.size} bytes, ${read ? 'read on demand' : 'in memory'}`);
     const fetched = [];
     for (const name of (query.get('fetch') ?? '').split(',').filter(Boolean)) {
       const r = await fetch(`test/${name}`);
@@ -258,8 +344,12 @@ async function play(disc) {
       preRun: [module => {
         const FS = module.FS;
         FS.mkdir('/disc');
-        // canOwn: the FS keeps this array as the file's contents instead of copying a disc's worth of bytes
-        FS.createDataFile('/disc', disc.name, bytes, true, false, true);
+        if (read) {
+          createReaderFile(FS, '/disc', disc.name, disc.size, read);
+        } else {
+          // canOwn: the FS keeps this array as the file's contents instead of copying a disc's worth of bytes
+          FS.createDataFile('/disc', disc.name, bytes, true, false, true);
+        }
         module.ENV.PB_DISC = `/disc/${disc.name}`;
         if (joinCode) module.ENV.PB_JOIN_CODE = joinCode;
         for (const kv of (query.get('env') ?? '').split(',').filter(Boolean)) {
