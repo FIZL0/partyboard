@@ -63,6 +63,7 @@ namespace {
     std::array<float, 4> sDeviceSafe {};
     // The insets in force: the device's under the Safe Area setting (what the game picture is fitted inside)
     std::array<float, 4> sSafe {};
+    std::array<float, 4> sPresent {};
     unsigned sSafeFrame = 0;
 
 #ifdef __EMSCRIPTEN__
@@ -217,9 +218,15 @@ void update_safe_area() noexcept
         }
     }
     const auto safe = safe_area_shares(sDeviceSafe, getSettings().video.safeArea.getValue());
-    if (safe != sSafe) {
+    // The home screen's backdrop goes edge to edge (no black bars on a phone): the picture fills the window and the
+    // home screen pads its own layout by safe_area_insets (Prelaunch::apply_safe_area).
+    const bool home = std::any_of(sDocumentStack.begin(), sDocumentStack.end(),
+        [](const auto &doc) { return dynamic_cast<const Prelaunch *>(doc.get()) != nullptr && doc->visible(); });
+    const auto present = home ? std::array<float, 4> {} : safe;
+    if (safe != sSafe || present != sPresent) {
         sSafe = safe;
-        aurora::window::set_present_insets(safe[0], safe[1], safe[2], safe[3]);
+        sPresent = present;
+        aurora::window::set_present_insets(present[0], present[1], present[2], present[3]);
     }
 }
 
@@ -561,6 +568,26 @@ Insets safe_area_insets(Rml::Context *context) noexcept
         .bottom = px((viewT + viewH) - (1.0f - sSafe[3]) * nativeH),
         .left = px(sSafe[0] * nativeW - viewL),
     };
+}
+
+Rml::Vector2f touch_to_context(float x, float y, Rml::Context &context) noexcept
+{
+    // SDL's finger x/y are shares of the whole window; the context is drawn into the picture aurora fits inside the
+    // present insets (N130), so a touch maps through that rect as aurora's own touch input does
+    const AuroraWindowSize windowSize = aurora::window::get_window_size();
+    const Rml::Vector2i contextSize = context.GetDimensions();
+    if (windowSize.native_fb_width == 0 || windowSize.native_fb_height == 0 || contextSize.x <= 0 || contextSize.y <= 0) {
+        return { x * static_cast<float>(contextSize.x), y * static_cast<float>(contextSize.y) };
+    }
+    const auto rect = aurora::window::present_rect(windowSize.native_fb_width, windowSize.native_fb_height);
+    const float fit = std::min(static_cast<float>(rect.width) / static_cast<float>(contextSize.x),
+        static_cast<float>(rect.height) / static_cast<float>(contextSize.y));
+    const float viewL = static_cast<float>(rect.x)
+        + (static_cast<float>(rect.width) - static_cast<float>(contextSize.x) * fit) / 2.0f;
+    const float viewT = static_cast<float>(rect.y)
+        + (static_cast<float>(rect.height) - static_cast<float>(contextSize.y) * fit) / 2.0f;
+    return { (x * static_cast<float>(windowSize.native_fb_width) - viewL) / fit,
+        (y * static_cast<float>(windowSize.native_fb_height) - viewT) / fit };
 }
 
 void push_toast(Toast toast) noexcept

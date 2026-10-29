@@ -185,8 +185,7 @@ namespace {
 
     Rml::Vector2f finger_position(const SDL_TouchFingerEvent &event, Rml::Context &context) noexcept
     {
-        const auto dims = context.GetDimensions();
-        return { event.x * static_cast<float>(dims.x), event.y * static_cast<float>(dims.y) };
+        return touch_to_context(event.x, event.y, context);
     }
 
     Finger *find_finger(SDL_FingerID id) noexcept

@@ -85,6 +85,8 @@ Rml::Element *append(Rml::Element *parent, const Rml::String &tag) noexcept;
 
 NavCommand map_nav_event(const Rml::Event &event) noexcept;
 Insets safe_area_insets(Rml::Context *context) noexcept;
+// A finger's window position (SDL's 0..1 shares) in the context's px, through the fitted picture rect.
+Rml::Vector2f touch_to_context(float x, float y, Rml::Context &context) noexcept;
 // N130: the Safe Area setting's insets (left, top, right, bottom; shares of the window) for the device's: 0 Auto keeps
 // them, 1..10 raises each to that many %, -1 Off is none
 std::array<float, 4> safe_area_shares(std::array<float, 4> device, int setting) noexcept;
