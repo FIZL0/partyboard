@@ -114,6 +114,12 @@ impl Transport {
         transport::Transport::bind_with(relay, dht).await.map(Transport::Iroh)
     }
 
+    /// N139a: the LAN tab's endpoint: iroh's, which hears the LAN by mDNS (WebRTC's `nearby.rs` records are the
+    /// browser's).
+    pub async fn bind_browse(relay: &Relay) -> Result<Transport, String> {
+        Transport::bind(relay).await
+    }
+
     /// WebRTC, as a browser: to host for browsers or join a browser's lobby.
     pub async fn bind_rtc(relay: &Relay) -> Result<Transport, String> {
         rtc::Transport::bind(&rtc_relay(relay)).await.map(Transport::Rtc)

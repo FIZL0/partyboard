@@ -1813,7 +1813,7 @@ pub unsafe extern "C" fn pbnet_lan_browse(setup_json: *const c_char, buf: *mut c
     let mut b = browse();
     if b.as_ref().is_none_or(|b| b.relay != relay) {
         let r = relay.clone();
-        *b = Some(Browse::new(rt().handle(), relay, async move { Transport::bind(&r).await }));
+        *b = Some(Browse::new(rt().handle(), relay, async move { Transport::bind_browse(&r).await }));
     }
     let json = serde_json::to_string(&b.as_ref().map(Browse::list)).unwrap_or_default();
     // SAFETY: the caller's contract on `buf` and `cap`.

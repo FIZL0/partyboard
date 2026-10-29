@@ -458,6 +458,8 @@ mod fake {
     #[derive(Default)]
     struct Pc {
         ufrag: String,
+        /// N139a: the server-reflexive address a `stun:<IPv4>:<port>` ICE server gives (that IPv4).
+        srflx: Option<String>,
         local: Option<String>,
         /// The connection on the other side.
         other: Option<i32>,
@@ -468,10 +470,11 @@ mod fake {
 
     static PCS: Mutex<(i32, BTreeMap<i32, Pc>)> = Mutex::new((0, BTreeMap::new()));
 
-    fn desc(ufrag: &str) -> String {
-        let fp: Vec<String> = (0..32).map(|i| format!("{i:02X}")).collect();
+    fn desc(p: &Pc) -> String {
+        let (ufrag, fp) = (&p.ufrag, (0..32).map(|i| format!("{i:02X}")).collect::<Vec<_>>());
+        let srflx = p.srflx.as_ref().map(|ip| format!("a=candidate:2 1 udp 1677729535 {ip} 50001 typ srflx\r\n")).unwrap_or_default();
         format!("v=0\r\na=ice-ufrag:{ufrag}\r\na=ice-pwd:pw{ufrag}pw{ufrag}pw\r\na=fingerprint:sha-256 {}\r\n\
-                 a=candidate:1 1 udp 2122260223 192.168.1.2 50000 typ host\r\n", fp.join(":"))
+                 a=candidate:1 1 udp 2122260223 192.168.1.2 50000 typ host\r\n{srflx}", fp.join(":"))
     }
 
     unsafe fn s(p: *const c_char) -> String {
@@ -482,24 +485,26 @@ mod fake {
         sdp.lines().find_map(|l| l.trim().strip_prefix("a=ice-ufrag:")).unwrap_or("").to_string()
     }
 
-    pub unsafe fn pbnet_js_rtc_open(_: *const c_char) -> i32 {
+    pub unsafe fn pbnet_js_rtc_open(ice: *const c_char) -> i32 {
+        let ice = unsafe { s(ice) };
+        let srflx = ice.split("stun:").nth(1).and_then(|r| r.split(':').next()).filter(|h| h.parse::<std::net::Ipv4Addr>().is_ok()).map(str::to_string);
         let mut g = PCS.lock().unwrap();
         g.0 += 1;
         let id = g.0;
-        g.1.insert(id, Pc { ufrag: format!("u{id:03}"), ..Pc::default() });
+        g.1.insert(id, Pc { ufrag: format!("u{id:03}"), srflx, ..Pc::default() });
         id
     }
 
     pub unsafe fn pbnet_js_rtc_offer(id: i32) {
         if let Some(p) = PCS.lock().unwrap().1.get_mut(&id) {
-            p.local = Some(desc(&p.ufrag));
+            p.local = Some(desc(p));
         }
     }
 
     pub unsafe fn pbnet_js_rtc_answer(id: i32, offer: *const c_char) {
         let _ = unsafe { s(offer) };
         if let Some(p) = PCS.lock().unwrap().1.get_mut(&id) {
-            p.local = Some(desc(&p.ufrag));
+            p.local = Some(desc(p));
         }
     }
 
@@ -771,10 +776,11 @@ impl<T: Serialize + DeserializeOwned + Send + 'static> Peer<T> {
 
 // ---------------------------------------------------------------- the endpoint
 
-/// A LAN host (never heard on the web: no mDNS).
+/// A lobby on this network: no mDNS on the web, so N139a's records under the public address (`nearby.rs`). `id`
+/// is its short code, the join code.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LanHost {
-    pub id: PeerId,
+    pub id: String,
     pub listing: String,
 }
 
@@ -800,6 +806,8 @@ struct Hosting {
     /// N139: until then no code shows while the first short code is being put (rather than the long code, then the
     /// short one); None once the relay failed, or with the relay Off.
     short_wait: Option<tokio::time::Instant>,
+    /// N139a: the lobby's LAN listing (`lobby_c.rs`), listed for this network with the short code while open.
+    listing: Option<String>,
 }
 
 /// The hosting transport, for `pbnet_lobby_answer`.
@@ -814,6 +822,8 @@ pub struct Transport {
     hosting: Arc<Mutex<Hosting>>,
     /// N98, joining: the spare offer the host sent on the last connection, which a redial answers.
     spare: Arc<Mutex<Option<Sig>>>,
+    /// N139a: a LAN browse's lobbies on this network ([`Transport::bind_browse`]).
+    nearby: Option<Arc<crate::nearby::Found>>,
 }
 
 fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -822,7 +832,26 @@ fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 
 impl Transport {
     pub async fn bind(relay: &Relay) -> Result<Transport, String> {
-        Ok(Transport { id: PeerId::random(), relay: relay.clone(), hosting: Arc::default(), spare: Arc::default() })
+        Ok(Transport { id: PeerId::random(), relay: relay.clone(), hosting: Arc::default(), spare: Arc::default(), nearby: None })
+    }
+
+    /// N139a: as [`Transport::bind`], for the LAN tab: learns this network's public address from STUN (no relay
+    /// setting, no address) and lists the lobbies hosted under it ([`Transport::lan`]) until a join takes it.
+    pub async fn bind_browse(relay: &Relay) -> Result<Transport, String> {
+        let mut t = Transport::bind(relay).await?;
+        let (found, weak) = crate::nearby::new_found();
+        let (relay, id) = (relay.clone(), t.id);
+        tokio::spawn(crate::nearby::browse(weak, async move {
+            if relay == Relay::Off {
+                return Err("the relay setting is Off".to_string());
+            }
+            let conn = Conn::new(&relay)?;
+            js::offer(conn.0);
+            let sig = conn.local(id.0).await?;
+            crate::nearby::public_v4(&sig.cands).ok_or_else(|| "the STUN server didn't answer with a public IPv4 address".to_string())
+        }));
+        t.nearby = Some(found);
+        Ok(t)
     }
 
     /// This browser's peer name.
@@ -830,15 +859,19 @@ impl Transport {
         self.id
     }
 
+    /// N139a: a browse that can list this network's lobbies (its public address was learnt, or is being).
     pub fn has_lan(&self) -> bool {
-        false
+        self.nearby.as_ref().is_some_and(|f| f.works())
     }
 
+    /// N139a: the lobbies listed for this network's public address now.
     pub fn lan(&self) -> Vec<LanHost> {
-        Vec::new()
+        self.nearby.as_ref().map_or_else(Vec::new, |f| f.games().into_iter().map(|(id, listing)| LanHost { id, listing }).collect())
     }
 
-    pub fn set_lan_listing(&self, _listing: Option<&str>) -> Result<(), String> {
+    /// N139a: hosting, what the lobby lists for this network (None: nothing, once started or closed).
+    pub fn set_lan_listing(&self, listing: Option<&str>) -> Result<(), String> {
+        locked(&self.hosting).listing = listing.map(str::to_string);
         Ok(())
     }
 
@@ -857,6 +890,7 @@ impl Transport {
         if self.relay != Relay::Off {
             locked(&self.hosting).short_wait = Some(tokio::time::Instant::now() + SHORT_WAIT);
             tokio::spawn(relay_host(self.hosting.clone()));
+            tokio::spawn(nearby_host(self.hosting.clone()));
         }
     }
 
@@ -958,6 +992,10 @@ impl Transport {
     /// Joins the host whose offer is `code`: makes the answer (the lobby shows it, [`answer_code`]) and waits for
     /// the host to take it.
     pub async fn dial<T: Serialize + DeserializeOwned + Send + 'static>(&self, code: &str) -> Result<Peer<T>, String> {
+        // N139a: a join took the LAN browse's endpoint
+        if let Some(f) = &self.nearby {
+            f.stop();
+        }
         if let Some(short) = crate::signal::short_in(code) {
             return self.dial_short(&short).await;
         }
@@ -1163,6 +1201,23 @@ async fn relay_host(hosting: Arc<Mutex<Hosting>>) {
     }
 }
 
+/// N139a: the host's record for this network (`nearby.rs`): its short code and listing, under its public address
+/// (from its offers' candidates). Ends when the hosting closes.
+async fn nearby_host(hosting: Arc<Mutex<Hosting>>) {
+    let mut ip = None;
+    crate::nearby::host(move || {
+        let h = locked(&hosting);
+        if h.closed {
+            return None;
+        }
+        if let Some(i) = h.offer.as_ref().and_then(|p| crate::nearby::public_v4(&p.sig.cands)) {
+            ip = Some(i);
+        }
+        Some(crate::nearby::HostNow { code: h.short.clone(), listing: h.listing.clone(), ip })
+    })
+    .await
+}
+
 /// [`take_answer`] for the hosting `h`.
 fn take_answer_in(h: &Mutex<Hosting>, answer: &str) -> Result<(), String> {
     let a = Sig::parse(answer, ANSWER).ok_or("That isn't a player's answer.")?;
@@ -1355,6 +1410,46 @@ mod tests {
     /// started; then the lockstep's datagrams go both ways on the started lobbies' wires. N98: the connection drops
     /// mid-match; the guest redials the spare offer the host sent it, the host takes that answer and the wires carry
     /// datagrams again.
+    /// N139a: a browser's LAN tab lists a host on the same public address (the fake page's srflx candidate, from its
+    /// STUN URL) by its short code, a join by that code alone is seated, the open seats follow, and a host that
+    /// leaves is gone from the list. No STUN, no list.
+    #[cfg(not(feature = "iroh"))]
+    #[test]
+    fn nearby_lobby_listed_and_joined() {
+        use crate::lobby_c::Lobby;
+        let _serial = locked(&SERIAL);
+        let rt = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+        rt.block_on(async {
+            let h = tokio::runtime::Handle::current();
+            // an address of this test's own: the fake relay's records outlive other tests
+            let t = crate::recover::token();
+            let ip = format!("198.51.{}.{}", u8::from_str_radix(&t[..2], 16).unwrap(), u8::from_str_radix(&t[2..4], 16).unwrap());
+            let relay = Relay::Own(format!("stun:{ip}:3478"));
+            let bind = |r: Relay| async move { Transport::bind(&r).await };
+            let host = Lobby::host(&h, bind(relay.clone()), test_setup("h", "own"), no_start());
+            until("the short code", 10, || codes::is_short(&host.snapshot().short)).await;
+            let code = host.snapshot().short;
+            let browse = Transport::bind_browse(&relay).await.unwrap();
+            assert!(browse.has_lan());
+            let open = |b: &Transport| -> Option<u64> {
+                let l = b.lan().into_iter().find(|l| l.id == code)?;
+                serde_json::from_str::<serde_json::Value>(&l.listing).ok()?["open"].as_u64()
+            };
+            until("the host listed", 20, || open(&browse) == Some(3)).await;
+            assert_eq!(browse.lan().len(), 1);
+            let g = Lobby::join(&h, bind(relay.clone()), test_setup("g", "own"), &browse.lan()[0].id, no_start());
+            until("the guest seated", 20, || g.snapshot().room.is_some_and(|r| r.seats.iter().flatten().count() == 2)).await;
+            until("one seat fewer", 20, || open(&browse) == Some(2)).await;
+            g.leave();
+            host.leave();
+            until("the host gone", 20, || browse.lan().is_empty()).await;
+            // no STUN server, no public address
+            let blind = Transport::bind_browse(&Relay::Own(String::new())).await.unwrap();
+            until("no address", 10, || !blind.has_lan()).await;
+            assert!(blind.lan().is_empty());
+        });
+    }
+
     #[test]
     fn lobby_over_rtc_reaches_start() {
         use crate::lobby::Player;
