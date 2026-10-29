@@ -1450,6 +1450,79 @@ mod tests {
         });
     }
 
+    /// N144: the desktop's LAN tab lists a WebRTC host (a browser's lobby, here a desktop's Host for Browsers) on the
+    /// same public address beside mDNS's, by its short code, and a press joins it over WebRTC. The address is a fake
+    /// STUN server's answer on loopback; the pkarr relay is `signal.rs`'s fake.
+    #[cfg(feature = "iroh")]
+    #[test]
+    fn desktop_lan_tab_lists_and_joins_a_browser_lobby() {
+        use crate::lobby_c::{bind_join, Browse, Lobby};
+        use crate::transport::Relay as LinkRelay;
+        use std::net::UdpSocket;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let _serial = locked(&SERIAL);
+        // an address of this test's own: the fake relay's records outlive other tests
+        let t = crate::recover::token();
+        let ip = [198, 18, u8::from_str_radix(&t[..2], 16).unwrap(), u8::from_str_radix(&t[2..4], 16).unwrap()];
+        let stun = UdpSocket::bind("127.0.0.1:0").unwrap();
+        stun.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let url = format!("stun:{}", stun.local_addr().unwrap());
+        let stop = Arc::new(AtomicBool::new(false));
+        let server = std::thread::spawn({
+            let stop = stop.clone();
+            move || {
+                let mut buf = [0u8; 1500];
+                while !stop.load(Ordering::Relaxed) {
+                    let Ok((n, from)) = stun.recv_from(&mut buf) else { continue };
+                    if n < 20 || buf[..2] != [0, 1] {
+                        continue;
+                    }
+                    // a binding response: XOR-MAPPED-ADDRESS = `ip`, the asker's port
+                    let mut r = vec![0x01, 0x01, 0, 12];
+                    r.extend_from_slice(&buf[4..20]);
+                    r.extend([0x00, 0x20, 0, 8, 0, 1]);
+                    r.extend((from.port() ^ 0x2112).to_be_bytes());
+                    r.extend([ip[0] ^ 0x21, ip[1] ^ 0x12, ip[2] ^ 0xa4, ip[3] ^ 0x42]);
+                    let _ = stun.send_to(&r, from);
+                }
+            }
+        });
+        let relay = LinkRelay::Own(url);
+        let rt = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+        rt.block_on(async {
+            let h = tokio::runtime::Handle::current();
+            let r = relay.clone();
+            let host = Lobby::host(&h, async move { crate::link::Transport::bind_rtc(&r).await }, test_setup("h", "own"), no_start());
+            until("the short code", 10, || codes::is_short(&host.snapshot().short)).await;
+            let code = host.snapshot().short;
+            // the tab's browse: an endpoint that hears nothing by mDNS here, and the WebRTC browse beside it
+            let (r1, r2) = (relay.clone(), relay.clone());
+            let b = Browse::new(&h, relay.clone(), async move { crate::link::Transport::bind_rtc(&r1).await })
+                .with_nearby(async move { crate::link::Transport::bind_nearby(&r2).await });
+            let listed = |b: &Browse| b.list().games.into_iter().find(|g| g.code == code).map(|g| g.listing.open);
+            until("the host listed", 20, || listed(&b) == Some(3)).await;
+            let l = b.list();
+            assert_eq!((l.state, l.lan, l.games.len()), ("open", true, 1));
+            assert_eq!(l.games[0].listing.name, "h");
+            assert!(b.lists_nearby(&code));
+            // a press: the code as listed, joined over WebRTC from the browse
+            let g = Lobby::join(&h, bind_join(relay.clone(), &code, Some(b)), test_setup("g", "own"), &code, no_start());
+            until("the guest seated", 20, || g.snapshot().room.is_some_and(|r| r.seats.iter().flatten().count() == 2)).await;
+            assert!(g.snapshot().webrtc);
+            g.leave();
+            host.leave();
+            // no STUN, no list (and no error: mDNS's lobbies still show)
+            let blind = Browse::new(&h, LinkRelay::Off, async { crate::link::Transport::bind_rtc(&LinkRelay::Off).await })
+                .with_nearby(async { crate::link::Transport::bind_nearby(&LinkRelay::Off).await });
+            until("the blind browse open", 10, || blind.list().state == "open").await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            let l = blind.list();
+            assert_eq!((l.lan, l.error.as_str(), l.games.len()), (false, "", 0));
+        });
+        stop.store(true, Ordering::Relaxed);
+        server.join().unwrap();
+    }
+
     #[test]
     fn lobby_over_rtc_reaches_start() {
         use crate::lobby::Player;

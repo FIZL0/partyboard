@@ -120,6 +120,12 @@ impl Transport {
         Transport::bind(relay).await
     }
 
+    /// N144: the LAN tab's second browse, beside [`Transport::bind_browse`]'s mDNS: the WebRTC lobbies (a browser's,
+    /// or a desktop's Host for Browsers) listed under this network's public address (`nearby.rs`).
+    pub async fn bind_nearby(relay: &Relay) -> Result<rtc::Transport, String> {
+        rtc::Transport::bind_browse(&rtc_relay(relay)).await
+    }
+
     /// WebRTC, as a browser: to host for browsers or join a browser's lobby.
     pub async fn bind_rtc(relay: &Relay) -> Result<Transport, String> {
         rtc::Transport::bind(&rtc_relay(relay)).await.map(Transport::Rtc)
