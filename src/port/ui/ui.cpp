@@ -3,6 +3,9 @@
 #include "ui.hpp"
 
 #include <RmlUi/Core.h>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 #include <SDL3/SDL_filesystem.h>
 #include <absl/container/flat_hash_set.h>
 #include <aurora/rmlui.hpp>
@@ -181,12 +184,21 @@ namespace {
         if (!SDL_GetWindowSafeArea(window, &r)) {
             return {};
         }
-        return {
+        std::array<float, 4> safe {
             std::max(0, r.x) / static_cast<float>(w),
             std::max(0, r.y) / static_cast<float>(h),
             std::max(0, w - (r.x + r.w)) / static_cast<float>(w),
             std::max(0, h - (r.y + r.h)) / static_cast<float>(h),
         };
+#if defined(__APPLE__) && TARGET_OS_IOS
+        // iPhone: only the camera cutout (Dynamic Island / notch) keeps the HUD out; the picture goes under the home
+        // indicator and the status bar (user 2026-10-29). Landscape: the cutout is on a side; portrait: at the top.
+        safe[3] = 0.0f;
+        if (w > h) {
+            safe[1] = 0.0f;
+        }
+#endif
+        return safe;
 #endif
     }
 

@@ -477,7 +477,8 @@ SettingsWindow::SettingsWindow(bool prelaunch)
                         });
                 }
                 pane.add_rml("<br/>Keeps the picture, its HUD and the menus inside the screen's safe area. Auto keeps "
-                             "clear of a phone's notch, camera cutout and home bar; a margin keeps that much of the "
+                             "clear of a phone's notch or camera cutout (on iPhone the picture still reaches under the "
+                             "home bar and status bar); a margin keeps that much of the "
                              "screen clear on every side as well (for a TV that crops its edges). Off uses the whole "
                              "screen.");
             });
