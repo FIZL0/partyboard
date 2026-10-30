@@ -472,10 +472,14 @@ if (IOS)
     find_library(UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK UniformTypeIdentifiers REQUIRED)
     # In dol, whose file_select.cpp calls it: a dylib's undefined symbols do not resolve from the app (N86).
     find_library(GAME_CONTROLLER_FRAMEWORK GameController REQUIRED)
-    target_sources(dol PRIVATE src/port/ios/FileSelectDialog.m src/port/ios/Haptics.m src/port/ios/ControllerWatch.m)
+    find_library(CORE_TEXT_FRAMEWORK CoreText REQUIRED)
+    target_sources(dol PRIVATE src/port/ios/FileSelectDialog.m src/port/ios/Haptics.m src/port/ios/ControllerWatch.m
+            src/port/ios/TapResume.m src/port/tap_resume.c)
     set_source_files_properties(src/port/ios/FileSelectDialog.m src/port/ios/Haptics.m src/port/ios/ControllerWatch.m
+            src/port/ios/TapResume.m
             PROPERTIES COMPILE_FLAGS -fobjc-arc)
-    target_link_libraries(dol PRIVATE ${UIKIT_FRAMEWORK} ${UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK} ${GAME_CONTROLLER_FRAMEWORK})
+    target_link_libraries(dol PRIVATE ${UIKIT_FRAMEWORK} ${UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK} ${GAME_CONTROLLER_FRAMEWORK}
+            ${CORE_TEXT_FRAMEWORK})
 endif ()
 
 

@@ -7,6 +7,7 @@
 #include "aurora/lib/logging.hpp"
 #include "port/achievements.h"
 #include "port/button_icons.h"
+#include "port/controller_watch.h"
 #include "port/touch_pad.h"
 #include "magic_enum.hpp"
 #include "window.hpp"
@@ -279,6 +280,11 @@ void Overlay::update()
     }
 
     update_save_icon();
+
+#if defined(__APPLE__) && TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+    // src/port/tap_resume.c; a UIView, as the backdrop has to reach past the safe area this document stops at
+    PartyBoard_iOS_TapResumeShow(port_tap_resume_wanted());
+#endif
 
     u32 buttonCount;
     // N70: the on-screen touch pad plays port 1 too.

@@ -240,6 +240,13 @@ bool SDLCALL watch(void *, SDL_Event *event)
     case SDL_EVENT_JOYSTICK_REMOVED:
         s_portsDirty = true;
         break;
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+    // focus is back: a touch gives it, or a press shows iOS gave it without one
+    case SDL_EVENT_FINGER_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+        port_tap_resume_clear();
+        break;
+#endif
     default:
         break;
     }
