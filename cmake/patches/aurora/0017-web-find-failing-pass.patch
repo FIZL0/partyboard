@@ -1,0 +1,107 @@
+diff --git a/lib/gfx/common.cpp b/lib/gfx/common.cpp
+--- a/lib/gfx/common.cpp
++++ b/lib/gfx/common.cpp
+@@ -382,6 +382,34 @@
+ static void expire_cached_bind_groups();
+ static void push_command(CommandType type, const Command::Data& data);
+ 
++#ifdef __EMSCRIPTEN__
++// webgpu::g_findBadPass: what was encoded so far is submitted, then this pass goes in a command buffer of its own under
++// an error scope, so a pass Safari rejects can't have its error replaced by a later pass's (webgpu/gpu.cpp). The
++// frame's buffers are only written at end_frame, so these frames draw wrong; they are only made to find the error.
++static void submit_encoder(wgpu::CommandEncoder& encoder) {
++  const auto buffer = encoder.Finish();
++  g_queue.Submit(1, &buffer);
++  const wgpu::CommandEncoderDescriptor encoderDescriptor{.label = "Redraw encoder"};
++  encoder = g_device.CreateCommandEncoder(&encoderDescriptor);
++}
++
++static void encode_op_alone(FramePacket& packet, const FrameOp& op) {
++  webgpu::g_findBadPass = 2;
++  submit_encoder(packet.encoder);
++  g_device.PushErrorScope(wgpu::ErrorFilter::Validation);
++  encode_op(packet.encoder, packet, op);
++  submit_encoder(packet.encoder);
++  std::string label = op.renderPass->label.empty() ? fmt::format("Render pass {}", op.index) : op.renderPass->label;
++  g_device.PopErrorScope(wgpu::CallbackMode::AllowSpontaneous,
++                         [label = std::move(label)](wgpu::PopErrorScopeStatus status, wgpu::ErrorType type,
++                                                    wgpu::StringView message) {
++                           if (status == wgpu::PopErrorScopeStatus::Success && type != wgpu::ErrorType::NoError) {
++                             FATAL("WebGPU error {} in '{}': {}", underlying(type), label, message);
++                           }
++                         });
++}
++#endif
++
+ static void enqueue_op(FramePacket& frame, size_t frameSlot, uint32_t opIndex) {
+   if (opIndex >= frame.ops.size()) {
+     return;
+@@ -392,6 +420,12 @@
+       return;
+     }
+     auto& packet = g_framePackets[frameSlot];
++#ifdef __EMSCRIPTEN__
++    if (webgpu::g_findBadPass != 0 && op.type == FrameOpType::RenderPass && op.renderPass != nullptr) {
++      encode_op_alone(packet, op);
++      return;
++    }
++#endif
+     encode_op(packet.encoder, packet, op);
+   });
+ }
+diff --git a/lib/webgpu/gpu.cpp b/lib/webgpu/gpu.cpp
+--- a/lib/webgpu/gpu.cpp
++++ b/lib/webgpu/gpu.cpp
+@@ -40,6 +40,7 @@
+ wgpu::Surface g_surface;
+ wgpu::BackendType g_backendType;
+ GraphicsConfig g_graphicsConfig;
++int g_findBadPass = 0;
+ TextureWithSampler g_frameBuffer;
+ TextureWithSampler g_frameBufferResolved;
+ TextureWithSampler g_depthBuffer;
+@@ -894,9 +895,29 @@
+     });
+     deviceDescriptor.SetUncapturedErrorCallback(
+         [](const wgpu::Device& device, wgpu::ErrorType type, wgpu::StringView message) {
+-          if (!g_shuttingDown) {
+-            FATAL("WebGPU error {}: {}", underlying(type), message);
++          if (g_shuttingDown) {
++            return;
+           }
++#ifdef __EMSCRIPTEN__
++          // Safari: a pass that fails validation leaves the encoder locked, and the next pass's "encoder state is not
++          // valid" is the error the page gets; the first one is lost. So the first error goes on: from the next frame
++          // each render pass has its own encoder and error scope (gfx/common.cpp), and the failing one is named.
++          if (g_findBadPass == 0) {
++            g_findBadPass = 1;
++            Log.error("WebGPU error {}: {} (one more frame, a command buffer per render pass, to find the first)",
++                      underlying(type), message);
++            return;
++          }
++          // the same frame's follow-ons (Submit of the invalid command buffer); a few more frames when no render pass is
++          // encoded alone, as the error is in the present
++          static int followOns = 0;
++          if (g_findBadPass == 1 && ++followOns <= 8) {
++            Log.warn("WebGPU error {}: {}", underlying(type), message);
++            return;
++          }
++          FATAL("WebGPU error {} (outside the render passes): {}", underlying(type), message);
++#endif
++          FATAL("WebGPU error {}: {}", underlying(type), message);
+         });
+     deviceDescriptor.SetDeviceLostCallback(
+         wgpu::CallbackMode::AllowSpontaneous,
+diff --git a/lib/webgpu/gpu.hpp b/lib/webgpu/gpu.hpp
+--- a/lib/webgpu/gpu.hpp
++++ b/lib/webgpu/gpu.hpp
+@@ -44,6 +44,9 @@
+ extern wgpu::Surface g_surface;
+ extern wgpu::BackendType g_backendType;
+ extern GraphicsConfig g_graphicsConfig;
++// After a WebGPU error in the browser: encode each render pass alone, to name the one that failed (0: no error yet,
++// 1: from the next frame on, 2: a pass has been encoded alone).
++extern int g_findBadPass;
+ extern TextureWithSampler g_frameBuffer;
+ extern TextureWithSampler g_frameBufferResolved;
+ extern TextureWithSampler g_depthBuffer;
