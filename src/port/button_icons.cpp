@@ -72,19 +72,22 @@ constexpr Rgba kEdge { 0.84f, 0.85f, 0.88f, 1.0f };
 constexpr float kInkW = 0.022f; // outline widths in glyph units (48 px: about 1 px of ink, then 2 px of kEdge)
 
 struct Canvas {
-    std::array<Rgba, kSize * kSize> px {};
+    int size; // pixels per side (N150: other sizes than kSize for the button art in sprites and model textures)
+    std::vector<Rgba> px;
+
+    explicit Canvas(int n = kSize) : size(n), px(static_cast<size_t>(n) * n) { }
 
     // Paints `color` where `inside(x, y)` holds, with 4x4 supersampled coverage. Coordinates are in 0..1 of the glyph.
     template <class F>
     void fill(const Rgba &c, F inside)
     {
-        for (int y = 0; y < kSize; ++y) {
-            for (int x = 0; x < kSize; ++x) {
+        for (int y = 0; y < size; ++y) {
+            for (int x = 0; x < size; ++x) {
                 int n = 0;
                 for (int sy = 0; sy < 4; ++sy) {
                     for (int sx = 0; sx < 4; ++sx) {
-                        const float fx = (x + (sx + 0.5f) / 4.0f) / kSize;
-                        const float fy = (y + (sy + 0.5f) / 4.0f) / kSize;
+                        const float fx = (x + (sx + 0.5f) / 4.0f) / size;
+                        const float fy = (y + (sy + 0.5f) / 4.0f) / size;
                         n += inside(fx, fy) ? 1 : 0;
                     }
                 }
@@ -92,7 +95,7 @@ struct Canvas {
                     continue;
                 }
                 const float cov = (n / 16.0f) * c.a;
-                Rgba &d = px[y * kSize + x];
+                Rgba &d = px[y * size + x];
                 const float oa = cov + d.a * (1.0f - cov);
                 if (oa <= 0.0f) {
                     continue;
@@ -1412,6 +1415,18 @@ int pb_button_icons_glyph_for_entry(int port, int entry)
     return family_glyph(port, f, in);
 }
 
+int pb_button_icons_glyph_for_entry_family(int port, PbIconFamily family, int entry)
+{
+    const GcInput in = gc_input_for_entry(entry);
+    if (in == GC_NONE || family <= PB_FAMILY_GAMECUBE || family >= PB_FAMILY_COUNT) {
+        return PB_GLYPH_NONE;
+    }
+    if (port < 0) {
+        return family == PB_FAMILY_KEYBOARD ? PB_GLYPH_NONE : default_ctl(in);
+    }
+    return family_glyph(port, family, in);
+}
+
 int pb_button_icons_glyph_is_key(int glyph)
 {
     return is_key_id(glyph) ? 1 : 0;
@@ -1419,16 +1434,22 @@ int pb_button_icons_glyph_is_key(int glyph)
 
 int pb_button_icons_glyph_rgba(PbIconFamily family, int glyph, u8 *out)
 {
-    if (family <= PB_FAMILY_GAMECUBE || family >= PB_FAMILY_COUNT || glyph < 0 || (glyph >= C_COUNT && !is_key_id(glyph))) {
+    return pb_button_icons_glyph_rgba_sized(family, glyph, kSize, out);
+}
+
+int pb_button_icons_glyph_rgba_sized(PbIconFamily family, int glyph, int size, u8 *out)
+{
+    if (family <= PB_FAMILY_GAMECUBE || family >= PB_FAMILY_COUNT || glyph < 0 || (glyph >= C_COUNT && !is_key_id(glyph)) ||
+        size < 4 || size > 1024) {
         return -1;
     }
-    Canvas cv;
+    Canvas cv(size);
     if (is_key_id(glyph)) {
         draw_key(cv, glyph);
     } else {
         draw(cv, family, static_cast<Ctl>(glyph));
     }
-    for (int i = 0; i < kSize * kSize; ++i) {
+    for (int i = 0; i < size * size; ++i) {
         const Rgba &p = cv.px[i];
         out[i * 4 + 0] = static_cast<u8>(std::lround(p.r * 255));
         out[i * 4 + 1] = static_cast<u8>(std::lround(p.g * 255));

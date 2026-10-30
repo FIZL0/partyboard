@@ -96,6 +96,16 @@ s16 espGrpIDGet(void) {
     return gid;
 }
 
+#ifdef TARGET_PC
+/* N150: the HuSprite id an esprite draws with (port/button_art.cpp's per-player button art), or -1. */
+s16 espSprIDGet(s16 espId) {
+    if (espId < 0 || espId >= HUSPR_MAX || esprite[espId].animNo == -1) {
+        return -1;
+    }
+    return HuSprGrpData[gid].members[esprite[espId].memberNo];
+}
+#endif
+
 void espDispOn(s16 espId) {
     HuSprAttrReset(gid, esprite[espId].memberNo, 4);
 }

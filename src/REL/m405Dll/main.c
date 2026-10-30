@@ -25,6 +25,9 @@
 
 #ifndef __MWERKS__
 #include "game/audio.h"
+#ifdef TARGET_PC
+#include "port/button_art.h"
+#endif
 #endif
 
 #undef ABS
@@ -1926,6 +1929,10 @@ void fn_1_81B4(omObjData *arg0)
         espBankSet(temp_r31->unk0C[i], 0);
         espPriSet(temp_r31->unk0C[i], 128 - i);
         espPosSet(temp_r31->unk0C[i], temp_r31->unk04 + lbl_1_data_2C0[i * 2], temp_r31->unk08 + lbl_1_data_2C0[i * 2 + 1]);
+#ifdef TARGET_PC
+        /* N150: this player's button prompts show their controller */
+        pb_button_art_esp_seat(temp_r31->unk0C[i], temp_r31->unk108);
+#endif
     }
     for (i = 0; i < 5; i++) {
         temp_r31->unkF0[i] = Hu3DParManLink(lbl_1_bss_8C, &lbl_1_data_370);

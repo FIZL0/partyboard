@@ -1,0 +1,33 @@
+# N150: temporary hooks for the shot runs (not committed): PB_N150_EVERY=<n> captures every n-th frame into
+# $PB_ART_SHOT; PB_N150_KEYS=1 binds the web build's default keys on port 0 (--script runs load no key bindings).
+# Apply on top of N150: git apply research/journal/2026-10-29-n150-minigame-button-art/harness.diff
+--- a/src/game/sprman.c
++++ b/src/game/sprman.c
+@@ -1,3 +1,6 @@
++#include <stdlib.h> /* N150_TMP */
++#include <stdio.h> /* N150_TMP */
++#include <dolphin/pad.h> /* N150_TMP */
+ #include "game/sprite.h"
+ #include "game/disp.h"
+ #include "game/memory.h"
+@@ -87,6 +90,20 @@
+ 
+ void HuSprBegin(void)
+ {
++#ifdef TARGET_PC /* N150_TMP keys: the web build's default keyboard bindings on port 0 (scripted runs load none) */
++    { static int n150_k; if (!n150_k && getenv("PB_N150_KEYS")) { n150_k = 1;
++        PADKeyButtonBinding keys[] = { { 27 /*X*/, PAD_BUTTON_A }, { 29 /*Z*/, PAD_BUTTON_B }, { 6 /*C*/, PAD_BUTTON_X },
++            { 22 /*S*/, PAD_BUTTON_Y }, { 40 /*RETURN*/, PAD_BUTTON_START }, { 20 /*Q*/, PAD_TRIGGER_L }, { 26 /*W*/, PAD_TRIGGER_R },
++            { 8 /*E*/, PAD_TRIGGER_Z } };
++        PADKeyAxisBinding axes[] = { { 79, PAD_AXIS_LEFT_X_POS, 0 }, { 80, PAD_AXIS_LEFT_X_NEG, 0 }, { 82, PAD_AXIS_LEFT_Y_POS, 0 }, { 81, PAD_AXIS_LEFT_Y_NEG, 0 } };
++        for (int k = 0; k < 8; k++) PADSetKeyButtonBinding(0, keys[k]);
++        for (int k = 0; k < 4; k++) PADSetKeyAxisBinding(0, axes[k]);
++        PADSetKeyboardActive(0, TRUE); } }
++#endif
++#ifdef TARGET_PC /* N150_TMP */
++    { extern void aurora_capture_frame(const char *, unsigned); static int n150_f; const char *e = getenv("PB_N150_EVERY");
++      if (e && ++n150_f % atoi(e) == 0) { char p[512]; snprintf(p, sizeof p, "%s/every-%05d.png", getenv("PB_ART_SHOT"), n150_f); aurora_capture_frame(p, 0); } }
++#endif
+     Mtx temp, rot;
+     s16 i, j;
+     Vec axis = {0, 0, 1};
