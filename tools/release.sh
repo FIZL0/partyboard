@@ -26,9 +26,19 @@ last=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
 [ -z "$(git status --porcelain --untracked-files=no --ignore-submodules)" ] || { echo "commit first: the release is tagged at HEAD" >&2; exit 1; }
 ! gh release list -R $repo -L 100 --json tagName -q '.[].tagName' | grep -qx "$tag" || { echo "$tag already has a release (a draft?)" >&2; exit 1; }
 
+# The builds take their version from `git describe` (CMakeLists.txt), so the tag goes first, and every build dir
+# reconfigures to read it: a new tag alone doesn't (only HEAD moving does). v0.1.6 was built before its tag and its IPA
+# said 0.1.5 while the source said 0.1.6.
+git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git tag "$tag"
+[ "$(git rev-parse "$tag^{commit}")" = "$(git rev-parse HEAD)" ] || { echo "$tag is not at HEAD" >&2; exit 1; }
+touch CMakeLists.txt
+
 out=build/release
 rm -rf "$out" && mkdir -p "$out"
 tools/ios-ipa.sh "$out/partyboard-ios.ipa"
+ipa_version=$(unzip -p "$out/partyboard-ios.ipa" Payload/PartyBoard.app/Info.plist |
+    python3 -c 'import plistlib, sys; print(plistlib.loads(sys.stdin.buffer.read())["CFBundleShortVersionString"])')
+[ "$ipa_version" = "${version%%-*}" ] || { echo "the IPA says $ipa_version, not ${version%%-*}" >&2; exit 1; }
 tools/ios-source.sh "$version" "$out/partyboard-ios.ipa" >/dev/null
 tools/linux-release.sh "$out/partyboard-linux-x86_64.tar.gz"
 tools/build.sh windows && cp build/dist/partyboard-windows-x86_64.zip "$out/"
@@ -65,7 +75,7 @@ body=$out/notes.md
     echo "sha256sum -c --ignore-missing SHA256SUMS"
     echo '```'
 } >"$body"
-git push -q origin HEAD
+git push -q origin HEAD "$tag"
 gh release create "$tag" -R $repo --target "$(git rev-parse HEAD)" --title "Party Board $version" \
     --notes-file "$body" $pre $publish "${files[@]/#/$out/}" "$out/altstore-source.json" "$out/SHA256SUMS"
 [ "$publish" = --latest ] && { gh workflow run source -R FIZL0/apps || echo "FIZL0/apps did not rebuild; it will within the hour" >&2; }
