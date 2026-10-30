@@ -89,6 +89,8 @@ struct View {
     // N96: a WebRTC lobby (always in the browser; on the desktop hosted for browsers or joined with a browser's code):
     // its code is an offer and a joining guest's answer goes back to the host.
     bool webrtc = false;
+    // N149: joined a match already running; it takes a seat the computer stands in for at the next resync point.
+    bool joining = false;
     // This device's seat indices, in the order of Profile::players.
     std::vector<int> mySeats;
     bool hasRoom = false;

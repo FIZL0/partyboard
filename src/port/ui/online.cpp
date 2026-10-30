@@ -1055,6 +1055,10 @@ LobbyWindow::LobbyWindow()
         left.add_child<LiveText>([this]() -> Rml::String {
             switch (mView.state) {
                 case Connecting:
+                    // N149: the match runs already; a seat the computer stands in for comes at the next turn
+                    if (mView.joining) {
+                        return "The match is on: you take over a computer's seat at the next turn or minigame.";
+                    }
                     return mView.host ? "Going online..." : "Joining...";
                 case Open: {
                     if (!mView.hasRoom) {
@@ -1194,8 +1198,8 @@ LobbyWindow::LobbyWindow()
                                     return "Open";
                                 }
                                 if (s.cpu && mView.resume) {
-                                    // the saved player's seat ("<name> (CPU)") until they join
-                                    return fmt::format("{} - {} ({})", s.name, kCharacterNames[s.character], kDifficultyNames[s.difficulty]);
+                                    // the saved player's seat ("<name> (CPU)") until they join; N149: anyone can take it
+                                    return fmt::format("Open - {} - {} ({})", s.name, kCharacterNames[s.character], kDifficultyNames[s.difficulty]);
                                 }
                                 if (s.cpu) {
                                     return fmt::format("CPU ({}) - {}", kDifficultyNames[s.difficulty], kCharacterNames[s.character]);
@@ -1220,10 +1224,30 @@ LobbyWindow::LobbyWindow()
                         pane.add_text(mine ? fmt::format("{} plays on this device.", s.name)
                                            : s.peer == "host" ? fmt::format("{} is the host.", s.name)
                                                               : fmt::format("{} joined.", s.name));
+                        // N149: in a continue the host can give a guest's seat back to the computer
+                        if (mView.host && mView.resume && s.peer != "host") {
+                            pane.add_button("Give to the Computer").on_pressed([this, i] {
+                                pbnet_lobby_cpu(i, mView.seats[i].difficulty);
+                            });
+                            pane.add_rml("<br/>The computer plays this seat again, as saved. A player left with no "
+                                         "seat leaves the lobby.");
+                        }
                         return;
                     }
+                    // N149: a continue's seat the computer plays is open: this device's player moves into it
+                    if (mView.resume && s.cpu && !mView.mySeats.empty()) {
+                        pane.add_button("Take This Seat").on_pressed([this, i] {
+                            if (!mView.mySeats.empty() && mView.state == Open) {
+                                pbnet_lobby_take(mView.mySeats[0], i);
+                            }
+                        });
+                        pane.add_rml(fmt::format("Play this seat from where the save left it ({}'s coins and stars). "
+                                                 "Your own saved seat stays yours.<br/><br/>",
+                            kCharacterNames[s.character]));
+                    }
                     if (!mView.host) {
-                        pane.add_text(mView.resume ? "The computer plays this seat until its player joins."
+                        pane.add_text(mView.resume ? "Open: the computer plays this seat until a player takes it. Its "
+                                                     "own player gets it back when they join."
                                 : s.cpu        ? "The computer plays this seat."
                                                : "Open: a friend can join here. Open seats are played by the computer.");
                         return;
@@ -1243,7 +1267,7 @@ LobbyWindow::LobbyWindow()
                             .on_pressed([i, d] { pbnet_lobby_cpu(i, d); });
                     }
                     pane.add_rml(mView.resume ? "<br/>The player of this seat gets it back when they join (by their "
-                                                "player key); anyone else joining takes a free seat. Until then the "
+                                                "player key); anyone else joining takes a free seat and can pick another. Until then the "
                                                 "computer plays it at this level."
                                               : "<br/>An open seat waits for a friend to join; at the start the computer plays it.");
                 });

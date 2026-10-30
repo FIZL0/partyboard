@@ -256,6 +256,7 @@ bool parse_view(std::string_view json, View &view)
     v.error = str(j, "error");
     v.answer = str(j, "answer");
     v.webrtc = flag(j, "webrtc", false);
+    v.joining = flag(j, "joining", false);
     v.gen = static_cast<uint32_t>(num(j, "gen", 0));
     if (auto it = j.find("seats"); it != j.end() && it->is_array()) {
         for (const auto &s : *it) {

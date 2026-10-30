@@ -161,6 +161,17 @@ impl Book {
         out
     }
 
+    /// N149: a token for `peer` alone (it took seats after the start), None if its seats have no keys.
+    pub fn issue_to(&mut self, room: &Room, peer: &str) -> Option<String> {
+        let keys: Vec<String> = room.seats_of(peer).iter().filter_map(|&i| room.seats[i].as_ref()).map(|s| s.key.clone()).collect();
+        if keys.iter().all(String::is_empty) {
+            return None;
+        }
+        let t = token();
+        self.tokens.insert(t.clone(), keys);
+        Some(t)
+    }
+
     /// `peer` (a new connection's name) is back with `token`, its session of `epoch` still running if `intact`.
     /// `room` and `lineup` (the running session's) are changed as the outcome says.
     pub fn rejoin(&self, room: &mut Room, lineup: &mut [String], token: &str, peer: &str, intact: bool, epoch: u32) -> Outcome {

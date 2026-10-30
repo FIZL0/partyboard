@@ -144,6 +144,9 @@ int pbnet_lobby_ready(int ready);
 int pbnet_lobby_settings(int board, int turns, int bonus, int teams, const uint8_t *handicaps);
 /* Host: the computer plays seat (0..3) at difficulty (0..3), or the seat opens again (difficulty < 0). */
 int pbnet_lobby_cpu(int seat, int difficulty);
+/* N149, continue lobby: this machine's player in seat `from` takes seat `to`, one the computer plays (the host
+ * decides). In a continue lobby pbnet_lobby_cpu on a guest's seat gives it back to the computer. 1 if sent. */
+int pbnet_lobby_take(int from, int to);
 /* Host: starts once every guest is ready (open seats become CPUs); seed 0: from the clock. Every peer's lockstep
  * session then runs on the lobby's connections (pbnet_lockstep_active), delay from the host's round trips. 1 if
  * started, else 0 and the reason snprintf'd into why/cap (why may be NULL). */

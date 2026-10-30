@@ -173,7 +173,8 @@ pub extern "C" fn pbnet_resync_poll() -> i32 {
 
 /// N46: the board state at the start of a player's turn (`blob`: the `SLSaveBoard` blob, as `pbnet_save_write`
 /// takes it; `turn`/`max_turn` of GWSystem) is this machine's newest resync point of the started match: the host's
-/// next desync resync reloads it. Nothing is written to disk. Returns 1 if taken, 0 if not (no started lobby, no
+/// next desync resync reloads it (N149: and a player who joined the match since takes a seat there, every peer
+/// reloading it at once). Nothing is written to disk. Returns 1 if taken, 0 if not (no started lobby, no
 /// blob or one too big).
 ///
 /// # Safety
@@ -188,6 +189,8 @@ pub unsafe extern "C" fn pbnet_resync_point(blob: *const u8, len: i32, turn: i32
     // SAFETY: the caller guarantees `len` readable bytes at `blob`.
     let blob = unsafe { std::slice::from_raw_parts(blob, len as usize) };
     crate::recover::point_taken(&room.id, point(blob, turn.clamp(0, 255) as u8, max_turn.clamp(0, 255) as u8));
+    // N149: players who joined since take their seats from this point
+    crate::lobby_c::with_global(|l| l.point());
     1
 }
 

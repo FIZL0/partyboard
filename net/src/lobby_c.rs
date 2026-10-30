@@ -195,6 +195,11 @@ struct Shared {
     /// end must not remove the new one's outboxes).
     conns: BTreeMap<String, u64>,
     next_conn: u64,
+    /// N149, host: peers that joined after the start, with their players, waiting for the next resync point to take
+    /// the seats the computer stands in for ([`Shared::point`]).
+    takers: Vec<(String, Vec<Player>)>,
+    /// N149, guest: joined after the start, waiting for that point.
+    joining: bool,
     /// Guest: its connection to the host dropped mid-match (it redials), or the host left.
     host_lost: bool,
     host_left: bool,
@@ -244,6 +249,8 @@ impl Shared {
             hidden: Arc::new(|_| false),
             conns: BTreeMap::new(),
             next_conn: 0,
+            takers: Vec::new(),
+            joining: false,
             host_lost: false,
             host_left: false,
             resync: desync::Resync::default(),
@@ -258,14 +265,21 @@ impl Shared {
         self.relist();
     }
 
-    /// Host: the LAN listing for the room as it is now (None unless open).
+    /// Host: the LAN listing for the room as it is now (None unless open, or N149 started with a seat the computer
+    /// stands in for that nobody is about to take).
     fn listing(&self) -> Option<String> {
         let Some(Role::Host(h)) = &self.role else { return None };
-        if self.phase != Phase::Open {
+        let room = h.room();
+        // N149: a continue lobby's seats the computer plays are open too
+        let open = match self.phase {
+            Phase::Open => room.open(),
+            Phase::Started if room.started => room.stand_ins().len().saturating_sub(self.takers.len()),
+            _ => 0,
+        };
+        if self.phase == Phase::Started && open == 0 {
             return None;
         }
-        let room = h.room();
-        Listing { id: room.id.clone(), name: self.host_name.clone(), open: room.seats.iter().filter(|s| s.is_none()).count() as u8 }.fit()
+        Listing { id: room.id.clone(), name: self.host_name.clone(), open: open as u8 }.fit()
     }
 
     /// Host: puts the listing in the mDNS record when it changed (none once started or closed).
@@ -533,6 +547,60 @@ impl Shared {
         self.bump();
     }
 
+    /// N149, host: `peer`'s Hello came after the start. With a seat the computer stands in for, it waits for the next
+    /// resync point ([`Msg::Joining`]); else it is refused.
+    fn hello_started(&mut self, peer: &str, ident: &Ident, players: Vec<Player>) {
+        let pending = self.takers.iter().filter(|(p, _)| p != peer).map(|(_, pl)| pl.len()).sum();
+        let Some(Role::Host(h)) = &self.role else { return };
+        let m = match h.can_take_over(ident, &players, pending) {
+            Ok(()) => {
+                eprintln!("pbnet: {peer} joined the match: it takes a seat at the next resync point");
+                self.takers.retain(|(p, _)| p != peer);
+                self.takers.push((peer.to_string(), players));
+                Msg::Joining
+            }
+            Err(why) => Msg::Refused(why),
+        };
+        if let Some(tx) = self.peers.get(peer) {
+            let _ = tx.send(m);
+        }
+        self.bump();
+    }
+
+    /// N149, host: a resync point was taken (the start of a turn or of a minigame). Peers waiting for it take their
+    /// seats and every peer reloads that point, so the seats' players change on the same frame everywhere. Whether a
+    /// reload went.
+    fn point(&mut self) -> bool {
+        if !self.host || self.phase != Phase::Started || self.reload_pending || self.takers.is_empty() {
+            return false;
+        }
+        let takers = std::mem::take(&mut self.takers);
+        let Some(Role::Host(h)) = &mut self.role else { return false };
+        let mut any = false;
+        for (peer, players) in takers {
+            if !self.peers.contains_key(&peer) {
+                continue;
+            }
+            let m = match h.take_over(&peer, &players) {
+                Ok(seats) => {
+                    eprintln!("pbnet: {peer} takes seats {seats:?} from the computer");
+                    any = true;
+                    self.book.issue_to(h.room(), &peer).map(Msg::Token)
+                }
+                Err(why) => Some(Msg::Refused(why)),
+            };
+            if let (Some(m), Some(tx)) = (m, self.peers.get(&peer)) {
+                let _ = tx.send(m);
+            }
+        }
+        if any {
+            self.host_reload();
+        } else {
+            self.bump();
+        }
+        any
+    }
+
     /// Host: the computer plays the seats of line-up index `index`; everyone reloads.
     fn stand_in(&mut self, index: usize) -> bool {
         if !self.host || self.phase != Phase::Started || index == 0 {
@@ -675,6 +743,7 @@ impl Shared {
             gen: self.gen,
             answer: crate::link::answer_code(),
             webrtc: self.webrtc,
+            joining: self.joining,
         }
     }
 }
@@ -711,6 +780,9 @@ pub struct Snapshot {
     /// N96: the lobby runs on WebRTC: its codes are offers and a joining guest's answer goes back to the host.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub webrtc: bool,
+    /// N149, guest: joined after the start; it takes a seat at the next resync point.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub joining: bool,
 }
 
 /// What hosting or joining needs, as the menu passes it (`pbnet_lobby_host` / `pbnet_lobby_join` JSON).
@@ -818,6 +890,22 @@ impl Lobby {
     /// Host: the computer in seat `i` at `difficulty`, or the seat open again (None).
     pub fn cpu(&self, i: usize, difficulty: Option<u8>) -> bool {
         lock(&self.shared).host_cmd(|h| h.cpu(i, difficulty))
+    }
+
+    /// N149, continue lobby: this machine's player in seat `from` takes seat `to`, one the computer plays. False if
+    /// not open.
+    pub fn take(&self, from: usize, to: usize) -> bool {
+        let mut s = lock(&self.shared);
+        if s.host {
+            s.host_cmd(|h| h.take_seat(from, to))
+        } else {
+            s.send_host(Msg::Take { from, to })
+        }
+    }
+
+    /// N149, host: a resync point was taken ([`Shared::point`]).
+    pub fn point(&self) -> bool {
+        lock(&self.shared).point()
     }
 
     /// Host: starts the match with `seed` (0: one from the clock), and its lockstep. Err: why not.
@@ -1067,6 +1155,9 @@ async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
             m = p.recv_any() => match m {
                 Incoming::Datagram(d) => lock(&sh).datagram_in(&peer, &d),
                 Incoming::Msg(Ok(Msg::Rejoin { token, intact, epoch })) => lock(&sh).rejoin(&peer, &token, intact, epoch),
+                Incoming::Msg(Ok(Msg::Hello { ident, players })) if lock(&sh).phase == Phase::Started => {
+                    lock(&sh).hello_started(&peer, &ident, players)
+                }
                 Incoming::Msg(Ok(m)) => {
                     let mut s = lock(&sh);
                     let Some(h) = s.host() else { break };
@@ -1091,6 +1182,7 @@ async fn guest_conn(mut p: Peer<Msg>, sh: Sh) {
         return;
     }
     s.conns.remove(&peer);
+    s.takers.retain(|(p, _)| *p != peer);
     s.peers.remove(&peer);
     s.dgrams.remove(&peer);
     s.rtts.remove(&peer);
@@ -1221,6 +1313,7 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
                         }
                         Ok(Msg::Reload { room, epoch }) => {
                             s.host_lost = false;
+                            s.joining = false;
                             eprintln!("pbnet: reload {epoch}");
                             let seated = !room.seats_of(&s.me).is_empty();
                             s.begin_reload(room, epoch);
@@ -1276,6 +1369,10 @@ async fn run_guest<B: Future<Output = Result<Transport, String>>>(bind: B, sh: S
                             s.close("The host closed the lobby.");
                             break 'conn;
                         }
+                        Some(Event::Joining) => {
+                            s.joining = true;
+                            s.bump();
+                        }
                         None => {}
                     }
                 }
@@ -1323,7 +1420,8 @@ pub struct Listing {
     pub id: String,
     /// The host's first player's name.
     pub name: String,
-    /// Seats nobody has taken (the computer's are taken).
+    /// Seats a joiner can take: nobody's, or in a continue lobby the computer's (N149); after the start, the seats
+    /// the computer stands in for.
     pub open: u8,
 }
 
@@ -1784,6 +1882,17 @@ pub extern "C" fn pbnet_lobby_cpu(seat: i32, difficulty: i32) -> i32 {
     global().as_ref().is_some_and(|l| l.cpu(seat as usize, d)) as i32
 }
 
+/// N149, continue lobby: this machine's player in seat `from` takes seat `to`, one the computer plays (the host's
+/// at once, a guest's asked of the host). 1 if done or sent, 0 otherwise (no open lobby, seats out of range).
+/// Thread-safe.
+#[no_mangle]
+pub extern "C" fn pbnet_lobby_take(from: i32, to: i32) -> i32 {
+    if !(0..SEATS as i32).contains(&from) || !(0..SEATS as i32).contains(&to) {
+        return 0;
+    }
+    global().as_ref().is_some_and(|l| l.take(from as usize, to as usize)) as i32
+}
+
 /// Host: starts the match with `seed` (0: one from the clock), ready guests or not (N148). 1 if started; else 0 and,
 /// if `why` is not null, the reason snprintf'd into `why`/`cap`.
 ///
@@ -2084,6 +2193,63 @@ mod tests {
             let l = Lobby::host(&h, bind(&net), bad, catch().0);
             let b = until(&l, "bad save", |s| s.state == Phase::Closed).await;
             assert!(b.error.starts_with("Couldn't continue the save"), "{}", b.error);
+        });
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// N149: a continue started without the saved host "h" (the computer plays its seat): a newcomer joining after the
+    /// start waits for the next resync point, then takes that seat and every peer reloads on epoch 1. A second one
+    /// finds no seat.
+    #[test]
+    fn a_newcomer_takes_a_stand_in_seat_at_the_next_point() {
+        let dir = std::env::temp_dir().join(format!("pbnet-n149-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let ident = Ident { build: "0.1.0 test".into(), disc: "GMPE01-00".into() };
+        let pl = |n: &str| Player { name: n.into(), key: format!("key-{n}") };
+        let mut played = Host::new("m149".into(), ident.clone(), &[pl("h")]);
+        played.on("g-old", Msg::Hello { ident, players: vec![pl("g")] });
+        played.start(5).unwrap();
+        let blob = vec![0x22u8; 0x19C];
+        let save = crate::save::Save::new(played.room(), &blob, 600, Default::default()).unwrap();
+        let path = save.write(&dir).unwrap();
+
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let net = Testnet::new(4).await.unwrap();
+            let h = Handle::current();
+            let mut gs = setup("g", "GMPE01-00");
+            gs.resume = Some(path.to_string_lossy().into_owned());
+            let host = Lobby::host(&h, bind(&net), gs, catch().0);
+            let s = until(&host, "host open", |s| s.state == Phase::Open && !s.code.is_empty()).await;
+            assert!(!host.point(), "not started");
+            host.start(8).unwrap();
+            until(&host, "host started", |s| s.state == Phase::Started).await;
+            assert!(!host.point(), "nobody waiting");
+
+            let (ns, nrx) = catch();
+            let n = Lobby::join(&h, bind(&net), setup("n", "GMPE01-00"), &s.code, ns);
+            let w = until(&n, "n joining", |s| s.joining).await;
+            assert_eq!(w.state, Phase::Connecting);
+            assert!(nrx.try_recv().is_err(), "no lockstep before the point");
+            // a second newcomer: the one stand-in seat is promised
+            let late = Lobby::join(&h, bind(&net), setup("late", "GMPE01-00"), &s.code, catch().0);
+            let l = until(&late, "late refused", |s| s.state == Phase::Closed).await;
+            assert!(l.error.contains("no seat"), "{}", l.error);
+
+            assert!(host.point());
+            assert_eq!(host.epoch(), 1);
+            let ns = until(&n, "n started", |s| s.state == Phase::Started).await;
+            assert!(!ns.joining);
+            assert_eq!(ns.seats, [0], "h's seat, the computer's until now");
+            let room = ns.room.unwrap();
+            let s0 = room.seats[0].as_ref().unwrap();
+            assert_eq!((s0.name.as_str(), s0.cpu, s0.key.as_str()), ("n", false, "key-n"));
+            assert_eq!(host.snapshot().room.as_ref(), Some(&room));
+            assert_eq!(n.epoch(), 1);
+            assert!(host.go(1) && n.go(1));
+            assert!(nrx.recv_timeout(Duration::from_secs(5)).is_ok(), "its lockstep starts with the reload");
+            host.leave();
+            n.leave();
         });
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -2570,6 +2736,8 @@ mod tests {
         assert_eq!(unsafe { pbnet_lobby_json(std::ptr::null_mut(), 0) }, n);
         assert_eq!(pbnet_lobby_ready(1), 0);
         assert_eq!(pbnet_lobby_cpu(9, 1), 0);
+        assert_eq!(pbnet_lobby_take(0, 1), 0);
+        assert_eq!(pbnet_lobby_take(0, 9), 0);
         assert_eq!(unsafe { pbnet_lobby_picks([1u8].as_ptr(), [0u8].as_ptr(), 1) }, 0);
         assert_eq!(unsafe { pbnet_lobby_settings(0, 20, 1, 0, std::ptr::null()) }, 0);
         let mut why = [0 as c_char; 64];
@@ -2617,6 +2785,7 @@ mod tests {
             gen: 9,
             answer: String::new(),
             webrtc: false,
+            joining: false,
         };
         let json = serde_json::to_string(&snap).unwrap();
         assert_eq!(json, include_str!("../../tools/netplay/lobby_started.json").trim_end(), "regenerate the fixture: {json}");

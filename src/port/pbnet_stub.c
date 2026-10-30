@@ -177,6 +177,13 @@ int pbnet_lobby_cpu(int seat, int difficulty)
     return 0;
 }
 
+int pbnet_lobby_take(int from, int to)
+{
+    (void)from;
+    (void)to;
+    return 0;
+}
+
 int pbnet_lobby_start(uint64_t seed, char *why, int cap)
 {
     (void)seed;
