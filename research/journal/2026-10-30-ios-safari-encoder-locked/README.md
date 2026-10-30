@@ -28,3 +28,35 @@ pass is the one, it stops after a few more errors with "outside the render passe
 `WebGPU error 2 in 'Render pass 0': Viewport offset … is less than the minimum`.
 
 Next: the user's crash box from the v0.1.7 page in iOS Safari names the pass and the real message.
+
+## The cause (v0.1.7 page on the iPhone, same day)
+
+The per-pass encoder named `'Render pass 0'` but no message: `GPUCommandEncoder.finish: encoder state is 'Locked'`
+(the same WebKit lock, now inside the pass's own encoder, so finish reports the lock, not the pass's reason). WebKit's
+`RenderPassEncoder::setViewport` (through 2026-09) calls `makeInvalid()` with no message when the viewport isn't inside
+the render target (`x < 0`, `y < 0`, `x + width > target`, `y + height > target`); Chrome follows the current spec,
+which allows it. A Chromium preload that logs every viewport breaking WebKit's rule found it from the first frame:
+`'Render pass 0' target 1280x960 viewport 0,0 1280x962` (GX's 640x481, so 2886 rows of 2880 on the iPhone at scale 3).
+
+Fix: aurora patch 0011 (the viewport code) now keeps the viewport inside the pass's target in the browser build (Safari
+too); desktop is unchanged. With it the same preload logs none from boot to the file select, nor in a scripted party
+through a board to a minigame's instructions (`safari_vp.js` below, a `WEB_PRELOAD` for tools/web_check.mjs).
+
+```js
+(() => {
+  const cv = GPUTexture.prototype.createView;
+  GPUTexture.prototype.createView = function (d) { const v = cv.call(this, d); v.__w = this.width; v.__h = this.height; return v; };
+  const begin = GPUCommandEncoder.prototype.beginRenderPass;
+  GPUCommandEncoder.prototype.beginRenderPass = function (d) {
+    const pass = begin.call(this, d), a = d.colorAttachments && d.colorAttachments[0];
+    pass.__w = a ? a.view.__w : 0; pass.__h = a ? a.view.__h : 0; pass.__label = d.label;
+    return pass;
+  };
+  const sv = GPURenderPassEncoder.prototype.setViewport;
+  GPURenderPassEncoder.prototype.setViewport = function (x, y, w, h, mn, mx) {
+    if (x < 0 || y < 0 || w < 0 || h < 0 || x + w > Math.ceil(this.__w) || y + h > Math.ceil(this.__h) || mn < 0 || mx > 1 || mn > mx)
+      console.log(`SAFARI_VP '${this.__label}' target ${this.__w}x${this.__h} viewport ${x},${y} ${w}x${h}`);
+    return sv.call(this, x, y, w, h, mn, mx);
+  };
+})();
+```

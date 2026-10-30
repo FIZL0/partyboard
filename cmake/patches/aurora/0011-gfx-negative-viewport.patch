@@ -1,7 +1,7 @@
 diff --git a/lib/gfx/common.cpp b/lib/gfx/common.cpp
 --- a/lib/gfx/common.cpp
 +++ b/lib/gfx/common.cpp
-@@ -1459,7 +1459,22 @@
+@@ -1459,7 +1459,35 @@
        const auto& vp = cmd.data.setViewport;
        const float minDepth = gx::UseReversedZ ? 1.f - vp.zfar : vp.znear;
        const float maxDepth = gx::UseReversedZ ? 1.f - vp.znear : vp.zfar;
@@ -21,6 +21,19 @@ diff --git a/lib/gfx/common.cpp b/lib/gfx/common.cpp
 +        top += height;
 +        height = -height;
 +      }
++#ifdef __EMSCRIPTEN__
++      // Safari (WebKit through 2026-09) drops a pass whose viewport isn't inside its render target, without a message
++      // (the error page read "encoder state is not valid"); Chrome takes one (the spec allows it now). GX's 640x481
++      // viewport is 962 rows on a 960-row EFB: keep it inside the target.
++      const float targetWidth = static_cast<float>(passInfo.targetSize.width);
++      const float targetHeight = static_cast<float>(passInfo.targetSize.height);
++      const float right = std::min(left + width, targetWidth);
++      const float bottom = std::min(top + height, targetHeight);
++      left = std::clamp(left, 0.f, targetWidth - 1.f);
++      top = std::clamp(top, 0.f, targetHeight - 1.f);
++      width = std::max(right - left, 1.f);
++      height = std::max(bottom - top, 1.f);
++#endif
 +      pass.SetViewport(left, top, width, height, minDepth, maxDepth);
      } break;
      case CommandType::SetScissor: {
