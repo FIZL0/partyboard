@@ -272,7 +272,7 @@ void frame_present_throttle(bool on)
 {
     static bool skipping;
     static std::chrono::steady_clock::time_point lastShown;
-    static const bool capturing = std::getenv("PB_ICON_SHOT") != nullptr;
+    static const bool capturing = std::getenv("PB_ICON_SHOT") != nullptr || std::getenv("PB_ART_SHOT") != nullptr; // N150 too
     if (!on || capturing) {
         if (skipping) {
             skipping = false;

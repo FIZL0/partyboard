@@ -68,9 +68,13 @@ int pb_button_icons_glyph_for_native_axis(s32 sdl_axis);
 /* The glyph that message icon `entry` (0-12) shows for pad port `port`, by its bindings; PB_GLYPH_NONE when the
  * port's family is GameCube (the game keeps its own icon) or the entry is not a button icon. */
 int pb_button_icons_glyph_for_entry(int port, int entry);
+/* N150: the same for a given family; port -1 = aurora's default bindings (PB_GLYPH_NONE for the keyboard). */
+int pb_button_icons_glyph_for_entry_family(int port, PbIconFamily family, int entry);
 /* Draws `glyph` in `family`'s art as PB_GLYPH_SIZE x PB_GLYPH_SIZE straight-alpha RGBA8 into `out`
  * (PB_GLYPH_SIZE * PB_GLYPH_SIZE * 4 bytes). Returns 0, or -1 for GameCube (no art of ours) or a bad id. */
 int pb_button_icons_glyph_rgba(PbIconFamily family, int glyph, u8 *out);
+/* N150: the same at `size` x `size` pixels (4-1024) into `out` (size * size * 4 bytes). */
+int pb_button_icons_glyph_rgba_sized(PbIconFamily family, int glyph, int size, u8 *out);
 
 #ifdef __cplusplus
 }

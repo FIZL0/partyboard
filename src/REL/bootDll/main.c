@@ -41,7 +41,8 @@
 /* N106: only in tools/netplay/float_cast_check.sh's build (-DPB_FCO_BOOT): with backend.skipBootSequence,
  * PB_FCO_OVL=<overlay index> goes straight into that minigame or board instead of the mode select (N73's boot hook).
  * Characters 0-3, COM unless the seat's bit is in PB_FCO_HUMAN (pad i). Minigames get mgInfoTbl's groups (1v3:
- * player 0 alone, 2v2: i/2); boards a 10-turn party as mentDll sets it up (w10: the tutorial, as mentDll's). */
+ * player 0 alone, 2v2: i/2); boards a 10-turn party as mentDll sets it up (w10: the tutorial, as mentDll's).
+ * N150: PB_FCO_INST=1 shows a minigame's instructions (instDll) first. */
 static BOOL BootFcoJump(void)
 {
     const char *env = getenv("PB_FCO_OVL");
@@ -81,6 +82,12 @@ static BOOL BootFcoJump(void)
     }
     GWSystem.mg_next = mg;
     OSReport("fco: overlay %d (minigame %d type %d), human mask %d\n", ovl, mg, type, mask);
+    if (mg >= 0 && getenv("PB_FCO_INST") != NULL) {
+        /* N150: the minigame's instructions first (instDll goes on to it on START; flag 0/11 = explanations on) */
+        _SetFlag(FLAG_ID_MAKE(0, 11));
+        omOvlCallEx(DLL_instdll, 1, 0, 0);
+        return TRUE;
+    }
     omOvlCallEx(ovl, 1, 0, 0);
     return TRUE;
 }

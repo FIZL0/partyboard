@@ -11,6 +11,7 @@
 
 #ifdef TARGET_PC
 #include "port/byteswap.h"
+#include "port/button_art.h"
 #include <string.h>
 #endif
 
@@ -308,6 +309,10 @@ ANIMDATA *HuSprAnimRead(void *data)
     /* mark the file block as read (its 20-byte header is no longer needed): bank offset, then the anim */
     ((u32 *)data)[2] = ANIM_DATA_ALLOCATION_VALID;
     memcpy((u8 *)data + 12, &anim, sizeof(anim));
+#endif
+#ifdef TARGET_PC
+    /* N150: note GameCube button pictures (drawn for the player's controller in HuSprDisp) */
+    pb_button_art_anim_read(anim);
 #endif
     return anim;
 }

@@ -18,6 +18,9 @@
 #include "game/hu3d.h"
 
 #include "game/esprite.h"
+#ifdef TARGET_PC
+#include "port/button_art.h"
+#endif
 #include "game/sprite.h"
 
 #include "ext_math.h"
@@ -3093,6 +3096,10 @@ void fn_1_10CCC(omObjData *object)
         espAttrSet(var_r31->unk_118[var_r29], HUSPR_ATTR_NOANIM);
         espBankSet(var_r31->unk_118[var_r29], 0);
         espPriSet(var_r31->unk_118[var_r29], 0x80 - var_r29);
+#ifdef TARGET_PC
+        /* N150: this player's button prompts show their controller */
+        pb_button_art_esp_seat(var_r31->unk_118[var_r29], var_r31->unk_188);
+#endif
     }
     espTPLvlSet(var_r31->unk_118[0], 0.9f);
     espTPLvlSet(var_r31->unk_118[1], 0.9f);

@@ -12,6 +12,9 @@
 #include "game/memory.h"
 #include "port/byteswap.h"
 #endif
+#ifdef TARGET_PC
+#include "port/button_art.h"
+#endif
 #include "game/hsfformat.h"
 
 #define AS_S16(field) (*((s16 *)&(field)))
@@ -668,6 +671,12 @@ HSFDATA *LoadHSF(void *data)
     ColorLoad();
     PaletteLoad();
     BitmapLoad();
+#ifdef TARGET_PC
+    /* N150: GameCube button textures show the player's controller (pictures only) */
+    if (head.bitmap.count) {
+        pb_button_art_hsf_bitmaps(Model.bitmap, Model.bitmapNum);
+    }
+#endif
     MaterialLoad();
     AttributeLoad();
     VertexLoad();
