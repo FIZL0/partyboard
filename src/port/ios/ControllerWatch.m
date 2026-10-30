@@ -43,8 +43,8 @@ void PartyBoard_iOS_ControllerWatchStart(void)
     }
 
     // A screenshot gives event focus to its preview; GameController then reads every pad as idle until a touch. Each
-    // notification is logged so a device log shows which ones a screenshot sends (src/port/tap_resume.c).
-    static BOOL resigned;
+    // notification is logged so a device log shows which ones a screenshot sends (src/port/tap_resume.c). Only the
+    // screenshot shows the overlay: after the app switcher or Control Center the controller still works (on device).
     void (^focus)(NSString *, BOOL) = ^(NSString *what, BOOL lost) {
         NSUInteger count = GCController.controllers.count;
         port_controller_watch_note([NSString stringWithFormat:@"iOS: %@ (%lu controller(s))", what, (unsigned long)count].UTF8String);
@@ -59,13 +59,11 @@ void PartyBoard_iOS_ControllerWatchStart(void)
                     }];
     [center addObserverForName:UIApplicationWillResignActiveNotification object:nil queue:main
                     usingBlock:^(NSNotification *note) {
-                      resigned = YES;
                       focus(@"UIApplicationWillResignActiveNotification", NO);
                     }];
     [center addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:main
                     usingBlock:^(NSNotification *note) {
-                      focus(@"UIApplicationDidBecomeActiveNotification", resigned);
-                      resigned = NO;
+                      focus(@"UIApplicationDidBecomeActiveNotification", NO);
                     }];
 }
 

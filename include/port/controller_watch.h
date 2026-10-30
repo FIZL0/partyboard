@@ -20,7 +20,7 @@ void port_controller_watch_rescan(const char *why);
 /* A line for the log (partyboard::controllers), from any thread. */
 void port_controller_watch_note(const char *line);
 
-/* iOS (src/port/tap_resume.c): a screenshot or a resign/become-active pair took event focus from GameController. With a
+/* iOS (src/port/tap_resume.c): a screenshot took event focus from GameController. With a
  * controller connected, the overlay asks for a tap until a touch or a pad button press comes through. Draw only. */
 void port_tap_resume_focus_lost(const char *why, int controllers);
 void port_tap_resume_clear(void);

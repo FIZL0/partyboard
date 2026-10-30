@@ -14,7 +14,7 @@ int main(void)
     assert(port_tap_resume_wanted());
     port_tap_resume_clear(); // one touch
     assert(!port_tap_resume_wanted());
-    port_tap_resume_focus_lost("resign/active", 2);
+    port_tap_resume_focus_lost("screenshot", 2);
     assert(port_tap_resume_wanted());
     port_tap_resume_clear(); // pad press
     assert(!port_tap_resume_wanted());
