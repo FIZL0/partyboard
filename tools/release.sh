@@ -39,7 +39,6 @@ tools/ios-ipa.sh "$out/partyboard-ios.ipa"
 ipa_version=$(unzip -p "$out/partyboard-ios.ipa" Payload/PartyBoard.app/Info.plist |
     python3 -c 'import plistlib, sys; print(plistlib.loads(sys.stdin.buffer.read())["CFBundleShortVersionString"])')
 [ "$ipa_version" = "${version%%-*}" ] || { echo "the IPA says $ipa_version, not ${version%%-*}" >&2; exit 1; }
-tools/ios-source.sh "$version" "$out/partyboard-ios.ipa" >/dev/null
 tools/linux-release.sh "$out/partyboard-linux-x86_64.tar.gz"
 tools/build.sh windows && cp build/dist/partyboard-windows-x86_64.zip "$out/"
 files=(partyboard-ios.ipa)
@@ -75,8 +74,10 @@ body=$out/notes.md
     echo "sha256sum -c --ignore-missing SHA256SUMS"
     echo '```'
 } >"$body"
+tools/ios-source.sh "$version" "$out/partyboard-ios.ipa" "$out/altstore-source.json" "$body" >/dev/null
 git push -q origin HEAD "$tag"
 gh release create "$tag" -R $repo --target "$(git rev-parse HEAD)" --title "Party Board $version" \
     --notes-file "$body" $pre $publish "${files[@]/#/$out/}" "$out/altstore-source.json" "$out/SHA256SUMS"
+[ "$publish" = --latest ] && [ -z "$pre" ] && tools/ios-source-check.sh "https://github.com/$repo/releases/latest/download/altstore-source.json"
 [ "$publish" = --latest ] && { gh workflow run source -R FIZL0/apps || echo "FIZL0/apps did not rebuild; it will within the hour" >&2; }
 echo "$tag: $([ "$publish" = --draft ] && echo "draft, publish it on GitHub" || echo published)"
